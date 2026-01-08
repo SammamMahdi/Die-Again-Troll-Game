@@ -1,0 +1,60 @@
+.start-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: linear-gradient(180deg, #0c0c19 0%, #1a1a2e 100%);
+  color: white;
+}
+
+.title {
+  font-size: 3rem;
+  color: #ff3333;
+  text-shadow: 0 0 20px rgba(255, 51, 51, 0.5);
+  margin-bottom: 50px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.start-button {
+  font-size: 1.5rem;
+  padding: 15px 40px;
+  background-color: #ff3333;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 5px 15px rgba(255, 51, 51, 0.3);
+}
+
+.start-button:hover {
+  background-color: #ff5555;
+  transform: translateY(-2px);
+  box-shadow: 0 7px 20px rgba(255, 51, 51, 0.5);
+}
+
+.start-button:active {
+  transform: translateY(0);
+}
+
+.controls {
+  position: absolute;
+  bottom: 50px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.controls p {
+  margin: 5px 0;
+}
