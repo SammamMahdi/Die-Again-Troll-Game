@@ -9,7 +9,7 @@ const PLAYER_SPEED = 40.0;
 const FRICTION = 0.90;
 const AIR_RESISTANCE = 0.98;
 
-function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateTrigger, gameState, mobileControls }) {
+function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateTrigger, gameState, mobileControlRef }) {
   const meshRef = useRef();
   const [position, setPosition] = useState(startPosition);
   const [velocity, setVelocity] = useState([0, 0, 0]);
@@ -41,17 +41,19 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     };
   }, []);
   
-  // Expose mobile control handlers
+  // Expose mobile control setter via ref
   useEffect(() => {
-    if (mobileControls) {
-      mobileControls.onMove = (direction, pressed) => {
-        mobileButtonsPressed.current[direction] = pressed;
-      };
-      mobileControls.onJump = (pressed) => {
-        mobileButtonsPressed.current.jump = pressed;
+    if (mobileControlRef) {
+      mobileControlRef.current = {
+        setMove: (direction, pressed) => {
+          mobileButtonsPressed.current[direction] = pressed;
+        },
+        setJump: (pressed) => {
+          mobileButtonsPressed.current.jump = pressed;
+        }
       };
     }
-  }, [mobileControls]);
+  }, [mobileControlRef]);
 
   useFrame((state, delta) => {
     if (gameState !== 'playing') return;

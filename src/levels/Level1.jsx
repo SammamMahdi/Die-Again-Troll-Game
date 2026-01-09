@@ -31,13 +31,10 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   const [restartKey, setRestartKey] = useState(0);
   const [playerPosition, setPlayerPosition] = useState([0, 3, 20]);
   
-  // Mobile controls
+  // Mobile controls refs
   const [isMobile, setIsMobile] = useState(false);
-  const cameraMoveCallbackRef = useRef(null);
-  const mobileControlsRef = useRef({
-    onMove: null,
-    onJump: null
-  });
+  const cameraControlRef = useRef(null);
+  const playerControlRef = useRef(null);
 
   // Detect mobile device
   useEffect(() => {
@@ -292,6 +289,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
           onUpdate={handlePlayerUpdate}
           onGateTrigger={handleGateTrigger}
           gameState={gameState}
+          mobileControlRef={playerControlRef}
         />
 
         <SequenceManager
@@ -318,9 +316,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
 
         <CameraController
           target={playerPosition} 
-          onCameraMoveCallback={(callback) => {
-            cameraMoveCallbackRef.current = callback;
-          }}
+          cameraControlRef={cameraControlRef}
         />
       </Canvas>
 
@@ -337,18 +333,18 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
         <MobileControls
           enabled={gameState === 'playing'}
           onCameraMove={(deltaX, deltaY) => {
-            if (cameraMoveCallbackRef.current) {
-              cameraMoveCallbackRef.current(deltaX, deltaY);
+            if (cameraControlRef.current) {
+              cameraControlRef.current.rotate(deltaX, deltaY);
             }
           }}
           onMove={(direction, pressed) => {
-            if (mobileControlsRef.current.onMove) {
-              mobileControlsRef.current.onMove(direction, pressed);
+            if (playerControlRef.current) {
+              playerControlRef.current.setMove(direction, pressed);
             }
           }}
           onJump={(pressed) => {
-            if (mobileControlsRef.current.onJump) {
-              mobileControlsRef.current.onJump(pressed);
+            if (playerControlRef.current) {
+              playerControlRef.current.setJump(pressed);
             }
           }}
         />
