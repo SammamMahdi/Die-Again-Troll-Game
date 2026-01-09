@@ -33,6 +33,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   
   // Mobile controls refs
   const [isMobile, setIsMobile] = useState(false);
+  const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
 
@@ -40,13 +41,29 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   useEffect(() => {
     const checkMobile = () => {
       const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
-                   || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+                   || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
+                   || ('ontouchstart' in window);
       setIsMobile(mobile);
+      setShowMobileControls(mobile); // Show controls on mobile
+      console.log('Mobile detected:', mobile); // Debug log
     };
     
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    
+    // Press M to toggle mobile controls for testing on desktop
+    const handleKeyPress = (e) => {
+      if (e.key.toLowerCase() === 'm') {
+        setShowMobileControls(prev => !prev);
+        console.log('Mobile controls toggled');
+      }
+    };
+    window.addEventListener('keypress', handleKeyPress);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('keypress', handleKeyPress);
+    };
   }, []);
 
   // Level setup
@@ -329,20 +346,23 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
       />
       
       {/* Mobile Controls */}
-      {isMobile && (
+      {showMobileControls && (
         <MobileControls
           enabled={gameState === 'playing'}
           onCameraMove={(deltaX, deltaY) => {
+            console.log('Camera move:', deltaX, deltaY); // Debug
             if (cameraControlRef.current) {
               cameraControlRef.current.rotate(deltaX, deltaY);
             }
           }}
           onMove={(direction, pressed) => {
+            console.log('Move:', direction, pressed); // Debug
             if (playerControlRef.current) {
               playerControlRef.current.setMove(direction, pressed);
             }
           }}
           onJump={(pressed) => {
+            console.log('Jump:', pressed); // Debug
             if (playerControlRef.current) {
               playerControlRef.current.setJump(pressed);
             }

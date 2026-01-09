@@ -84,21 +84,31 @@ function MobileControls({ onCameraMove, onMove, onJump, enabled }) {
     };
   }, [enabled, onCameraMove]);
 
-  const handleButtonPress = (button) => {
+  const handleButtonPress = (button, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    console.log('Button pressed:', button);
     setActiveButtons(prev => ({ ...prev, [button]: true }));
     if (button === 'jump') {
-      onJump(true);
+      if (onJump) onJump(true);
     } else {
-      onMove(button, true);
+      if (onMove) onMove(button, true);
     }
   };
 
-  const handleButtonRelease = (button) => {
+  const handleButtonRelease = (button, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    console.log('Button released:', button);
     setActiveButtons(prev => ({ ...prev, [button]: false }));
     if (button === 'jump') {
-      onJump(false);
+      if (onJump) onJump(false);
     } else {
-      onMove(button, false);
+      if (onMove) onMove(button, false);
     }
   };
 
@@ -118,44 +128,48 @@ function MobileControls({ onCameraMove, onMove, onJump, enabled }) {
           <div className="dpad">
             <button
               className={`dpad-btn dpad-up ${activeButtons.forward ? 'active' : ''}`}
-              onTouchStart={() => handleButtonPress('forward')}
-              onTouchEnd={() => handleButtonRelease('forward')}
-              onMouseDown={() => handleButtonPress('forward')}
-              onMouseUp={() => handleButtonRelease('forward')}
-              onMouseLeave={() => handleButtonRelease('forward')}
+              onTouchStart={(e) => handleButtonPress('forward', e)}
+              onTouchEnd={(e) => handleButtonRelease('forward', e)}
+              onTouchCancel={(e) => handleButtonRelease('forward', e)}
+              onMouseDown={(e) => handleButtonPress('forward', e)}
+              onMouseUp={(e) => handleButtonRelease('forward', e)}
+              onMouseLeave={(e) => handleButtonRelease('forward', e)}
             >
               ▲
             </button>
             <div className="dpad-middle">
               <button
                 className={`dpad-btn dpad-left ${activeButtons.left ? 'active' : ''}`}
-                onTouchStart={() => handleButtonPress('left')}
-                onTouchEnd={() => handleButtonRelease('left')}
-                onMouseDown={() => handleButtonPress('left')}
-                onMouseUp={() => handleButtonRelease('left')}
-                onMouseLeave={() => handleButtonRelease('left')}
+                onTouchStart={(e) => handleButtonPress('left', e)}
+                onTouchEnd={(e) => handleButtonRelease('left', e)}
+                onTouchCancel={(e) => handleButtonRelease('left', e)}
+                onMouseDown={(e) => handleButtonPress('left', e)}
+                onMouseUp={(e) => handleButtonRelease('left', e)}
+                onMouseLeave={(e) => handleButtonRelease('left', e)}
               >
                 ◄
               </button>
               <div className="dpad-center"></div>
               <button
                 className={`dpad-btn dpad-right ${activeButtons.right ? 'active' : ''}`}
-                onTouchStart={() => handleButtonPress('right')}
-                onTouchEnd={() => handleButtonRelease('right')}
-                onMouseDown={() => handleButtonPress('right')}
-                onMouseUp={() => handleButtonRelease('right')}
-                onMouseLeave={() => handleButtonRelease('right')}
+                onTouchStart={(e) => handleButtonPress('right', e)}
+                onTouchEnd={(e) => handleButtonRelease('right', e)}
+                onTouchCancel={(e) => handleButtonRelease('right', e)}
+                onMouseDown={(e) => handleButtonPress('right', e)}
+                onMouseUp={(e) => handleButtonRelease('right', e)}
+                onMouseLeave={(e) => handleButtonRelease('right', e)}
               >
                 ►
               </button>
             </div>
             <button
               className={`dpad-btn dpad-down ${activeButtons.backward ? 'active' : ''}`}
-              onTouchStart={() => handleButtonPress('backward')}
-              onTouchEnd={() => handleButtonRelease('backward')}
-              onMouseDown={() => handleButtonPress('backward')}
-              onMouseUp={() => handleButtonRelease('backward')}
-              onMouseLeave={() => handleButtonRelease('backward')}
+              onTouchStart={(e) => handleButtonPress('backward', e)}
+              onTouchEnd={(e) => handleButtonRelease('backward', e)}
+              onTouchCancel={(e) => handleButtonRelease('backward', e)}
+              onMouseDown={(e) => handleButtonPress('backward', e)}
+              onMouseUp={(e) => handleButtonRelease('backward', e)}
+              onMouseLeave={(e) => handleButtonRelease('backward', e)}
             >
               ▼
             </button>
@@ -166,11 +180,12 @@ function MobileControls({ onCameraMove, onMove, onJump, enabled }) {
         <div className="action-controls">
           <button
             className={`jump-btn ${activeButtons.jump ? 'active' : ''}`}
-            onTouchStart={() => handleButtonPress('jump')}
-            onTouchEnd={() => handleButtonRelease('jump')}
-            onMouseDown={() => handleButtonPress('jump')}
-            onMouseUp={() => handleButtonRelease('jump')}
-            onMouseLeave={() => handleButtonRelease('jump')}
+            onTouchStart={(e) => handleButtonPress('jump', e)}
+            onTouchEnd={(e) => handleButtonRelease('jump', e)}
+            onTouchCancel={(e) => handleButtonRelease('jump', e)}
+            onMouseDown={(e) => handleButtonPress('jump', e)}
+            onMouseUp={(e) => handleButtonRelease('jump', e)}
+            onMouseLeave={(e) => handleButtonRelease('jump', e)}
           >
             JUMP
           </button>
