@@ -53,11 +53,20 @@ web/
 
 ## Controls
 
+### Desktop
 - **WASD** - Move
 - **SPACE** - Jump
-- **Arrow Keys** - Rotate Camera
+- **Arrow Keys** or **Mouse Drag** - Rotate Camera
 - **R** - Restart Level
 - **ESC/Q** - Quit to Menu
+
+### Mobile (Landscape)
+- **Touch & Drag** on screen - Rotate Camera
+- **D-Pad** (bottom left) - Move in 4 directions
+- **Jump Button** (bottom right) - Jump
+- **Tap Restart Button** - Restart Level
+
+The game automatically detects mobile devices and switches to touch controls.
 
 ## Technologies
 
@@ -65,3 +74,11 @@ web/
 - Three.js
 - @react-three/fiber (React renderer for Three.js)
 - @react-three/drei (Helper components)
+
+## Mobile Support
+
+The game is fully optimized for mobile devices in landscape orientation:
+- Touch-based camera controls
+- On-screen virtual buttons for movement and jumping
+- Responsive UI that adapts to screen size
+- Optimized for landscape mobile gameplay

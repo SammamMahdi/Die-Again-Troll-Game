@@ -73,3 +73,83 @@
   background-color: #ff5555;
   transform: scale(1.05);
 }
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .hud-top-left,
+  .hud-top-right {
+    top: 10px;
+  }
+  
+  .hud-top-left {
+    left: 10px;
+  }
+  
+  .hud-top-right {
+    right: 10px;
+  }
+
+  .hud-level {
+    font-size: 1rem;
+    margin-bottom: 5px;
+  }
+
+  .hud-deaths {
+    font-size: 0.9rem;
+  }
+
+  .hud-center h1 {
+    font-size: 2rem;
+    margin-bottom: 15px;
+  }
+
+  .hud-center p {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+  }
+
+  .restart-button {
+    font-size: 1rem;
+    padding: 12px 24px;
+  }
+}
+
+/* Landscape mobile optimization */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hud-top-left,
+  .hud-top-right {
+    top: 5px;
+  }
+  
+  .hud-top-left {
+    left: 5px;
+  }
+  
+  .hud-top-right {
+    right: 5px;
+  }
+
+  .hud-level {
+    font-size: 0.85rem;
+    margin-bottom: 0;
+  }
+
+  .hud-deaths {
+    font-size: 0.85rem;
+  }
+
+  .hud-center h1 {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+  }
+
+  .hud-center p {
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+  }
+
+  .restart-button {
+    font-size: 0.9rem;
+    padding: 8px 20px;
+  }
+}

@@ -9,12 +9,24 @@ const CAM_PITCH = -15.0; // degrees
 // Export yaw ref so Player can access camera direction
 export const cameraYawRef = { current: CAM_YAW };
 
-function CameraController({ target }) {
+function CameraController({ target, onCameraMoveCallback }) {
   const { camera, gl } = useThree();
   const yawRef = useRef(CAM_YAW);
   const pitchRef = useRef(CAM_PITCH);
   const isDragging = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
+  
+  // Expose camera move function for mobile controls
+  useEffect(() => {
+    if (onCameraMoveCallback) {
+      onCameraMoveCallback((deltaX, deltaY) => {
+        const sensitivity = 0.3;
+        yawRef.current += deltaX * sensitivity;
+        cameraYawRef.current = yawRef.current;
+        pitchRef.current = Math.max(-89, Math.min(89, pitchRef.current + deltaY * sensitivity));
+      });
+    }
+  }, [onCameraMoveCallback]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {

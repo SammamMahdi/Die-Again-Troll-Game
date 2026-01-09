@@ -9,13 +9,20 @@ const PLAYER_SPEED = 40.0;
 const FRICTION = 0.90;
 const AIR_RESISTANCE = 0.98;
 
-function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateTrigger, gameState }) {
+function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateTrigger, gameState, mobileControls }) {
   const meshRef = useRef();
   const [position, setPosition] = useState(startPosition);
   const [velocity, setVelocity] = useState([0, 0, 0]);
   const [onGround, setOnGround] = useState(false);
   
   const keysPressed = useRef({});
+  const mobileButtonsPressed = useRef({
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+    jump: false
+  });
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -33,12 +40,25 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
+  
+  // Expose mobile control handlers
+  useEffect(() => {
+    if (mobileControls) {
+      mobileControls.onMove = (direction, pressed) => {
+        mobileButtonsPressed.current[direction] = pressed;
+      };
+      mobileControls.onJump = (pressed) => {
+        mobileButtonsPressed.current.jump = pressed;
+      };
+    }
+  }, [mobileControls]);
 
   useFrame((state, delta) => {
     if (gameState !== 'playing') return;
     if (!blocks || blocks.length === 0) return; // Wait for blocks to be ready
 
     const keys = keysPressed.current;
+    const mobileButtons = mobileButtonsPressed.current;
     let [px, py, pz] = position;
     let [vx, vy, vz] = velocity;
 
@@ -50,10 +70,17 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     const rz = fx;
     
     let ax = 0, az = 0;
+    // Keyboard controls
     if (keys['w']) { ax += fx; az += fz; }
     if (keys['s']) { ax -= fx; az -= fz; }
     if (keys['a']) { ax -= rx; az -= rz; }
     if (keys['d']) { ax += rx; az += rz; }
+    
+    // Mobile button controls
+    if (mobileButtons.forward) { ax += fx; az += fz; }
+    if (mobileButtons.backward) { ax -= fx; az -= fz; }
+    if (mobileButtons.left) { ax -= rx; az -= rz; }
+    if (mobileButtons.right) { ax += rx; az += rz; }
 
     const length = Math.sqrt(ax * ax + az * az);
     if (length > 0) {
@@ -70,8 +97,8 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     // Apply gravity
     vy += GRAVITY * delta;
 
-    // Jump
-    if (keys[' '] && onGround) {
+    // Jump (keyboard or mobile button)
+    if ((keys[' '] || mobileButtons.jump) && onGround) {
       vy = JUMP_FORCE;
       setOnGround(false);
     }

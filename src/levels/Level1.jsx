@@ -7,6 +7,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import SequenceManager from '../components/SequenceManager';
+import MobileControls from '../components/MobileControls';
 import './Level.css';
 
 function Level1({ deathCount, onDeath, onComplete, onRestart }) {
@@ -29,6 +30,27 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   const [currentBlockIndex, setCurrentBlockIndex] = useState(-1);
   const [restartKey, setRestartKey] = useState(0);
   const [playerPosition, setPlayerPosition] = useState([0, 3, 20]);
+  
+  // Mobile controls
+  const [isMobile, setIsMobile] = useState(false);
+  const cameraMoveCallbackRef = useRef(null);
+  const mobileControlsRef = useRef({
+    onMove: null,
+    onJump: null
+  });
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+                   || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+      setIsMobile(mobile);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Level setup
   const PLANE_SIZE = 20;
@@ -248,6 +270,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
               key={index}
               position={[block.x, block.y, block.z]}
               size={[block.w, block.h, block.d]}
+          mobileControls={isMobile ? mobileControlsRef.current : null}
               color={displayColor}
             />
           );
@@ -293,7 +316,12 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
           setBlocks={setBlocks}
         />
 
-        <CameraController target={playerPosition} />
+        <CameraController
+          target={playerPosition} 
+          onCameraMoveCallback={(callback) => {
+            cameraMoveCallbackRef.current = callback;
+          }}
+        />
       </Canvas>
 
       <HUD
@@ -303,6 +331,28 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
         deathReason={deathReason}
         onRestart={handleRestart}
       />
+      
+      {/* Mobile Controls */}
+      {isMobile && (
+        <MobileControls
+          enabled={gameState === 'playing'}
+          onCameraMove={(deltaX, deltaY) => {
+            if (cameraMoveCallbackRef.current) {
+              cameraMoveCallbackRef.current(deltaX, deltaY);
+            }
+          }}
+          onMove={(direction, pressed) => {
+            if (mobileControlsRef.current.onMove) {
+              mobileControlsRef.current.onMove(direction, pressed);
+            }
+          }}
+          onJump={(pressed) => {
+            if (mobileControlsRef.current.onJump) {
+              mobileControlsRef.current.onJump(pressed);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
