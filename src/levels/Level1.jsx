@@ -284,7 +284,6 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
               key={index}
               position={[block.x, block.y, block.z]}
               size={[block.w, block.h, block.d]}
-          mobileControls={isMobile ? mobileControlsRef.current : null}
               color={displayColor}
             />
           );
