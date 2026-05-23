@@ -171,3 +171,194 @@
   color: #ffd966;
   text-shadow: 0 0 6px rgba(255, 200, 80, 0.45);
 }
+
+/* ===== Expandable row wrapper ===== */
+.lb-row-wrap {
+  border-radius: 8px;
+}
+
+button.lb-row {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.lb-expand-caret {
+  margin-left: 8px;
+  font-size: 0.7rem;
+  color: #b9a4d8;
+  opacity: 0.7;
+}
+
+.lb-row-wrap.expanded button.lb-row {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+}
+
+.lb-detail {
+  padding: 16px 18px 18px;
+  background: rgba(15, 6, 36, 0.6);
+  border: 1px solid rgba(160, 100, 220, 0.18);
+  border-top: none;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: lb-detail-fade 0.22s ease-out;
+}
+
+@keyframes lb-detail-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+.lb-detail-label {
+  font-size: 0.7rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #b9a4d8;
+  margin-bottom: 6px;
+}
+
+/* Medal pips (one per level) */
+.lb-pips {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 5px;
+}
+
+.lb-pip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 2px;
+  border-radius: 6px;
+  font-family: 'Georgia', serif;
+  border: 1px solid transparent;
+  transition: transform 0.12s ease;
+}
+
+.lb-pip:hover { transform: translateY(-1px); }
+
+.lb-pip-num {
+  font-size: 0.6rem;
+  letter-spacing: 0.5px;
+  color: #b9a4d8;
+}
+
+.lb-pip-tier {
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-shadow: 0 0 6px currentColor;
+}
+
+.lb-pip-gold {
+  background: radial-gradient(circle, rgba(255, 213, 100, 0.45) 0%, rgba(174, 110, 38, 0.4) 100%);
+  border-color: rgba(255, 200, 80, 0.5);
+  color: #ffd966;
+}
+.lb-pip-silver {
+  background: radial-gradient(circle, rgba(220, 230, 245, 0.4) 0%, rgba(120, 134, 165, 0.4) 100%);
+  border-color: rgba(200, 215, 235, 0.5);
+  color: #e8eef9;
+}
+.lb-pip-bronze {
+  background: radial-gradient(circle, rgba(220, 160, 110, 0.4) 0%, rgba(120, 70, 36, 0.4) 100%);
+  border-color: rgba(220, 160, 110, 0.5);
+  color: #ffc99a;
+}
+.lb-pip-none {
+  background: rgba(30, 16, 60, 0.55);
+  border-color: rgba(120, 90, 180, 0.25);
+  color: rgba(180, 160, 220, 0.5);
+}
+
+/* Best-time stats per level */
+.lb-times {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.lb-time {
+  padding: 6px 4px;
+  text-align: center;
+  background: rgba(30, 16, 60, 0.4);
+  border: 1px solid rgba(120, 90, 180, 0.18);
+  border-radius: 6px;
+}
+
+.lb-time-empty { opacity: 0.45; }
+
+.lb-time-lvl {
+  font-size: 0.6rem;
+  color: #b9a4d8;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.lb-time-val {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 0.92rem;
+  color: #e8d9ff;
+  margin-top: 1px;
+}
+
+.lb-time-deaths {
+  font-size: 0.65rem;
+  color: #ff9aaa;
+  opacity: 0.85;
+  margin-top: 1px;
+}
+
+/* Achievements list */
+.lb-achievements {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px 12px;
+}
+
+.lb-ach {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: rgba(190, 170, 220, 0.55);
+  padding: 2px 0;
+}
+
+.lb-ach-star {
+  font-size: 0.85rem;
+  width: 14px;
+  text-align: center;
+}
+
+.lb-ach-name {
+  letter-spacing: 0.3px;
+}
+
+.lb-ach.lb-ach-owned {
+  color: #ffd966;
+}
+
+.lb-ach.lb-ach-owned .lb-ach-star {
+  color: #ffd966;
+  text-shadow: 0 0 6px rgba(255, 200, 80, 0.6);
+}
+
+@media (max-width: 600px) {
+  .lb-pips {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .lb-times {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .lb-achievements {
+    grid-template-columns: 1fr;
+  }
+}
