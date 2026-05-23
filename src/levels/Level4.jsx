@@ -8,6 +8,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import ScenePostFX from '../components/ScenePostFX';
 import { playFall, playLaunch, playWarning } from '../utils/sounds';
 import './Level.css';
 
@@ -216,10 +217,10 @@ function Level4({ deathCount, onDeath, onComplete }) {
         <hemisphereLight args={['#a0a0ff', '#2a0030', 0.55]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} />
         <pointLight position={[0, 8, 40]} intensity={0.5} color="#5577ff" distance={50} />
-        <pointLight position={[0, 8, -70]} intensity={1.0} color="#ffd055" distance={36} />
+        <pointLight position={[0, 8, -70]} intensity={0.5} color="#ffd055" distance={26} />
 
         <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <Sparkles position={[0, 4, -70]} count={50} scale={[10, 6, 4]} size={3.5} speed={0.35} color="#ffd966" />
+        <Sparkles position={[0, 4, -70]} count={30} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -235,12 +236,12 @@ function Level4({ deathCount, onDeath, onComplete }) {
               key={`${restartKey}-block-${i}`}
               block={b}
               edgeColor={edgeColor}
-              emissiveBoost={b.isGoal ? 0.55 : (b.isLauncher ? 0.35 : (b.displayType === T_TRAPDOOR ? 0.25 : 0))}
+              emissiveBoost={b.isGoal ? 0.22 : (b.isLauncher ? 0.35 : (b.displayType === T_TRAPDOOR ? 0.25 : 0))}
             />
           );
         })}
 
-        <Gate position={[GATE.x, GATE.y, GATE.z]} />
+        <Gate position={[GATE.x, GATE.y, GATE.z]} jewelColor="#ffaa44" />
 
         <Player
           key={restartKey}
@@ -261,6 +262,8 @@ function Level4({ deathCount, onDeath, onComplete }) {
         />
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
+
+        <ScenePostFX bloomIntensity={1.35} hue={0.02} />
       </Canvas>
 
       <HUD

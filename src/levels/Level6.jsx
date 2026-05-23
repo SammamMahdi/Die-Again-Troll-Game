@@ -9,6 +9,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import ScenePostFX from '../components/ScenePostFX';
 import './Level.css';
 
 const PLAYER_HALF = 0.5;
@@ -24,32 +25,32 @@ function buildLevel6() {
   // Start
   blocks.push({ x: 0, y: 0, z: 25, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_BRIDGE] });
 
-  // Narrower bridges than before (was 4×4 → 2.5×2.5)
-  blocks.push({ x: 0, y: 0, z: 15, w: 2.5, h: 1, d: 2.5, visible: true, color: [...COLOR_BRIDGE] });
+  // Wider bridges so you have solid footing between discs.
+  blocks.push({ x: 0, y: 0, z: 15, w: 3.5, h: 1, d: 3.5, visible: true, color: [...COLOR_BRIDGE] });
 
-  // Disc 1 — faster
+  // Disc 1 — gentle spin
   blocks.push({
     x: 0, y: 0, z: 5, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_DISC],
-    isDisc: true, rotateSpeed: 1.0, radius: 4,    // was 0.6
+    isDisc: true, rotateSpeed: 0.65, radius: 4,
   });
 
-  blocks.push({ x: 0, y: 0, z: -5, w: 2.5, h: 1, d: 2.5, visible: true, color: [...COLOR_BRIDGE] });
+  blocks.push({ x: 0, y: 0, z: -5, w: 3.5, h: 1, d: 3.5, visible: true, color: [...COLOR_BRIDGE] });
 
-  // Disc 2 — faster, opposite direction
+  // Disc 2 — counter-clockwise, moderate
   blocks.push({
     x: 0, y: 0, z: -15, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_DISC],
-    isDisc: true, rotateSpeed: -1.4, radius: 4,   // was -0.9
+    isDisc: true, rotateSpeed: -0.95, radius: 4,
   });
 
-  blocks.push({ x: 0, y: 0, z: -25, w: 2.5, h: 1, d: 2.5, visible: true, color: [...COLOR_BRIDGE] });
+  blocks.push({ x: 0, y: 0, z: -25, w: 3.5, h: 1, d: 3.5, visible: true, color: [...COLOR_BRIDGE] });
 
-  // Disc 3 — fastest
+  // Disc 3 — the fastest, but still readable
   blocks.push({
     x: 0, y: 0, z: -35, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_DISC],
-    isDisc: true, rotateSpeed: 1.6, radius: 4,    // was 0.8
+    isDisc: true, rotateSpeed: 1.15, radius: 4,
   });
 
-  blocks.push({ x: 0, y: 0, z: -45, w: 2.5, h: 1, d: 2.5, visible: true, color: [...COLOR_BRIDGE] });
+  blocks.push({ x: 0, y: 0, z: -45, w: 3.5, h: 1, d: 3.5, visible: true, color: [...COLOR_BRIDGE] });
 
   // Goal
   const goalZ = -55;
@@ -62,15 +63,16 @@ function buildLevel6() {
 }
 
 function buildLasers() {
-  // Each emitter casts TWO beams 180° apart and rotates faster than before.
-  // Effectively double the danger zone with no safe "back" side.
+  // Two beams per emitter (180° apart) but slower sweeps so you have time to
+  // commit to a step between them. Thinner beam radius gives a little more
+  // wiggle-room too.
   return [
-    { origin: [0, 2, 5],   length: 10, speed: 1.2,  phase: 0.0,           thickness: 0.45 },
-    { origin: [0, 2, 5],   length: 10, speed: 1.2,  phase: Math.PI,       thickness: 0.45 },
-    { origin: [0, 2, -15], length: 10, speed: -1.5, phase: 1.2,           thickness: 0.45 },
-    { origin: [0, 2, -15], length: 10, speed: -1.5, phase: 1.2 + Math.PI, thickness: 0.45 },
-    { origin: [0, 2, -35], length: 10, speed: 1.4,  phase: 0.5,           thickness: 0.45 },
-    { origin: [0, 2, -35], length: 10, speed: 1.4,  phase: 0.5 + Math.PI, thickness: 0.45 },
+    { origin: [0, 2, 5],   length: 10, speed: 0.8,  phase: 0.0,           thickness: 0.38 },
+    { origin: [0, 2, 5],   length: 10, speed: 0.8,  phase: Math.PI,       thickness: 0.38 },
+    { origin: [0, 2, -15], length: 10, speed: -1.0, phase: 1.2,           thickness: 0.38 },
+    { origin: [0, 2, -15], length: 10, speed: -1.0, phase: 1.2 + Math.PI, thickness: 0.38 },
+    { origin: [0, 2, -35], length: 10, speed: 0.95, phase: 0.5,           thickness: 0.38 },
+    { origin: [0, 2, -35], length: 10, speed: 0.95, phase: 0.5 + Math.PI, thickness: 0.38 },
   ];
 }
 
@@ -244,10 +246,10 @@ function Level6({ deathCount, onDeath, onComplete }) {
         <hemisphereLight args={['#ffaaff', '#2a0020', 0.5]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} />
         <pointLight position={[0, 12, 0]} intensity={0.7} color="#ff3366" distance={50} />
-        <pointLight position={[0, 5, -55]} intensity={0.9} color="#ffd055" distance={32} />
+        <pointLight position={[0, 5, -55]} intensity={0.45} color="#ffd055" distance={24} />
 
         <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <Sparkles position={[0, 3, -55]} count={45} scale={[10, 6, 4]} size={3.5} speed={0.35} color="#ffd966" />
+        <Sparkles position={[0, 3, -55]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -261,12 +263,12 @@ function Level6({ deathCount, onDeath, onComplete }) {
               key={`${restartKey}-block-${i}`}
               block={b}
               edgeColor={b.isGoal ? '#ffd966' : '#7fdaff'}
-              emissiveBoost={b.isGoal ? 0.55 : 0}
+              emissiveBoost={b.isGoal ? 0.22 : 0}
             />
           );
         })}
 
-        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} />
+        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor="#ff3366" />
 
         {lasersRef.current.map((l, i) => (
           <LaserBeam key={`${restartKey}-laser-${i}`} laser={l} />
@@ -295,6 +297,8 @@ function Level6({ deathCount, onDeath, onComplete }) {
         />
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
+
+        <ScenePostFX bloomIntensity={1.5} hue={0.05} />
       </Canvas>
 
       <HUD

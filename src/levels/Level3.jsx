@@ -8,6 +8,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import ScenePostFX from '../components/ScenePostFX';
 import { playSonar } from '../utils/sounds';
 import './Level.css';
 
@@ -237,7 +238,7 @@ function Level3({ deathCount, onDeath, onComplete }) {
         <hemisphereLight args={['#dbe9ff', '#0c1830', 0.55]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} color="#e8f2ff" />
         <pointLight position={[0, 8, -36]} intensity={0.8} color="#9affff" distance={28} />
-        <pointLight position={[0, 5, -60]} intensity={0.9} color="#ffd055" distance={30} />
+        <pointLight position={[0, 5, -60]} intensity={0.45} color="#ffd055" distance={24} />
 
         <Stars radius={200} depth={70} count={2200} factor={4} saturation={0} fade speed={0.5} />
 
@@ -245,7 +246,7 @@ function Level3({ deathCount, onDeath, onComplete }) {
         <Sparkles position={[0, 4, -25]} count={80} scale={[14, 6, 70]} size={2.5} speed={0.25} color="#c8efff" />
 
         {/* Goal glow */}
-        <Sparkles position={[0, 3, -60]} count={40} scale={[8, 5, 4]} size={3.5} speed={0.35} color="#ffd966" />
+        <Sparkles position={[0, 3, -60]} count={26} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -276,7 +277,7 @@ function Level3({ deathCount, onDeath, onComplete }) {
         })}
 
         {/* Goal gate */}
-        <Gate position={[GATE.x, GATE.y, GATE.z]} />
+        <Gate position={[GATE.x, GATE.y, GATE.z]} jewelColor="#82eaff" />
 
         {/* Player */}
         <Player
@@ -307,6 +308,8 @@ function Level3({ deathCount, onDeath, onComplete }) {
         />
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
+
+        <ScenePostFX bloomIntensity={1.4} hue={-0.04} />
       </Canvas>
 
       <HUD

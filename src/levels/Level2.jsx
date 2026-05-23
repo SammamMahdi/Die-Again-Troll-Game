@@ -9,6 +9,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import ScenePostFX from '../components/ScenePostFX';
 import { playLightRed, playLightBlue, playCreak } from '../utils/sounds';
 import './Level.css';
 
@@ -208,7 +209,7 @@ function Level2({ deathCount, onDeath, onComplete }) {
         <hemisphereLight args={['#9fb8ff', '#5a2050', 0.45]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} />
         <pointLight position={[0, 14, -10]} intensity={0.6} color="#ff7755" distance={80} />
-        <pointLight position={[0, 4, -38]} intensity={0.8} color="#ffd055" distance={30} />
+        <pointLight position={[0, 4, -38]} intensity={0.45} color="#ffd055" distance={24} />
 
         <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.7} />
 
@@ -233,7 +234,7 @@ function Level2({ deathCount, onDeath, onComplete }) {
             <AnimatedBlock
               key={`${restartKey}-block-${i}`}
               block={b}
-              emissiveBoost={b.isGoal ? 0.55 : (b.moveX || b.moveY ? 0.25 : 0)}
+              emissiveBoost={b.isGoal ? 0.22 : (b.moveX || b.moveY ? 0.25 : 0)}
               edgeColor={edgeColor}
             />
           );
@@ -241,7 +242,7 @@ function Level2({ deathCount, onDeath, onComplete }) {
 
         {/* Goal gate sitting on top of the goal block */}
         {goalBlock && (
-          <Gate position={[goalBlock.x, goalBlock.y + 0.5, goalBlock.z]} />
+          <Gate position={[goalBlock.x, goalBlock.y + 0.5, goalBlock.z]} jewelColor="#ff6fb5" />
         )}
 
         {/* Globes */}
@@ -279,6 +280,8 @@ function Level2({ deathCount, onDeath, onComplete }) {
         />
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
+
+        <ScenePostFX bloomIntensity={1.5} hue={0.04} />
       </Canvas>
 
       <HUD

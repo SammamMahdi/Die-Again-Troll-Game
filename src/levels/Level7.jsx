@@ -8,6 +8,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import ScenePostFX from '../components/ScenePostFX';
 import './Level.css';
 
 const PLAYER_HALF = 0.5;
@@ -162,7 +163,7 @@ function Level7({ deathCount, onDeath, onComplete }) {
         {/* Player-following flashlight */}
         <PlayerFlashlight playerPosRef={playerPosRef} />
 
-        <Sparkles position={[0, 3, -32]} count={45} scale={[10, 5, 4]} size={3.5} speed={0.35} color="#ffd966" />
+        <Sparkles position={[0, 3, -32]} count={28} scale={[8, 4, 4]} size={2.2} speed={0.3} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -171,11 +172,11 @@ function Level7({ deathCount, onDeath, onComplete }) {
             key={`${restartKey}-block-${i}`}
             block={b}
             edgeColor={b.isGoal ? '#ffd966' : '#5fb8ff'}
-            emissiveBoost={b.isGoal ? 0.6 : 0.05}
+            emissiveBoost={b.isGoal ? 0.25 : 0.05}
           />
         ))}
 
-        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} />
+        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor="#c8e6ff" />
 
         {/* Sliding walls — rendered + tracked */}
         {wallsRef.current.map((w, i) => (
@@ -203,6 +204,8 @@ function Level7({ deathCount, onDeath, onComplete }) {
         />
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
+
+        <ScenePostFX bloomIntensity={1.75} bloomThreshold={0.05} vignette={0.6} hue={0} />
       </Canvas>
 
       <HUD

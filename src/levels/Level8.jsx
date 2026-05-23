@@ -8,6 +8,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import ScenePostFX from '../components/ScenePostFX';
 import './Level.css';
 
 // Mirror mechanic: a "shadow" pawn is rendered at (-px, py, pz). Hazards
@@ -192,10 +193,10 @@ function Level8({ deathCount, onDeath, onComplete }) {
         <hemisphereLight args={['#aaddff', '#330055', 0.5]} />
         <directionalLight position={[0, 25, 15]} intensity={1.0} color="#ddccff" />
         <pointLight position={[0, 8, 0]} intensity={0.7} color="#ff66ee" distance={45} />
-        <pointLight position={[0, 5, -22]} intensity={0.9} color="#ffd055" distance={32} />
+        <pointLight position={[0, 5, -22]} intensity={0.45} color="#ffd055" distance={24} />
 
         <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <Sparkles position={[0, 3, -22]} count={45} scale={[10, 6, 4]} size={3.5} speed={0.35} color="#ffd966" />
+        <Sparkles position={[0, 3, -22]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -204,11 +205,11 @@ function Level8({ deathCount, onDeath, onComplete }) {
             key={`${restartKey}-block-${i}`}
             block={b}
             edgeColor={b.isGoal ? '#ffd966' : '#aaffff'}
-            emissiveBoost={b.isGoal ? 0.55 : 0.05}
+            emissiveBoost={b.isGoal ? 0.22 : 0.05}
           />
         ))}
 
-        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} />
+        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor="#ff66cc" />
 
         {hazardsRef.current.map((h, i) => (
           <ShadowSpike key={`${restartKey}-spike-${i}`} hazard={h} />
@@ -237,6 +238,8 @@ function Level8({ deathCount, onDeath, onComplete }) {
         />
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
+
+        <ScenePostFX bloomIntensity={1.55} hue={0.05} />
       </Canvas>
 
       <HUD

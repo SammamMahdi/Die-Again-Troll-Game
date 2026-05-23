@@ -8,6 +8,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import ScenePostFX from '../components/ScenePostFX';
 import './Level.css';
 
 const STEP = 7;
@@ -203,10 +204,10 @@ function Level5({ deathCount, onDeath, onComplete }) {
         <hemisphereLight args={['#b0c4ff', '#1a1a30', 0.5]} />
         <directionalLight position={[15, 25, 10]} intensity={1.1} />
         <pointLight position={[0, 14, 0]} intensity={0.55} color="#ff5577" distance={45} />
-        <pointLight position={[0, 5, -38]} intensity={0.9} color="#ffd055" distance={32} />
+        <pointLight position={[0, 5, -38]} intensity={0.45} color="#ffd055" distance={26} />
 
         <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <Sparkles position={[0, 3, -38]} count={45} scale={[10, 6, 4]} size={3.5} speed={0.35} color="#ffd966" />
+        <Sparkles position={[0, 3, -38]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -215,11 +216,11 @@ function Level5({ deathCount, onDeath, onComplete }) {
             key={`${restartKey}-block-${i}`}
             block={b}
             edgeColor={b.isGoal ? '#ffd966' : '#7fdaff'}
-            emissiveBoost={b.isGoal ? 0.55 : 0}
+            emissiveBoost={b.isGoal ? 0.22 : 0}
           />
         ))}
 
-        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} />
+        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor="#ff4466" />
 
         {pendulumsRef.current.map((p, i) => (
           <Pendulum key={`${restartKey}-pen-${i}`} pendulum={p} />
@@ -246,6 +247,8 @@ function Level5({ deathCount, onDeath, onComplete }) {
         />
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
+
+        <ScenePostFX bloomIntensity={1.4} hue={0.02} />
       </Canvas>
 
       <HUD

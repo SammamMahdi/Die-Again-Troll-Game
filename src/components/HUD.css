@@ -1,42 +1,128 @@
 .hud {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   pointer-events: none;
-  font-family: 'Helvetica', 'Arial', sans-serif;
   color: white;
 }
 
-.hud-top-left {
+/* ===== Glass card style (shared) ===== */
+.hud-card {
   position: absolute;
-  top: 20px;
-  left: 20px;
+  padding: 10px 14px;
+  background: rgba(15, 6, 36, 0.55);
+  border: 1px solid rgba(200, 140, 255, 0.28);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow:
+    0 0 14px rgba(255, 100, 220, 0.18),
+    inset 0 0 12px rgba(255, 255, 255, 0.04);
+  user-select: none;
 }
 
-.hud-top-right {
-  position: absolute;
-  top: 20px;
-  right: 20px;
+.hud-card-tl {
+  top: 16px;
+  left: 16px;
+  min-width: 156px;
 }
 
-.hud-level {
-  font-size: 1.2rem;
-  font-weight: bold;
-  margin-bottom: 10px;
+.hud-card-tr {
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
 }
 
-.hud-controls {
-  font-size: 0.9rem;
-  color: #aaa;
+/* ===== Level info ===== */
+.hud-level-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
-.hud-deaths {
-  font-size: 1.1rem;
-  font-weight: bold;
+.hud-level-label {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #c8b6ff;
+  opacity: 0.85;
 }
 
+.hud-level-num {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #ff7ad0;
+  text-shadow: 0 0 10px #ff5cc7, 0 0 22px rgba(255, 100, 220, 0.5);
+  line-height: 1;
+}
+
+.hud-level-of {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: #b9a4d8;
+  opacity: 0.7;
+}
+
+.hud-progress {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.hud-pip {
+  width: 12px;
+  height: 4px;
+  background: rgba(140, 100, 200, 0.28);
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.hud-pip-cleared {
+  background: linear-gradient(90deg, #5fff9c 0%, #ffd966 100%);
+  box-shadow: 0 0 6px rgba(95, 255, 156, 0.6);
+}
+
+.hud-pip-current {
+  background: #ff7ad0;
+  box-shadow: 0 0 8px #ff5cc7, 0 0 14px rgba(255, 100, 220, 0.6);
+  animation: pip-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pip-pulse {
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  50%      { opacity: 0.65; transform: scaleY(1.4); }
+}
+
+/* ===== Stats (deaths / time) ===== */
+.hud-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-stat-icon {
+  font-size: 0.95rem;
+  filter: drop-shadow(0 0 4px rgba(255, 100, 200, 0.45));
+}
+
+.hud-stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.0rem;
+  font-weight: 600;
+  color: #f0e8ff;
+  letter-spacing: 0.5px;
+  min-width: 22px;
+}
+
+.hud-stat-dim .hud-stat-value {
+  color: #c8b6ff;
+  opacity: 0.85;
+}
+
+/* ===== Center game-state overlays ===== */
 .hud-center {
   position: absolute;
   top: 50%;
@@ -44,112 +130,78 @@
   transform: translate(-50%, -50%);
   text-align: center;
   pointer-events: auto;
+  padding: 30px 44px;
+  background: rgba(10, 4, 26, 0.75);
+  border: 1px solid rgba(255, 120, 220, 0.4);
+  border-radius: 16px;
+  box-shadow:
+    0 0 30px rgba(180, 100, 255, 0.35),
+    inset 0 0 26px rgba(80, 40, 150, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .hud-center h1 {
-  font-size: 3rem;
-  margin-bottom: 20px;
-  text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  letter-spacing: 6px;
+  margin-bottom: 14px;
+}
+
+.hud-center-won h1 {
+  color: #aef2c4;
+  text-shadow: 0 0 14px #5fff9c, 0 0 32px rgba(80, 220, 130, 0.5);
+}
+
+.hud-center-dead h1 {
+  color: #ffb0c0;
+  text-shadow: 0 0 14px #ff5c7a, 0 0 30px rgba(255, 90, 120, 0.55);
 }
 
 .hud-center p {
-  font-size: 1.5rem;
-  margin-bottom: 20px;
+  font-size: 1.05rem;
+  color: #e8d9ff;
+  margin-bottom: 18px;
+  letter-spacing: 0.4px;
 }
 
 .restart-button {
-  font-size: 1.2rem;
-  padding: 10px 30px;
-  background-color: #ff3333;
+  font-size: 0.95rem;
+  letter-spacing: 1.2px;
+  padding: 11px 26px;
+  background: linear-gradient(135deg, #ff5cc7 0%, #c47aff 100%);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s;
   pointer-events: auto;
+  box-shadow:
+    0 0 14px rgba(255, 100, 200, 0.6),
+    0 0 28px rgba(180, 100, 255, 0.35);
 }
 
 .restart-button:hover {
-  background-color: #ff5555;
-  transform: scale(1.05);
+  box-shadow:
+    0 0 20px rgba(255, 100, 200, 0.85),
+    0 0 44px rgba(180, 100, 255, 0.5);
 }
 
-/* Mobile responsive adjustments */
+/* ===== Responsive ===== */
 @media (max-width: 768px) {
-  .hud-top-left,
-  .hud-top-right {
-    top: 10px;
-  }
-  
-  .hud-top-left {
-    left: 10px;
-  }
-  
-  .hud-top-right {
-    right: 10px;
-  }
-
-  .hud-level {
-    font-size: 1rem;
-    margin-bottom: 5px;
-  }
-
-  .hud-deaths {
-    font-size: 0.9rem;
-  }
-
-  .hud-center h1 {
-    font-size: 2rem;
-    margin-bottom: 15px;
-  }
-
-  .hud-center p {
-    font-size: 1.1rem;
-    margin-bottom: 15px;
-  }
-
-  .restart-button {
-    font-size: 1rem;
-    padding: 12px 24px;
-  }
+  .hud-card-tl { top: 10px; left: 10px; padding: 8px 12px; min-width: 0; }
+  .hud-card-tr { top: 10px; right: 10px; padding: 8px 12px; gap: 10px; }
+  .hud-level-num { font-size: 1.3rem; }
+  .hud-stat-value { font-size: 0.9rem; }
+  .hud-center h1 { font-size: 1.7rem; letter-spacing: 4px; }
+  .hud-center p { font-size: 0.95rem; }
 }
 
-/* Landscape mobile optimization */
 @media (max-height: 500px) and (orientation: landscape) {
-  .hud-top-left,
-  .hud-top-right {
-    top: 5px;
-  }
-  
-  .hud-top-left {
-    left: 5px;
-  }
-  
-  .hud-top-right {
-    right: 5px;
-  }
-
-  .hud-level {
-    font-size: 0.85rem;
-    margin-bottom: 0;
-  }
-
-  .hud-deaths {
-    font-size: 0.85rem;
-  }
-
-  .hud-center h1 {
-    font-size: 1.5rem;
-    margin-bottom: 10px;
-  }
-
-  .hud-center p {
-    font-size: 0.9rem;
-    margin-bottom: 10px;
-  }
-
-  .restart-button {
-    font-size: 0.9rem;
-    padding: 8px 20px;
-  }
+  .hud-card-tl { top: 6px; left: 6px; padding: 6px 10px; }
+  .hud-card-tr { top: 6px; right: 6px; padding: 6px 10px; }
+  .hud-progress { display: none; }
+  .hud-level-num { font-size: 1.1rem; }
+  .hud-stat-value { font-size: 0.8rem; }
+  .hud-center { padding: 20px 28px; }
+  .hud-center h1 { font-size: 1.3rem; }
 }

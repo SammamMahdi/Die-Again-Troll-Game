@@ -185,54 +185,67 @@
   letter-spacing: 0.4px;
 }
 
-/* ===== Auth chip (top-right) ===== */
+/* ===== Auth chip (top-right) — unified glass card ===== */
 .auth-chip {
   position: absolute;
-  top: 18px;
-  right: 18px;
+  top: 16px;
+  right: 16px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(15, 6, 36, 0.55);
+  border: 1px solid rgba(200, 140, 255, 0.28);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow:
+    0 0 16px rgba(255, 100, 220, 0.18),
+    inset 0 0 12px rgba(255, 255, 255, 0.04);
   z-index: 10;
 }
 
 .auth-chip-name {
-  padding: 6px 14px;
-  background: rgba(20, 8, 40, 0.65);
-  border: 1px solid rgba(200, 130, 255, 0.4);
-  border-radius: 6px;
-  color: #e8d9ff;
+  padding: 7px 14px 7px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(160, 100, 220, 0.22);
+  border: none;
+  border-radius: 10px;
+  color: #f0e8ff;
   font-size: 0.85rem;
-  letter-spacing: 0.5px;
-  box-shadow: 0 0 8px rgba(180, 100, 255, 0.2);
+  letter-spacing: 0.4px;
+  font-weight: 600;
 }
 
 .auth-chip-btn {
-  padding: 6px 14px;
-  background: rgba(200, 130, 255, 0.12);
+  padding: 7px 14px;
+  background: transparent;
   color: #e8d9ff;
-  border: 1px solid rgba(200, 130, 255, 0.4);
-  border-radius: 6px;
+  border: none;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 0.85rem;
-  letter-spacing: 0.5px;
-  transition: all 0.2s ease;
+  letter-spacing: 0.4px;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .auth-chip-btn:hover {
-  background: rgba(200, 130, 255, 0.28);
-  box-shadow: 0 0 10px rgba(255, 100, 220, 0.45);
+  background: rgba(255, 100, 220, 0.15);
+  color: #ffd0f3;
+  box-shadow: 0 0 12px rgba(255, 100, 220, 0.32);
 }
 
 .auth-chip-primary {
-  background: rgba(255, 100, 220, 0.18);
-  border-color: rgba(255, 100, 220, 0.55);
+  background: linear-gradient(135deg, rgba(255, 92, 200, 0.4) 0%, rgba(180, 100, 255, 0.4) 100%);
   color: #ffd0f3;
+  box-shadow: 0 0 14px rgba(255, 92, 200, 0.45);
 }
 
 .auth-chip-primary:hover {
-  background: rgba(255, 100, 220, 0.32);
-  box-shadow: 0 0 12px rgba(255, 100, 220, 0.55);
+  background: linear-gradient(135deg, rgba(255, 92, 200, 0.6) 0%, rgba(180, 100, 255, 0.6) 100%);
+  box-shadow: 0 0 22px rgba(255, 92, 200, 0.7);
 }
 
 .cloud-warning {

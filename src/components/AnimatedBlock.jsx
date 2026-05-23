@@ -1,6 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Edges } from '@react-three/drei';
+import { RoundedBox, Edges } from '@react-three/drei';
 import * as THREE from 'three';
 
 /**
@@ -25,14 +25,24 @@ function AnimatedBlock({
   block,
   emissiveBoost = 0,
   wireframe = false,
-  metalness = 0.1,
-  roughness = 0.6,
+  metalness = 0.15,
+  roughness = 0.5,
   edgeColor = null,
   edgeOpacity = 0.9,
 }) {
   const groupRef = useRef();
   const topMatRef = useRef();
   const baseMatRef = useRef();
+
+  const initColor = useMemo(() => new THREE.Color(
+    block.color ? block.color[0] : 0.8,
+    block.color ? block.color[1] : 0.8,
+    block.color ? block.color[2] : 0.8,
+  ), [block.color]);
+  const baseColor = useMemo(() => initColor.clone().multiplyScalar(0.5), [initColor]);
+
+  // Bevel radius scales with the block size, capped so thin platforms don't lose shape.
+  const radius = Math.min(0.14, Math.min(block.w, block.h, block.d) * 0.08);
 
   useFrame(() => {
     if (!groupRef.current) return;
@@ -54,17 +64,9 @@ function AnimatedBlock({
     }
   });
 
-  const initColor = new THREE.Color(
-    block.color ? block.color[0] : 0.8,
-    block.color ? block.color[1] : 0.8,
-    block.color ? block.color[2] : 0.8,
-  );
-  const baseColor = initColor.clone().multiplyScalar(0.5);
-
   return (
     <group ref={groupRef} position={[block.x, block.y, block.z]}>
-      <mesh>
-        <boxGeometry args={[block.w, block.h, block.d]} />
+      <RoundedBox args={[block.w, block.h, block.d]} radius={radius} smoothness={4} creaseAngle={0.4}>
         <meshStandardMaterial
           ref={topMatRef}
           color={initColor}
@@ -86,12 +88,16 @@ function AnimatedBlock({
             />
           </Edges>
         )}
-      </mesh>
+      </RoundedBox>
       {!wireframe && (
-        <mesh position={[0, -block.h * 0.51, 0]}>
-          <boxGeometry args={[block.w * 1.05, block.h * 0.1, block.d * 1.05]} />
+        <RoundedBox
+          args={[block.w * 1.05, block.h * 0.1, block.d * 1.05]}
+          position={[0, -block.h * 0.51, 0]}
+          radius={0.04}
+          smoothness={3}
+        >
           <meshStandardMaterial ref={baseMatRef} color={baseColor} roughness={0.85} />
-        </mesh>
+        </RoundedBox>
       )}
     </group>
   );

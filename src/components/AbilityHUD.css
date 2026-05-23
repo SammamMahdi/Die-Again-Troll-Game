@@ -1,22 +1,23 @@
 .ability-hud {
   position: fixed;
-  top: 70px;
+  /* Sits cleanly under the top-left HUD card (level + progress pips) */
+  top: 116px;
   left: 16px;
   z-index: 1400;
   padding: 8px 14px;
   max-width: min(420px, 90vw);
-  background: rgba(15, 5, 30, 0.78);
+  background: rgba(15, 5, 30, 0.6);
   border: 1px solid var(--ah-accent, #ffd966);
-  border-radius: 10px;
+  border-radius: 12px;
   color: #f0e8ff;
-  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-body);
   user-select: none;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   box-shadow:
-    0 0 14px var(--ah-accent, #ffd966),
-    inset 0 0 12px rgba(0, 0, 0, 0.4);
-  animation: ability-hud-pulse 2.4s ease-in-out infinite;
+    0 0 12px var(--ah-accent, #ffd966),
+    inset 0 0 12px rgba(0, 0, 0, 0.35);
+  animation: ability-hud-pulse 2.6s ease-in-out infinite;
 }
 
 @keyframes ability-hud-pulse {
@@ -42,10 +43,20 @@
 
 @media (max-width: 600px) {
   .ability-hud {
-    top: 60px;
+    top: 96px;             /* clears the smaller mobile HUD card */
     left: 10px;
     padding: 6px 10px;
     font-size: 0.78rem;
   }
   .ability-hud-text { font-size: 0.78rem; }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .ability-hud {
+    top: 56px;             /* clears the compact landscape HUD card */
+    left: 8px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+  }
+  .ability-hud-label { display: none; }
 }

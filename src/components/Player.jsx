@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { cameraYawRef } from './CameraController';
+import { cameraYawRef, pushShake, pushFovPulse } from './CameraController';
 import { playJump } from '../utils/sounds';
 
 // Physics constants
@@ -34,6 +34,11 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
   const launchRef = useRef(null);
   // External per-frame position delta (rotating platforms, wind, etc.)
   const externalDeltaRef = useRef([0, 0, 0]);
+  // VFX bookkeeping: trail history, last-frame ground state, landing dust trigger
+  const trailRef = useRef([]); // ring buffer of {x,y,z,age}
+  const trailTickRef = useRef(0);
+  const wasOnGroundRef = useRef(false);
+  const dustTriggerRef = useRef({ at: 0, pos: [0, 0, 0] });
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -131,6 +136,7 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
       vy = JUMP_FORCE;
       setOnGround(false);
       playJump();
+      pushFovPulse(2.5);   // tiny zoom-in on jump
     }
 
     // External velocity override (launchers/knockback)
@@ -140,6 +146,8 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
       vz = launchRef.current[2];
       launchRef.current = null;
       setOnGround(false);
+      pushShake(0.6);
+      pushFovPulse(6);
     }
 
     // Apply velocity
@@ -277,60 +285,108 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     setVelocity([vx, vy, vz]);
     positionRef.current = [px, py, pz];
 
+    // ----- VFX: trail history (sample every ~2 frames) + landing dust -----
+    trailTickRef.current = (trailTickRef.current + 1) % 2;
+    if (trailTickRef.current === 0) {
+      const trail = trailRef.current;
+      trail.unshift([px, py, pz]);
+      if (trail.length > 14) trail.length = 14;
+    }
+    if (newOnGround && !wasOnGroundRef.current && Math.abs(vy) < 0.1) {
+      // Real landing transition — trigger one dust burst at the foot position.
+      dustTriggerRef.current = { at: state.clock.elapsedTime, pos: [px, py - 0.5, pz] };
+      // Small camera shake on hard landings (only when coming down fast).
+      pushShake(0.15);
+    }
+    wasOnGroundRef.current = newOnGround;
+
     if (meshRef.current) {
       meshRef.current.position.set(px, py, pz);
     }
   });
 
   return (
-    <group ref={meshRef} position={position}>
-      <PlayerVisual blocksProp={blocks} positionRef={positionRef} />
-    </group>
+    <>
+      <group ref={meshRef} position={position}>
+        <PlayerVisual blocksProp={blocks} positionRef={positionRef} />
+      </group>
+      <PlayerTrail trailRef={trailRef} />
+      <LandingDust triggerRef={dustTriggerRef} />
+    </>
   );
 }
 
-// Visual-only pawn with a pulsing neon halo and a shadow projected onto the
-// nearest platform below the player. Split into its own component so we can
-// use useFrame for animation without touching the physics useFrame above.
+// Visual-only pawn with a rotating crown, pulsing head, projected halo + shadow.
 function PlayerVisual({ blocksProp, positionRef }) {
   const haloRef = useRef();
   const shadowRef = useRef();
   const headMatRef = useRef();
+  const crownRef = useRef();
+  const bodyRef = useRef();
   const t = useRef(0);
 
   useFrame((_, delta) => {
     t.current += delta;
     const pulse = 0.6 + 0.4 * Math.sin(t.current * 3.0);
 
+    // Crown rotates constantly
+    if (crownRef.current) {
+      crownRef.current.rotation.y += delta * 1.2;
+      crownRef.current.rotation.x = Math.sin(t.current * 1.3) * 0.15;
+    }
+    // Body breathes (subtle vertical bob)
+    if (bodyRef.current) {
+      bodyRef.current.position.y = Math.sin(t.current * 2.0) * 0.04;
+    }
+    if (headMatRef.current) {
+      headMatRef.current.emissiveIntensity = 1.0 + 0.6 * pulse;
+    }
+
     // ----- Project shadow + halo onto the ground below the player -----
+    // Two-pass search: first look for a block whose footprint we're over (tight
+    // tolerance, so the shadow lands on the right block when several stack).
+    // If we miss (jumped over an edge / between platforms), fall back to a
+    // generous radius so the shadow still appears on the nearest tile rather
+    // than vanishing mid-flight.
     const [px, py, pz] = positionRef.current || [0, 0, 0];
     let groundY = -Infinity;
     if (blocksProp) {
       for (const b of blocksProp) {
         if (b.visible === false || b.solid === false) continue;
         const top = b.y + b.h / 2;
-        if (top > py - 0.45) continue;            // not strictly below player feet
-        if (top <= groundY) continue;             // not the highest yet
-        if (Math.abs(px - b.x) > b.w / 2 + 0.4) continue;
-        if (Math.abs(pz - b.z) > b.d / 2 + 0.4) continue;
+        if (top > py - 0.45) continue;
+        if (top <= groundY) continue;
+        if (Math.abs(px - b.x) > b.w / 2 + 0.6) continue;
+        if (Math.abs(pz - b.z) > b.d / 2 + 0.6) continue;
         groundY = top;
+      }
+      // Fallback: widest reasonable search if no block is directly under us.
+      if (groundY === -Infinity) {
+        for (const b of blocksProp) {
+          if (b.visible === false || b.solid === false) continue;
+          const top = b.y + b.h / 2;
+          if (top > py - 0.45) continue;
+          if (top <= groundY) continue;
+          if (Math.abs(px - b.x) > b.w / 2 + 3.0) continue;
+          if (Math.abs(pz - b.z) > b.d / 2 + 3.0) continue;
+          groundY = top;
+        }
       }
     }
     const hasGround = groundY > -Infinity;
-    // In local space the player group sits at world py, so localY = groundY - py.
     const localY = hasGround ? (groundY + 0.02 - py) : -100;
     const altitude = hasGround ? Math.max(0, py - groundY - 0.5) : 30;
-    // Smooth fade with altitude
-    const fade = Math.max(0, Math.min(1, 1 - altitude * 0.06));
-    // Slightly larger shadow when higher (perspective), but fainter
-    const scale = Math.max(0.55, 1 + altitude * 0.04);
+    // Much slower altitude falloff + minimum floor: shadow stays visible
+    // even when you're high up.
+    const fade = Math.max(0.18, Math.min(1, 1 - altitude * 0.025));
+    const scale = Math.max(0.55, 1 + altitude * 0.05);
 
     if (shadowRef.current) {
       shadowRef.current.position.y = localY;
       shadowRef.current.visible = hasGround;
       shadowRef.current.scale.set(scale, scale, 1);
       if (shadowRef.current.material) {
-        shadowRef.current.material.opacity = 0.5 * fade;
+        shadowRef.current.material.opacity = 0.55 * fade;
       }
     }
     if (haloRef.current) {
@@ -342,69 +398,188 @@ function PlayerVisual({ blocksProp, positionRef }) {
         haloRef.current.material.opacity = (0.25 + 0.18 * pulse) * fade;
       }
     }
-    if (headMatRef.current) {
-      headMatRef.current.emissiveIntensity = 0.8 + 0.5 * pulse;
-    }
   });
 
   return (
     <group>
-      {/* Soft neon ground halo disc (projected) */}
+      {/* Soft neon ground halo */}
       <mesh ref={haloRef} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.55, 1.4, 32]} />
-        <meshBasicMaterial
-          color="#5cff8a"
-          transparent
-          opacity={0.4}
-          depthWrite={false}
-          side={THREE.DoubleSide}
-          toneMapped={false}
-        />
+        <ringGeometry args={[0.55, 1.4, 48]} />
+        <meshBasicMaterial color="#5cff8a" transparent opacity={0.4} depthWrite={false}
+          side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
 
-      {/* Shadow disc (projected onto the ground) */}
+      {/* Ground shadow */}
       <mesh ref={shadowRef} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.55, 32]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.5} depthWrite={false} />
       </mesh>
 
-      {/* Pawn base */}
-      <mesh position={[0, -0.4, 0]}>
-        <sphereGeometry args={[0.5, 16, 16]} />
-        <meshStandardMaterial
-          color="#33cc55"
-          roughness={0.4}
-          metalness={0.2}
-          emissive="#1a8a33"
-          emissiveIntensity={0.25}
-        />
-      </mesh>
+      {/* Body group (breathes) */}
+      <group ref={bodyRef}>
+        {/* Base "feet" */}
+        <mesh position={[0, -0.55, 0]}>
+          <sphereGeometry args={[0.45, 24, 16]} />
+          <meshStandardMaterial color="#1f7a39" roughness={0.4} metalness={0.35}
+            emissive="#1a8a33" emissiveIntensity={0.5} />
+        </mesh>
 
-      {/* Pawn body */}
-      <mesh position={[0, -0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.3, 0.8, 16]} />
-        <meshStandardMaterial
-          color="#33cc55"
-          roughness={0.4}
-          metalness={0.2}
-          emissive="#22aa44"
-          emissiveIntensity={0.3}
-        />
-      </mesh>
+        {/* Capsule body */}
+        <mesh position={[0, -0.05, 0]}>
+          <capsuleGeometry args={[0.32, 0.55, 8, 16]} />
+          <meshStandardMaterial color="#37d164" roughness={0.35} metalness={0.4}
+            emissive="#33cc55" emissiveIntensity={0.7} />
+        </mesh>
 
-      {/* Pawn head — pulses */}
-      <mesh position={[0, 0.6, 0]}>
-        <sphereGeometry args={[0.35, 16, 16]} />
-        <meshStandardMaterial
-          ref={headMatRef}
-          color="#5cff8a"
-          emissive="#5cff8a"
-          emissiveIntensity={1.0}
-          roughness={0.3}
-          metalness={0.1}
-          toneMapped={false}
-        />
-      </mesh>
+        {/* Glowing head */}
+        <mesh position={[0, 0.6, 0]}>
+          <sphereGeometry args={[0.38, 32, 24]} />
+          <meshStandardMaterial
+            ref={headMatRef}
+            color="#aeffce"
+            emissive="#5cff8a"
+            emissiveIntensity={1.2}
+            roughness={0.18}
+            metalness={0.15}
+            toneMapped={false}
+          />
+        </mesh>
+
+        {/* Tiny inner core for extra bloom punch */}
+        <mesh position={[0, 0.6, 0]}>
+          <sphereGeometry args={[0.18, 16, 12]} />
+          <meshBasicMaterial color="#ffffff" toneMapped={false} />
+        </mesh>
+
+        {/* Rotating crown — bright, gets caught by bloom */}
+        <group ref={crownRef} position={[0, 0.95, 0]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.4, 0.04, 12, 36]} />
+            <meshStandardMaterial color="#ffd966" emissive="#ffd966" emissiveIntensity={2.0}
+              roughness={0.2} metalness={0.7} toneMapped={false} />
+          </mesh>
+          {/* Two orbiting dots on the crown */}
+          <mesh position={[0.4, 0, 0]}>
+            <sphereGeometry args={[0.08, 12, 8]} />
+            <meshBasicMaterial color="#fff5b3" toneMapped={false} />
+          </mesh>
+          <mesh position={[-0.4, 0, 0]}>
+            <sphereGeometry args={[0.08, 12, 8]} />
+            <meshBasicMaterial color="#fff5b3" toneMapped={false} />
+          </mesh>
+        </group>
+      </group>
+    </group>
+  );
+}
+
+// Motion trail: ~14 short-lived sphere "ghosts" of recent player positions.
+function PlayerTrail({ trailRef }) {
+  const groupRef = useRef();
+  const meshRefs = useRef([]);
+
+  useFrame(() => {
+    const trail = trailRef.current;
+    if (!groupRef.current) return;
+    for (let i = 0; i < 14; i++) {
+      const mesh = meshRefs.current[i];
+      if (!mesh) continue;
+      const pos = trail[i];
+      if (!pos) {
+        mesh.visible = false;
+        continue;
+      }
+      mesh.visible = true;
+      mesh.position.set(pos[0], pos[1], pos[2]);
+      const f = 1 - i / 14;        // closer-to-current = brighter
+      const s = 0.05 + 0.25 * f;
+      mesh.scale.set(s, s, s);
+      if (mesh.material) {
+        mesh.material.opacity = 0.55 * f;
+      }
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      {Array.from({ length: 14 }).map((_, i) => (
+        <mesh
+          key={i}
+          ref={(el) => { if (el) meshRefs.current[i] = el; }}
+          visible={false}
+        >
+          <sphereGeometry args={[1, 10, 8]} />
+          <meshBasicMaterial color="#5cff8a" transparent opacity={0.4} depthWrite={false} toneMapped={false} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// Landing dust: 10 small particles spawned once on each ground transition.
+function LandingDust({ triggerRef }) {
+  const meshRefs = useRef([]);
+  const dustState = useRef([]); // [{ origin, vx, vy, vz, born }]
+  const lastFiredRef = useRef(0);
+
+  useFrame((state, delta) => {
+    const trigger = triggerRef.current;
+    if (trigger && trigger.at && trigger.at !== lastFiredRef.current) {
+      lastFiredRef.current = trigger.at;
+      // Spawn 10 particles
+      dustState.current = Array.from({ length: 10 }, () => {
+        const a = Math.random() * Math.PI * 2;
+        const speed = 1.6 + Math.random() * 1.4;
+        return {
+          x: trigger.pos[0],
+          y: trigger.pos[1],
+          z: trigger.pos[2],
+          vx: Math.cos(a) * speed,
+          vy: 1.2 + Math.random() * 1.4,
+          vz: Math.sin(a) * speed,
+          life: 0.55 + Math.random() * 0.2,
+          age: 0,
+        };
+      });
+    }
+    for (let i = 0; i < 10; i++) {
+      const m = meshRefs.current[i];
+      const p = dustState.current[i];
+      if (!m) continue;
+      if (!p || p.age >= p.life) {
+        m.visible = false;
+        continue;
+      }
+      p.age += delta;
+      p.vy -= 6 * delta;
+      p.x += p.vx * delta;
+      p.y += p.vy * delta;
+      p.z += p.vz * delta;
+      p.vx *= 0.9;
+      p.vz *= 0.9;
+      m.visible = true;
+      m.position.set(p.x, p.y, p.z);
+      const f = 1 - p.age / p.life;
+      const s = 0.08 + 0.18 * (1 - f);
+      m.scale.set(s, s, s);
+      if (m.material) {
+        m.material.opacity = 0.7 * f;
+      }
+    }
+  });
+
+  return (
+    <group>
+      {Array.from({ length: 10 }).map((_, i) => (
+        <mesh
+          key={i}
+          ref={(el) => { if (el) meshRefs.current[i] = el; }}
+          visible={false}
+        >
+          <sphereGeometry args={[1, 8, 6]} />
+          <meshBasicMaterial color="#dde6f5" transparent opacity={0.7} depthWrite={false} />
+        </mesh>
+      ))}
     </group>
   );
 }

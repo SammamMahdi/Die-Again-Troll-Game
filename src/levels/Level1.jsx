@@ -9,6 +9,7 @@ import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import SequenceManager from '../components/SequenceManager';
 import MobileControls from '../components/MobileControls';
+import ScenePostFX from '../components/ScenePostFX';
 import { playTeleport } from '../utils/sounds';
 import './Level.css';
 
@@ -328,7 +329,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
 
         {/* Render gate */}
         {gate.visible && (
-          <Gate position={[gate.x, gate.y + 2.5, gate.z]} />
+          <Gate position={[gate.x, 0.5, gate.z]} jewelColor="#ffe14a" />
         )}
 
         {/* Player */}
@@ -368,9 +369,11 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
         />
 
         <CameraController
-          target={playerPosition} 
+          target={playerPosition}
           cameraControlRef={cameraControlRef}
         />
+
+        <ScenePostFX bloomIntensity={1.3} hue={0} />
       </Canvas>
 
       <HUD

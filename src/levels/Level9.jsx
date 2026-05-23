@@ -9,6 +9,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import ScenePostFX from '../components/ScenePostFX';
 import { playWindGust } from '../utils/sounds';
 import './Level.css';
 
@@ -165,10 +166,10 @@ function Level9({ deathCount, onDeath, onComplete }) {
         <hemisphereLight args={['#ccf0ff', '#001830', 0.55]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} color="#e8f8ff" />
         <pointLight position={[0, 8, 0]} intensity={0.7} color="#88ccff" distance={50} />
-        <pointLight position={[0, 5, -32]} intensity={0.9} color="#ffd055" distance={32} />
+        <pointLight position={[0, 5, -32]} intensity={0.45} color="#ffd055" distance={24} />
 
         <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.7} />
-        <Sparkles position={[0, 3, -32]} count={45} scale={[10, 6, 4]} size={3.5} speed={0.35} color="#ffd966" />
+        <Sparkles position={[0, 3, -32]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
         {/* Whipping wind particles across the level */}
         <Sparkles position={[0, 4, -5]} count={120} scale={[20, 8, 50]} size={1.5} speed={2.5} color="#cceeff" />
 
@@ -183,11 +184,11 @@ function Level9({ deathCount, onDeath, onComplete }) {
             key={`${restartKey}-block-${i}`}
             block={b}
             edgeColor={b.isGoal ? '#ffd966' : '#7fdaff'}
-            emissiveBoost={b.isGoal ? 0.55 : 0.05}
+            emissiveBoost={b.isGoal ? 0.22 : 0.05}
           />
         ))}
 
-        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} />
+        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor="#88ddff" />
 
         <Player
           key={restartKey}
@@ -210,6 +211,8 @@ function Level9({ deathCount, onDeath, onComplete }) {
         />
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
+
+        <ScenePostFX bloomIntensity={1.4} hue={-0.05} />
       </Canvas>
 
       <HUD

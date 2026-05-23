@@ -8,6 +8,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import ScenePostFX from '../components/ScenePostFX';
 import { playPillarChime, playOrbSpawn, playGateUnlock } from '../utils/sounds';
 import './Level.css';
 
@@ -277,7 +278,7 @@ function Level10({ deathCount, onDeath, onComplete }) {
               key={`${restartKey}-block-${i}`}
               block={b}
               edgeColor={b.isGoal ? (gateUnlocked ? '#ffd966' : '#444466') : (isIce ? '#a0f0ff' : '#7fdaff')}
-              emissiveBoost={b.isGoal ? (gateUnlocked ? 0.7 : 0.15) : (isIce ? 0.2 : 0)}
+              emissiveBoost={b.isGoal ? (gateUnlocked ? 0.3 : 0.1) : (isIce ? 0.2 : 0)}
               metalness={isIce ? 0.4 : 0.1}
               roughness={isIce ? 0.22 : 0.55}
             />
@@ -285,7 +286,7 @@ function Level10({ deathCount, onDeath, onComplete }) {
         })}
 
         {/* Goal gate only renders/unlocks once all pillars touched */}
-        {gateUnlocked && <Gate position={[0, 0.5, 0]} />}
+        {gateUnlocked && <Gate position={[0, 0.5, 0]} jewelColor="#ffd066" />}
 
         {pillarsRef.current.map(p => (
           <PillarVisual key={`${restartKey}-pillar-${p.id}`} pillar={p} />
@@ -320,6 +321,8 @@ function Level10({ deathCount, onDeath, onComplete }) {
         />
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
+
+        <ScenePostFX bloomIntensity={1.6} hue={0} />
       </Canvas>
 
       <HUD

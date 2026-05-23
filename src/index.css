@@ -1,3 +1,12 @@
+/* ====== Custom typography ====== */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  --font-display: 'Orbitron', 'Helvetica Neue', sans-serif;
+  --font-body: 'Space Grotesk', 'Helvetica Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', Consolas, monospace;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -16,11 +25,18 @@ html, body {
 }
 
 body {
-  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #0c0c19;
   -webkit-tap-highlight-color: transparent;
+  letter-spacing: 0.2px;
+}
+
+/* Display elements (titles, page headers, level numbers) inherit Orbitron */
+h1, h2, h3, .title, .reward-level, .leaderboard-title,
+.mystats-title, .guide-title, .settings-title, .auth-title {
+  font-family: var(--font-display);
 }
 
 canvas {
@@ -34,4 +50,77 @@ canvas {
   width: 100dvw;
   height: 100dvh;
   overflow: hidden;
+}
+
+/* ====== Global button polish (microinteractions) ====== */
+button {
+  transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.18s ease,
+              filter 0.15s ease;
+}
+
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+button:not(:disabled):focus-visible {
+  outline: 2px solid #ff7ad0;
+  outline-offset: 2px;
+}
+
+/* ====== Animated screen transitions ====== */
+/* Wrap every full-screen view in .screen-fade for a soft fade on mount. */
+.start-screen,
+.reward-screen,
+.leaderboard,
+.mystats,
+.guide,
+.settings-overlay,
+.level-container {
+  animation: screen-fade-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes screen-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Selection accent */
+::selection {
+  background: rgba(255, 122, 208, 0.4);
+  color: #ffffff;
+}
+
+/* Better default scrollbars where containers scroll (Leaderboard / Guide) */
+.leaderboard, .mystats, .guide, .settings-modal, .trophy-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 130, 255, 0.4) transparent;
+}
+.leaderboard::-webkit-scrollbar,
+.mystats::-webkit-scrollbar,
+.guide::-webkit-scrollbar,
+.settings-modal::-webkit-scrollbar,
+.trophy-list::-webkit-scrollbar {
+  width: 8px;
+}
+.leaderboard::-webkit-scrollbar-thumb,
+.mystats::-webkit-scrollbar-thumb,
+.guide::-webkit-scrollbar-thumb,
+.settings-modal::-webkit-scrollbar-thumb,
+.trophy-list::-webkit-scrollbar-thumb {
+  background: rgba(200, 130, 255, 0.4);
+  border-radius: 4px;
+}
+.leaderboard::-webkit-scrollbar-thumb:hover,
+.mystats::-webkit-scrollbar-thumb:hover,
+.guide::-webkit-scrollbar-thumb:hover,
+.settings-modal::-webkit-scrollbar-thumb:hover,
+.trophy-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 100, 220, 0.6);
 }

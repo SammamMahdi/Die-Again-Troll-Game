@@ -97,23 +97,61 @@ function CameraController({ target, cameraControlRef }) {
     };
   }, [gl]);
 
-  useFrame(() => {
+  // Damping state: previous camera position + look-at, lerped toward target.
+  const smoothPos = useRef(new THREE.Vector3(0, 5, 30));
+  const smoothLook = useRef(new THREE.Vector3(0, 0, 0));
+  const initialFOV = useRef(camera.fov);
+
+  useFrame((_, delta) => {
     if (!target) return;
+    const dt = Math.min(delta, 0.05);
 
     const [cx, cy, cz] = target;
     const radYaw = THREE.MathUtils.degToRad(yawRef.current);
     const radPitch = THREE.MathUtils.degToRad(pitchRef.current);
 
-    // Calculate camera position based on yaw, pitch, and distance (like Python)
-    const eyeX = cx + CAM_DIST * Math.cos(radPitch) * Math.cos(radYaw);
-    const eyeY = cy + CAM_DIST * Math.sin(radPitch);
-    const eyeZ = cz + CAM_DIST * Math.cos(radPitch) * Math.sin(radYaw);
+    const desiredX = cx + CAM_DIST * Math.cos(radPitch) * Math.cos(radYaw);
+    const desiredY = cy + CAM_DIST * Math.sin(radPitch);
+    const desiredZ = cz + CAM_DIST * Math.cos(radPitch) * Math.sin(radYaw);
 
-    camera.position.set(eyeX, eyeY, eyeZ);
-    camera.lookAt(cx, cy, cz);
+    // Damped lerp toward the desired camera position (frame-rate independent).
+    const alpha = 1 - Math.exp(-dt * 9.0);
+    smoothPos.current.lerp(new THREE.Vector3(desiredX, desiredY, desiredZ), alpha);
+    smoothLook.current.lerp(new THREE.Vector3(cx, cy, cz), 1 - Math.exp(-dt * 12.0));
+
+    // Optional shake decay
+    if (shakeRef.current > 0.001) {
+      const s = shakeRef.current;
+      camera.position.set(
+        smoothPos.current.x + (Math.random() - 0.5) * s,
+        smoothPos.current.y + (Math.random() - 0.5) * s,
+        smoothPos.current.z + (Math.random() - 0.5) * s,
+      );
+      shakeRef.current *= Math.exp(-dt * 7.0);
+    } else {
+      camera.position.copy(smoothPos.current);
+    }
+    camera.lookAt(smoothLook.current);
+
+    // Subtle FOV "breath" + decay back to default
+    if (fovPulseRef.current !== 0) {
+      camera.fov = initialFOV.current + fovPulseRef.current;
+      fovPulseRef.current *= Math.exp(-dt * 5.0);
+      if (Math.abs(fovPulseRef.current) < 0.05) fovPulseRef.current = 0;
+      camera.updateProjectionMatrix();
+    } else if (Math.abs(camera.fov - initialFOV.current) > 0.01) {
+      camera.fov = initialFOV.current;
+      camera.updateProjectionMatrix();
+    }
   });
 
   return null;
 }
+
+// Exported refs other components can use to push transient FX into the camera.
+export const shakeRef = { current: 0 };       // additive — bigger = more shake
+export const fovPulseRef = { current: 0 };    // additive FOV delta (decays out)
+export function pushShake(amount) { shakeRef.current = Math.min(2.5, shakeRef.current + amount); }
+export function pushFovPulse(amount) { fovPulseRef.current += amount; }
 
 export default CameraController;

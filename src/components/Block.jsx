@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Edges } from '@react-three/drei';
+import { RoundedBox, Edges } from '@react-three/drei';
 import * as THREE from 'three';
 
 function Block({
@@ -15,17 +15,17 @@ function Block({
 
   return (
     <group position={position}>
-      {/* Main block */}
-      <Box args={size}>
+      {/* Main block — bevelled corners for that modern stylised look */}
+      <RoundedBox args={size} radius={Math.min(0.14, size[0] * 0.07)} smoothness={4} creaseAngle={0.4}>
         <meshStandardMaterial
           color={topColor}
-          roughness={0.55}
-          metalness={0.15}
+          roughness={0.5}
+          metalness={0.2}
           emissive={topColor}
           emissiveIntensity={emissiveIntensity}
         />
         {edgeColor && (
-          <Edges scale={1.002} threshold={15}>
+          <Edges scale={1.001} threshold={15}>
             <meshBasicMaterial
               color={edgeColor}
               transparent
@@ -34,12 +34,17 @@ function Block({
             />
           </Edges>
         )}
-      </Box>
+      </RoundedBox>
 
       {/* Edge / base highlight underneath */}
-      <Box args={[size[0] * 1.05, size[1] * 0.1, size[2] * 1.05]} position={[0, -size[1] * 0.51, 0]}>
+      <RoundedBox
+        args={[size[0] * 1.05, size[1] * 0.1, size[2] * 1.05]}
+        position={[0, -size[1] * 0.51, 0]}
+        radius={0.05}
+        smoothness={3}
+      >
         <meshStandardMaterial color={baseColor} roughness={0.85} metalness={0.05} />
-      </Box>
+      </RoundedBox>
     </group>
   );
 }
