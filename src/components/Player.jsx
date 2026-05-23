@@ -255,8 +255,19 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
       onDeath('Fell into the Void');
     }
 
-    // Check for win (reach gate)
-    if (gate && Math.abs(px - gate.x) < 2 && Math.abs(py - (gate.y + 2.5)) < 3 && Math.abs(pz - gate.z) < 2) {
+    // Check for win (reach gate).
+    // Level 1 has a teleport-troll: the FIRST time you approach the gate, it
+    // teleports back to the start. The real win is when you reach the gate
+    // at its post-teleport location. Player tracks that via gate.floatingAtStart.
+    // We require it here so the win check doesn't fire on the same frame as
+    // the gate-trigger callback (React state updates are async, so the gate
+    // prop is one frame stale at that moment otherwise).
+    if (
+      gate && gate.floatingAtStart === true &&
+      Math.abs(px - gate.x) < 2 &&
+      Math.abs(py - (gate.y + 2.5)) < 3 &&
+      Math.abs(pz - gate.z) < 2
+    ) {
       onWin();
     }
 
