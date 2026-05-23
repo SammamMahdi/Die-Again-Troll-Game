@@ -8,7 +8,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
-import { playFall, playLaunch } from '../utils/sounds';
+import { playFall, playLaunch, playWarning } from '../utils/sounds';
 import './Level.css';
 
 // Block "types" — matches level4.py
@@ -305,7 +305,8 @@ function Level4Sim({ gameState, blocksRef }) {
       if (b.isTrapdoor && b.stepped && !b.falling) {
         b.fallTimer -= delta;
         if (b.fallTimer <= 1.0) {
-          // Warning flash: yellow strobes
+          // Warning flash: yellow strobes (sound once at the start of warning)
+          if (!b.warning) playWarning();
           b.warning = true;
           if (Math.floor(b.blinkTimer * 8) % 2 === 0) {
             b.color = [1.0, 0.95, 0.2];

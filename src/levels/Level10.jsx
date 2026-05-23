@@ -8,6 +8,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import { playPillarChime, playOrbSpawn, playGateUnlock } from '../utils/sounds';
 import './Level.css';
 
 // Composite arena: collect 3 pillars while a boss orb chases you. Once all
@@ -207,6 +208,7 @@ function Level10({ deathCount, onDeath, onComplete }) {
       if (Math.sqrt(dx * dx + dz * dz) < 1.6) {
         p.touched = true;
         newlyTouched++;
+        playPillarChime();
         // Spawn an extra chasing orb from the opposite side each time.
         const spawnSide = extraOrbsRef.current.length % 2 === 0 ? 1 : -1;
         extraOrbsRef.current.push({
@@ -216,6 +218,7 @@ function Level10({ deathCount, onDeath, onComplete }) {
           radius: 1.2,
           speed: 5.0,
         });
+        playOrbSpawn();
       }
     }
     if (newlyTouched > 0) {
@@ -226,6 +229,7 @@ function Level10({ deathCount, onDeath, onComplete }) {
   useEffect(() => {
     if (pillarsTouched >= 3 && !gateUnlocked) {
       setGateUnlocked(true);
+      playGateUnlock();
     }
   }, [pillarsTouched, gateUnlocked]);
 

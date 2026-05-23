@@ -9,7 +9,12 @@ import MyStats from './components/MyStats';
 import HomeButton from './components/HomeButton';
 import AbilityHUD from './components/AbilityHUD';
 import Guide from './components/Guide';
-import { playDeath, playWin, isMuted, setMuted } from './utils/sounds';
+import Settings from './components/Settings';
+import {
+  playDeath, playWin, playUIClick, playUIOpen,
+  isMuted, setMuted,
+  startAmbient, stopAmbient,
+} from './utils/sounds';
 import Level1 from './levels/Level1';
 import Level2 from './levels/Level2';
 import Level3 from './levels/Level3';
@@ -73,6 +78,9 @@ function App() {
     setMuted(next);
     setMutedState(next);
   };
+
+  // Settings modal
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToAuth((user) => setAuthUser(user));
@@ -173,6 +181,12 @@ function App() {
       levelStartTimeRef.current = Date.now();
       levelStartDeathsRef.current = deathCount;
       if (runStartTimeRef.current == null) runStartTimeRef.current = Date.now();
+      // Start per-level ambient
+      const n = parseInt(currentScreen.replace('level', ''), 10);
+      if (Number.isInteger(n)) startAmbient(n);
+    } else {
+      // Stop ambient on any non-level screen
+      stopAmbient();
     }
     if (currentScreen === 'start') {
       // Refresh persisted progress when we land back on the start screen
@@ -180,6 +194,22 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentScreen]);
+
+  // Global UI click sound — fires on any <button> click that isn't inside the
+  // 3D canvas or mobile-controls overlay.
+  useEffect(() => {
+    const onClick = (e) => {
+      const t = e.target;
+      if (!t || !t.closest) return;
+      if (!t.closest('button')) return;
+      if (t.closest('canvas')) return;
+      if (t.closest('.mobile-controls')) return;
+      if (t.closest('.mobile-touch-area')) return;
+      playUIClick();
+    };
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, []);
 
   // Global admin shortcut: pressing 1, 2, or 3 (when admin mode is on)
   // jumps to that level from anywhere in the app.
@@ -372,6 +402,7 @@ function App() {
           onLeaderboard={() => setCurrentScreen('leaderboard')}
           onMyStats={() => setCurrentScreen('mystats')}
           onGuide={() => setCurrentScreen('guide')}
+          onSettings={() => { playUIOpen(); setSettingsOpen(true); }}
           muted={muted}
           onToggleMute={toggleMuted}
           cloudEnabled={isCloudEnabled()}
@@ -458,6 +489,10 @@ function App() {
           onClose={() => setAuthModalMode(null)}
           onSuccess={() => setAuthModalMode(null)}
         />
+      )}
+
+      {settingsOpen && (
+        <Settings onClose={() => setSettingsOpen(false)} />
       )}
 
       {currentScreen !== 'start' && currentScreen !== 'leaderboard' && (

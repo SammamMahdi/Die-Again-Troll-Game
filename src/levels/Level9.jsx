@@ -9,6 +9,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import { playWindGust } from '../utils/sounds';
 import './Level.css';
 
 const COLOR_PATH = [0.7, 0.78, 0.95];
@@ -244,12 +245,18 @@ function Level9Sim({ gameState, zonesRef, playerPosRef, playerControlRef }) {
     const [px, py, pz] = playerPosRef.current;
 
     for (const z of zonesRef.current) {
+      // Track gust peak per-zone to play a whoosh sound at each crest
+      const raw = Math.sin(tRef.current * z.freq + z.phase);
+      const peaking = raw > 0.92;
+      if (peaking && !z._peaking) playWindGust();
+      z._peaking = peaking;
+
       // Inside the zone?
       if (Math.abs(px - z.x) > z.w / 2) continue;
       if (Math.abs(py - (z.y + z.h / 2)) > z.h / 2) continue;
       if (Math.abs(pz - z.z) > z.d / 2) continue;
       // Wind strength pulses (gust)
-      const strength = Math.max(0, Math.sin(tRef.current * z.freq + z.phase));
+      const strength = Math.max(0, raw);
       const dx = z.dirX * strength * delta;
       const dz = z.dirZ * strength * delta;
       if (playerControlRef.current?.addExternalDelta) {

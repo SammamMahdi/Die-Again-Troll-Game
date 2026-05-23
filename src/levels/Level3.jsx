@@ -8,6 +8,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import { playSonar } from '../utils/sounds';
 import './Level.css';
 
 // Mechanics constants (mirror level3.py)
@@ -299,7 +300,10 @@ function Level3({ deathCount, onDeath, onComplete }) {
           sonarPressedRef={sonarPressedRef}
           onKill={(reason) => handlePlayerDeath(reason)}
           onWin={() => setGameState('won')}
-          onSonarChange={setSonarActive}
+          onSonarChange={(active) => {
+            setSonarActive(active);
+            if (active) playSonar();
+          }}
         />
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />

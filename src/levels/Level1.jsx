@@ -9,6 +9,7 @@ import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import SequenceManager from '../components/SequenceManager';
 import MobileControls from '../components/MobileControls';
+import { playTeleport } from '../utils/sounds';
 import './Level.css';
 
 function Level1({ deathCount, onDeath, onComplete, onRestart }) {
@@ -241,6 +242,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
       // Teleport gate to start position
       setGate(prev => ({ ...prev, z: 20, floatingAtStart: true }));
       setGateAtStart(true);
+      playTeleport();
     }
   };
 

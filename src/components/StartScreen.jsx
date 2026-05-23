@@ -5,7 +5,7 @@ import './StartScreen.css';
 function StartScreen({
   onStart, adminMode, onToggleAdmin, onAdminJump, onLevelJump, progress,
   authUser, onSignIn, onRegister, onSignOut, onLeaderboard, onMyStats, onGuide,
-  muted, onToggleMute,
+  onSettings, muted, onToggleMute,
   cloudEnabled, isAdmin,
 }) {
   const [levelInput, setLevelInput] = useState('');
@@ -68,10 +68,10 @@ function StartScreen({
         <button className="auth-chip-btn" onClick={onLeaderboard}>🏆 Leaderboard</button>
         <button
           className="auth-chip-btn"
-          onClick={onToggleMute}
-          title={muted ? 'Sounds are muted (click to enable)' : 'Mute sounds'}
+          onClick={onSettings}
+          title="Sound, volumes, and other settings"
         >
-          {muted ? '🔇' : '🔊'}
+          ⚙️ Settings
         </button>
       </div>
 

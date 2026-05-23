@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { playDisappear } from '../utils/sounds';
+import { playDisappear, playShimmer } from '../utils/sounds';
 
 function SequenceManager({ 
   gameState,

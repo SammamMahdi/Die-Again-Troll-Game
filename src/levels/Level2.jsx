@@ -9,6 +9,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import { playLightRed, playLightBlue, playCreak } from '../utils/sounds';
 import './Level.css';
 
 // Mechanics constants (mirror level2.py)
@@ -173,6 +174,7 @@ function Level2({ deathCount, onDeath, onComplete }) {
 
     // Mark the breakable block as stepped on
     if (blockIdx === 8 && blocksRef.current[8]) {
+      if (!blocksRef.current[8].stepped) playCreak();
       blocksRef.current[8].stepped = true;
     }
 
@@ -270,7 +272,10 @@ function Level2({ deathCount, onDeath, onComplete }) {
           isMovingRef={isMovingRef}
           onGroundRef={onGroundRef}
           onGlobeHit={() => handlePlayerDeath('Crushed by a Globe!')}
-          onLightChange={setGlobeStateLabel}
+          onLightChange={(state) => {
+            setGlobeStateLabel(state);
+            if (state === 'RED') playLightRed(); else playLightBlue();
+          }}
         />
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
