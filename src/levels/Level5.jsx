@@ -23,14 +23,14 @@ function buildLevel5Blocks() {
     x: 0, y: 0, z: 25, w: 8, h: 1, d: 8,
     visible: true, color: [...COLOR_NORMAL],
   });
-  // 8 stable path platforms — wider than before so the player has solid
-  // footing while timing the pendulum swings. (No more crumble tiles.)
+  // 8 stable path platforms — moderately sized (4×4) so footing is solid
+  // but you still have to commit to a side when dodging the pendulums.
   for (let i = 0; i < 8; i++) {
     const z = 25 - (i + 1) * STEP;
     blocks.push({
       x: 0, y: 0, z,
       startX: 0, startY: 0, startZ: z,
-      w: 5.0, h: 1, d: 5.0,
+      w: 4.0, h: 1, d: 4.0,
       visible: true,
       color: [...COLOR_NORMAL],
     });
@@ -46,14 +46,16 @@ function buildLevel5Blocks() {
 }
 
 function buildPendulums() {
-  // 6 pendulums (was 4), all faster and reaching further out
+  // 6 pendulums ordered by z. Each one swings faster than the previous,
+  // so the player is gently introduced and the final pendulums are brutal.
+  // Phases are staggered so adjacent swings don't line up perfectly.
   return [
-    { pivot: [0, 9, 15],  arm: 6, freq: 1.7, phase: 0.0, bobRadius: 1.3, angle: 0 },
-    { pivot: [0, 9, 6],   arm: 7, freq: 1.3, phase: 1.2, bobRadius: 1.3, angle: 0 },
-    { pivot: [0, 9, -3],  arm: 6, freq: 1.9, phase: 0.6, bobRadius: 1.3, angle: 0 },
-    { pivot: [0, 9, -12], arm: 7, freq: 1.5, phase: 2.0, bobRadius: 1.3, angle: 0 },
-    { pivot: [0, 9, -21], arm: 6, freq: 2.0, phase: 1.5, bobRadius: 1.3, angle: 0 },
-    { pivot: [0, 9, -30], arm: 7, freq: 1.6, phase: 0.3, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9,  15], arm: 6, freq: 1.0, phase: 0.0, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9,   6], arm: 7, freq: 1.3, phase: 1.4, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9,  -3], arm: 6, freq: 1.6, phase: 0.7, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9, -12], arm: 7, freq: 1.9, phase: 2.1, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9, -21], arm: 6, freq: 2.2, phase: 1.0, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9, -30], arm: 7, freq: 2.5, phase: 0.4, bobRadius: 1.3, angle: 0 },
   ];
 }
 
