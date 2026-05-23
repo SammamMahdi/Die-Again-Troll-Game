@@ -22,28 +22,28 @@ const COLOR_GOAL = [1.0, 0.84, 0.0];
 function buildLevel10() {
   const blocks = [];
 
-  // Central arena platform (huge)
+  // Central arena platform — TIGHTER than before so the chase has less room.
   blocks.push({
-    x: 0, y: 0, z: 0, w: 24, h: 1, d: 24, visible: true,
+    x: 0, y: 0, z: 0, w: 20, h: 1, d: 20, visible: true,
     color: [...COLOR_PLATFORM],
   });
 
-  // 4 outer corner platforms connected by narrow ice bridges
+  // 4 outer corner platforms — also slightly smaller and closer.
   const corners = [
-    [16, -16], [-16, -16], [16, 16], [-16, 16],
+    [13, -13], [-13, -13], [13, 13], [-13, 13],
   ];
   for (const [cx, cz] of corners) {
     blocks.push({
-      x: cx, y: 0, z: cz, w: 6, h: 1, d: 6, visible: true,
+      x: cx, y: 0, z: cz, w: 5, h: 1, d: 5, visible: true,
       color: [...COLOR_PLATFORM],
     });
   }
 
-  // Ice bridges (slippery — friction 0.98) — NARROWER (was 8x3 → 6x2.2)
-  blocks.push({ x:  8, y: 0, z: -16, w: 6, h: 1, d: 2.2, visible: true, color: [...COLOR_ICE], friction: 0.98 });
-  blocks.push({ x: -8, y: 0, z: -16, w: 6, h: 1, d: 2.2, visible: true, color: [...COLOR_ICE], friction: 0.98 });
-  blocks.push({ x:  8, y: 0, z:  16, w: 6, h: 1, d: 2.2, visible: true, color: [...COLOR_ICE], friction: 0.98 });
-  blocks.push({ x: -8, y: 0, z:  16, w: 6, h: 1, d: 2.2, visible: true, color: [...COLOR_ICE], friction: 0.98 });
+  // Ice bridges (friction 0.98) — narrower AND slightly longer.
+  blocks.push({ x:  6.5, y: 0, z: -13, w: 5, h: 1, d: 1.8, visible: true, color: [...COLOR_ICE], friction: 0.98 });
+  blocks.push({ x: -6.5, y: 0, z: -13, w: 5, h: 1, d: 1.8, visible: true, color: [...COLOR_ICE], friction: 0.98 });
+  blocks.push({ x:  6.5, y: 0, z:  13, w: 5, h: 1, d: 1.8, visible: true, color: [...COLOR_ICE], friction: 0.98 });
+  blocks.push({ x: -6.5, y: 0, z:  13, w: 5, h: 1, d: 1.8, visible: true, color: [...COLOR_ICE], friction: 0.98 });
 
   // Central goal pillar (small disc) — only collidable once all pillars touched
   blocks.push({
@@ -55,11 +55,11 @@ function buildLevel10() {
 }
 
 function buildPillars() {
-  // 3 colored pillars to touch — placed at 3 of the 4 corners
+  // 3 colored pillars to touch — placed at 3 of the 4 corner platforms.
   return [
-    { id: 0, x: 16,  y: 1.5, z: -16, color: '#ff5577', touched: false },
-    { id: 1, x: -16, y: 1.5, z: -16, color: '#55ddff', touched: false },
-    { id: 2, x: 0,   y: 1.5, z:  16, color: '#aaff66', touched: false },
+    { id: 0, x: 13,  y: 1.5, z: -13, color: '#ff5577', touched: false },
+    { id: 1, x: -13, y: 1.5, z: -13, color: '#55ddff', touched: false },
+    { id: 2, x: 0,   y: 1.5, z:  13, color: '#aaff66', touched: false },
   ];
 }
 
@@ -145,9 +145,10 @@ function Level10({ deathCount, onDeath, onComplete }) {
   const initial = useRef(buildLevel10());
   const blocksRef = useRef(initial.current.blocks);
   const pillarsRef = useRef(buildPillars());
-  // Primary orb is faster than before (3.0 → 4.2). A second orb spawns at the
-  // moment you touch the first pillar; a third when you touch the second.
-  const orbRef = useRef({ x: 0, y: 5, z: -10, radius: 1.6, speed: 4.2 });
+  // The Architect itself is faster + larger than before. Pillar touches spawn
+  // chaser orbs at ramped-up speeds. When the gate unlocks, an "executioner"
+  // orb spawns at the centre — the final sprint is the most dangerous.
+  const orbRef = useRef({ x: 0, y: 5, z: -10, radius: 1.75, speed: 5.0 });
   const extraOrbsRef = useRef([]);
   const playerPosRef = useRef([0, 5, 8]);
 
@@ -178,7 +179,7 @@ function Level10({ deathCount, onDeath, onComplete }) {
     const fresh = buildLevel10();
     blocksRef.current.forEach((b, i) => Object.assign(b, fresh.blocks[i]));
     pillarsRef.current = buildPillars();
-    orbRef.current = { x: 0, y: 5, z: -10, radius: 1.6, speed: 4.2 };
+    orbRef.current = { x: 0, y: 5, z: -10, radius: 1.75, speed: 5.0 };
     extraOrbsRef.current = [];
     playerPosRef.current = [0, 5, 8];
     setPlayerPosition([0, 5, 8]);
@@ -210,14 +211,17 @@ function Level10({ deathCount, onDeath, onComplete }) {
         p.touched = true;
         newlyTouched++;
         playPillarChime();
-        // Spawn an extra chasing orb from the opposite side each time.
-        const spawnSide = extraOrbsRef.current.length % 2 === 0 ? 1 : -1;
+        // Spawn a chasing orb from the opposite corner. Each successive orb
+        // is slightly faster than the previous one (you're being hunted by an
+        // accelerating pack).
+        const idx = extraOrbsRef.current.length;
+        const spawnSide = idx % 2 === 0 ? 1 : -1;
         extraOrbsRef.current.push({
-          x: spawnSide * 12,
+          x: spawnSide * 10,
           y: 5,
-          z: -spawnSide * 12,
-          radius: 1.2,
-          speed: 5.0,
+          z: -spawnSide * 10,
+          radius: 1.25,
+          speed: 5.6 + idx * 0.3,   // 5.6, 5.9, 6.2 for the three pillars
         });
         playOrbSpawn();
       }
@@ -231,6 +235,17 @@ function Level10({ deathCount, onDeath, onComplete }) {
     if (pillarsTouched >= 3 && !gateUnlocked) {
       setGateUnlocked(true);
       playGateUnlock();
+      // The Architect's executioner: a fast, hungry orb that drops in at the
+      // centre the moment the gate unlocks. Its job is to make the final
+      // dash to the goal feel like a desperate sprint, not a victory lap.
+      extraOrbsRef.current.push({
+        x: 0,
+        y: 9,
+        z: 0,
+        radius: 1.45,
+        speed: 7.0,
+      });
+      playOrbSpawn();
     }
   }, [pillarsTouched, gateUnlocked]);
 

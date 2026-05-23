@@ -47,28 +47,56 @@ function buildSlidingWalls() {
   ];
 }
 
-// Add a spotlight that follows the camera/player like a flashlight.
+// Lantern the player carries.
+//
+//   pointLight    — illuminates a sphere of light around the player. Linear
+//                   decay so the whole bubble is bright, not falling to zero
+//                   too quickly.
+//   spotLight     — floods directly downward onto the platform so the floor
+//                   you're standing on is obvious. Its `target` is mounted as
+//                   a sibling Object3D and the spotLight is wired to it
+//                   imperatively — without that, three.js leaves the target
+//                   at world origin and the cone aims toward (0,0,0).
 function PlayerFlashlight({ playerPosRef }) {
-  const lightRef = useRef();
+  const pointRef = useRef();
+  const spotRef = useRef();
+  const targetRef = useRef();
+
   useFrame(() => {
-    if (!lightRef.current) return;
-    const [px, py, pz] = playerPosRef.current;
-    lightRef.current.position.set(px, py + 4, pz);
-    if (lightRef.current.target) {
-      lightRef.current.target.position.set(px, py - 1, pz);
-      lightRef.current.target.updateMatrixWorld();
+    const [px, py, pz] = playerPosRef.current || [0, 0, 0];
+    if (pointRef.current) {
+      pointRef.current.position.set(px, py + 1.5, pz);
+    }
+    if (spotRef.current && targetRef.current) {
+      spotRef.current.position.set(px, py + 6, pz);
+      if (spotRef.current.target !== targetRef.current) {
+        spotRef.current.target = targetRef.current;
+      }
+      targetRef.current.position.set(px, py - 8, pz);
+      targetRef.current.updateMatrixWorld();
     }
   });
+
   return (
-    <spotLight
-      ref={lightRef}
-      angle={1.2}
-      penumbra={0.6}
-      intensity={2.0}
-      distance={20}
-      color="#c8e6ff"
-      castShadow={false}
-    />
+    <>
+      <pointLight
+        ref={pointRef}
+        intensity={9}
+        distance={16}
+        decay={1.0}
+        color="#cce0ff"
+      />
+      <spotLight
+        ref={spotRef}
+        angle={1.0}
+        penumbra={0.55}
+        intensity={6}
+        distance={18}
+        decay={1.0}
+        color="#dde6f5"
+      />
+      <object3D ref={targetRef} />
+    </>
   );
 }
 
@@ -156,9 +184,11 @@ function Level7({ deathCount, onDeath, onComplete }) {
         gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
         {/* Tighter fog than before — visibility ~10 units */}
-        <fog attach="fog" args={['#000000', 4, 14]} />
-        <ambientLight intensity={0.05} color="#1a1f30" />
-        <hemisphereLight args={['#1a2030', '#000005', 0.1]} />
+        <fog attach="fog" args={['#000000', 4, 16]} />
+        {/* Very faint baseline so platform edges and the player are still
+            barely visible just past the lantern's reach. */}
+        <ambientLight intensity={0.18} color="#1a2440" />
+        <hemisphereLight args={['#2a3a60', '#000008', 0.2]} />
 
         {/* Player-following flashlight */}
         <PlayerFlashlight playerPosRef={playerPosRef} />
@@ -172,7 +202,7 @@ function Level7({ deathCount, onDeath, onComplete }) {
             key={`${restartKey}-block-${i}`}
             block={b}
             edgeColor={b.isGoal ? '#ffd966' : '#5fb8ff'}
-            emissiveBoost={b.isGoal ? 0.25 : 0.05}
+            emissiveBoost={b.isGoal ? 0.3 : 0.28}
           />
         ))}
 
