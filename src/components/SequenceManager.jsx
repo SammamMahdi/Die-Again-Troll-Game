@@ -52,6 +52,7 @@ function SequenceManager({
               if (idx !== -1) updated[idx].visible = true;
               return updated;
             });
+            playShimmer();
           }
           return newTimer;
         });
@@ -68,6 +69,7 @@ function SequenceManager({
           if (idx !== -1) updated[idx].visible = true;
           return updated;
         });
+        playShimmer();
       } else if (sequenceState === 3 && currentBlockIndex === 1 && prevBlockIndexRef.current !== 1) {
         setSequenceState(4);
         setMiddleBlocks(prevMiddle => {
@@ -81,6 +83,7 @@ function SequenceManager({
           if (idx !== -1) updated[idx].visible = true;
           return updated;
         });
+        playShimmer();
       } else if (sequenceState === 4 && currentBlockIndex === 2 && prevBlockIndexRef.current !== 2) {
         setSequenceState(5);
         setMiddleBlocks(prevMiddle => {
@@ -94,6 +97,7 @@ function SequenceManager({
           if (idx !== -1) updated[idx].visible = true;
           return updated;
         });
+        playShimmer();
       } else if (sequenceState === 5 && currentBlockIndex === 3 && prevBlockIndexRef.current !== 3) {
         setSequenceState(6);
         setTrapTimer(0);
