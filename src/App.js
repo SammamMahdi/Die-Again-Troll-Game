@@ -211,6 +211,20 @@ function App() {
     setCurrentScreen(screen);
   };
 
+  // Earned level-select: any user can jump to a level N if they've cleared
+  // N-1 (or N == 1). Doesn't enable admin mode, but does set usedAdmin so
+  // run-spanning achievements (iron_will / flawless) still require a full
+  // linear playthrough.
+  const handleLevelJump = (levelNumber) => {
+    const screen = LEVEL_SCREENS[levelNumber];
+    if (!screen) return;
+    setDeathCount(0);
+    setRunStats({});
+    setUsedAdmin(true);
+    runStartTimeRef.current = null;
+    setCurrentScreen(screen);
+  };
+
   const handleToggleAdmin = (next) => {
     if (!isAdmin) {
       setAdminMode(false);
@@ -335,6 +349,7 @@ function App() {
           adminMode={adminMode}
           onToggleAdmin={handleToggleAdmin}
           onAdminJump={handleAdminJump}
+          onLevelJump={handleLevelJump}
           progress={persistedProgress}
           authUser={authUser}
           onSignIn={() => setAuthModalMode('signin')}

@@ -3,7 +3,7 @@ import { ACHIEVEMENTS } from '../utils/rewards';
 import './StartScreen.css';
 
 function StartScreen({
-  onStart, adminMode, onToggleAdmin, onAdminJump, progress,
+  onStart, adminMode, onToggleAdmin, onAdminJump, onLevelJump, progress,
   authUser, onSignIn, onRegister, onSignOut, onLeaderboard, cloudEnabled, isAdmin,
 }) {
   const [levelInput, setLevelInput] = useState('');
@@ -16,6 +16,15 @@ function StartScreen({
   );
 
   const displayName = authUser?.displayName || authUser?.email?.split('@')[0] || 'Player';
+
+  // Earned level select: every level the user has cleared, plus the next one
+  // (so finishing L3 unlocks the L4 button).
+  const clearedLevels = Object.keys(progress?.medals || {})
+    .map(Number)
+    .filter(n => Number.isInteger(n) && n >= 1 && n <= 10);
+  const highestCleared = clearedLevels.length ? Math.max(...clearedLevels) : 0;
+  const continueUpTo = Math.min(10, highestCleared + 1);
+  const showContinue = !!onLevelJump && highestCleared > 0;
 
   const submitLevelInput = () => {
     const trimmed = levelInput.trim();
@@ -66,6 +75,31 @@ function StartScreen({
       <button className="start-button" onClick={onStart}>
         Click to Start
       </button>
+
+      {showContinue && (
+        <div className="continue-section">
+          <div className="continue-label">Continue from level:</div>
+          <div className="continue-row">
+            {Array.from({ length: continueUpTo }, (_, i) => i + 1).map(n => {
+              const cleared = clearedLevels.includes(n);
+              return (
+                <button
+                  key={n}
+                  className={`continue-btn ${cleared ? 'continue-cleared' : 'continue-next'}`}
+                  onClick={() => onLevelJump(n)}
+                  title={cleared ? `Replay Level ${n}` : `Continue at Level ${n}`}
+                >
+                  {n}
+                </button>
+              );
+            })}
+          </div>
+          <div className="continue-hint">
+            Highest cleared: <strong>Level {highestCleared}</strong>
+            {highestCleared < 10 && <> · next: <strong>Level {highestCleared + 1}</strong></>}
+          </div>
+        </div>
+      )}
 
       <div className="controls">
         <p>Controls:</p>
