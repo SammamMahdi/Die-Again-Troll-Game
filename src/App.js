@@ -9,6 +9,7 @@ import MyStats from './components/MyStats';
 import HomeButton from './components/HomeButton';
 import AbilityHUD from './components/AbilityHUD';
 import Guide from './components/Guide';
+import { playDeath, playWin, isMuted, setMuted } from './utils/sounds';
 import Level1 from './levels/Level1';
 import Level2 from './levels/Level2';
 import Level3 from './levels/Level3';
@@ -64,6 +65,14 @@ function App() {
   // Cloud auth
   const [authUser, setAuthUser] = useState(null);
   const [authModalMode, setAuthModalMode] = useState(null); // 'signin' | 'register' | null
+
+  // Sound mute (persisted via sounds.js)
+  const [muted, setMutedState] = useState(isMuted());
+  const toggleMuted = () => {
+    const next = !muted;
+    setMuted(next);
+    setMutedState(next);
+  };
 
   useEffect(() => {
     const unsub = subscribeToAuth((user) => setAuthUser(user));
@@ -237,10 +246,12 @@ function App() {
   };
 
   const handleDeath = () => {
+    playDeath();
     setDeathCount(prev => prev + 1);
   };
 
   const handleLevelComplete = (levelNumber) => {
+    playWin();
     const deathsUsed = Math.max(0, deathCount - levelStartDeathsRef.current);
     const elapsedMs = levelStartTimeRef.current
       ? Date.now() - levelStartTimeRef.current
@@ -361,6 +372,8 @@ function App() {
           onLeaderboard={() => setCurrentScreen('leaderboard')}
           onMyStats={() => setCurrentScreen('mystats')}
           onGuide={() => setCurrentScreen('guide')}
+          muted={muted}
+          onToggleMute={toggleMuted}
           cloudEnabled={isCloudEnabled()}
           isAdmin={isAdmin}
         />

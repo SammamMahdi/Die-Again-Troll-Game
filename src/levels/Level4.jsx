@@ -8,6 +8,7 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import MobileControls from '../components/MobileControls';
+import { playFall, playLaunch } from '../utils/sounds';
 import './Level.css';
 
 // Block "types" — matches level4.py
@@ -184,6 +185,7 @@ function Level4({ deathCount, onDeath, onComplete }) {
         // Launcher: launch immediately on transition
         if (cur.isLauncher && playerControlRef.current?.setLaunch) {
           playerControlRef.current.setLaunch(cur.launchVx, cur.launchVy, cur.launchVz);
+          playLaunch();
         }
         // Goal: win on touch
         if (cur.isGoal && gameState === 'playing') setGameState('won');
@@ -317,6 +319,7 @@ function Level4Sim({ gameState, blocksRef }) {
           b.falling = true;
           b.fallSpeed = 0;
           b.solid = false;     // disable collision the moment it falls
+          playFall();
         }
       }
       if (b.falling) {

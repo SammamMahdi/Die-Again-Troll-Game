@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { playDisappear } from '../utils/sounds';
 
 function SequenceManager({ 
   gameState,
@@ -99,12 +100,14 @@ function SequenceManager({
         block0Hidden.current = false;
         block1Hidden.current = false;
         block2Hidden.current = false;
+        playDisappear();   // trap fires — three blocks are about to vanish
       } else if (sequenceState === 6) {
         setTrapTimer(prev => {
           const newTimer = prev + delta;
-          
+
           if (newTimer > 0 && !block0Hidden.current) {
             block0Hidden.current = true;
+            playDisappear();
             setMiddleBlocks(prevMiddle => {
               const updated = [...prevMiddle];
               if (updated[0]) updated[0].visible = false;
@@ -119,6 +122,7 @@ function SequenceManager({
           }
           if (newTimer > 0.5 && !block1Hidden.current) {
             block1Hidden.current = true;
+            playDisappear();
             setMiddleBlocks(prevMiddle => {
               const updated = [...prevMiddle];
               if (updated[1]) updated[1].visible = false;
@@ -133,6 +137,7 @@ function SequenceManager({
           }
           if (newTimer > 1.0 && !block2Hidden.current) {
             block2Hidden.current = true;
+            playDisappear();
             setMiddleBlocks(prevMiddle => {
               const updated = [...prevMiddle];
               if (updated[2]) updated[2].visible = false;
@@ -224,6 +229,7 @@ function SequenceManager({
                 if (idx !== -1) updated[idx].visible = false;
                 return updated;
               });
+              playDisappear();
               return prevIdx - 1;
             }
             return prevIdx;

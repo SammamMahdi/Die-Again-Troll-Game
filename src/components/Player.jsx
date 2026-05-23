@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { cameraYawRef } from './CameraController';
+import { playJump } from '../utils/sounds';
 
 // Physics constants
 const GRAVITY = -45.0;
@@ -129,6 +130,7 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     if ((keys[' '] || mobileButtons.jump) && onGround) {
       vy = JUMP_FORCE;
       setOnGround(false);
+      playJump();
     }
 
     // External velocity override (launchers/knockback)
