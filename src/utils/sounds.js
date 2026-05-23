@@ -8,7 +8,7 @@
 const MUTE_KEY = 'die-again-sound-muted-v1';
 const VOL_KEY = 'die-again-volumes-v1';
 
-const DEFAULT_VOLUMES = { master: 0.7, sfx: 1.0, ui: 0.8, ambient: 0.45 };
+const DEFAULT_VOLUMES = { master: 0.7, sfx: 1.0, ui: 0.8, ambient: 0.25 };
 
 let _ctx = null;
 let _muted = (() => {
@@ -316,60 +316,107 @@ export function startAmbient(level) {
 }
 
 function buildAmbient(c, level) {
+  // ===== Master ambient bus =====
+  // gain -> lowpass -> (dry to destination) + (delay-feedback "space reverb"
+  // tail to destination). The feedback loop gives every note a long cosmic
+  // decay so the ambient feels like a vast void, not a synth patch.
   const gain = c.createGain();
   gain.gain.value = 0;
-  gain.connect(c.destination);
-  const nodes = [];
 
-  // Per-level ambience config.
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 560;     // very mellow — kills harsh harmonics
+  lp.Q.value = 0.4;
+
+  const delay = c.createDelay(4.0);
+  delay.delayTime.value = 0.55;
+  const feedback = c.createGain();
+  feedback.gain.value = 0.42;   // long, washy tail
+  const wet = c.createGain();
+  wet.gain.value = 0.7;         // tail volume relative to dry
+
+  // Routing
+  gain.connect(lp);
+  lp.connect(c.destination);    // dry signal
+  lp.connect(delay);
+  delay.connect(feedback);
+  feedback.connect(delay);      // feedback loop
+  delay.connect(wet).connect(c.destination); // wet tail
+
+  const nodes = [lp, delay, feedback, wet];
+
+  // Per-level void ambience.
+  //
+  // Each bed is a deep sub-bass + an octave + (optionally) a sparse high
+  // shimmer that drifts via a slow LFO. The delay-feedback master tail
+  // smears every note into a long cosmic echo, so the actual oscillator
+  // volumes are deliberately tiny — the tail carries most of the sound.
   switch (level) {
-    case 1: // Vanishing — slow mystery
-      nodes.push(...startOsc(c, gain, { freq: 80, type: 'triangle', volume: 0.55, lfoFreq: 0.15, lfoDepth: 3 }));
-      nodes.push(...startOsc(c, gain, { freq: 320, type: 'sine', volume: 0.18, lfoFreq: 0.3, lfoDepth: 10 }));
+    case 1: { // Vanishing — open 5th over a void
+      nodes.push(...startOsc(c, gain, { freq: 49.00, type: 'sine', volume: 0.10 })); // G1 sub
+      nodes.push(...startOsc(c, gain, { freq: 73.42, type: 'sine', volume: 0.06 })); // D2 (5th)
+      nodes.push(...startOsc(c, gain, { freq: 587.33, type: 'sine', volume: 0.018, lfoFreq: 0.08, lfoDepth: 4 })); // D5 shimmer
       break;
-    case 2: // Globe Chase — tension
-      nodes.push(...startOsc(c, gain, { freq: 90, type: 'triangle', volume: 0.5 }));
-      nodes.push(...startOsc(c, gain, { freq: 180, type: 'square', volume: 0.12, lfoFreq: 0.4, lfoDepth: 4 }));
+    }
+    case 2: { // Globe Chase — uneasy minor 3rd in deep space
+      nodes.push(...startOsc(c, gain, { freq: 55.00, type: 'sine', volume: 0.10 })); // A1
+      nodes.push(...startOsc(c, gain, { freq: 65.41, type: 'sine', volume: 0.06 })); // C2 (minor 3rd)
+      nodes.push(...startOsc(c, gain, { freq: 440.00, type: 'sine', volume: 0.014, lfoFreq: 0.12, lfoDepth: 6 })); // A4 shimmer
       break;
-    case 3: // Phantom Frost — cold wind
-      nodes.push(...startOsc(c, gain, { freq: 60, type: 'sine', volume: 0.45 }));
-      nodes.push(...startNoiseBed(c, gain, { duration: 6.0, volume: 0.10, lowpass: 700 }));
-      nodes.push(...startOsc(c, gain, { freq: 1100, type: 'sine', volume: 0.06, lfoFreq: 0.2, lfoDepth: 40 }));
+    }
+    case 3: { // Phantom Frost — cold breath of vacuum
+      nodes.push(...startOsc(c, gain, { freq: 43.65, type: 'sine', volume: 0.10 })); // F1
+      nodes.push(...startOsc(c, gain, { freq: 87.31, type: 'sine', volume: 0.05 })); // F2 octave
+      nodes.push(...startNoiseBed(c, gain, { duration: 8.0, volume: 0.03, lowpass: 280 })); // distant wind
+      nodes.push(...startOsc(c, gain, { freq: 698.46, type: 'sine', volume: 0.012, lfoFreq: 0.1, lfoDepth: 8 })); // F5 ice
       break;
-    case 4: // Betrayal — discordant
-      nodes.push(...startOsc(c, gain, { freq: 90, type: 'triangle', volume: 0.5 }));
-      nodes.push(...startOsc(c, gain, { freq: 95, type: 'triangle', volume: 0.20 })); // beating
-      nodes.push(...startOsc(c, gain, { freq: 220, type: 'sawtooth', volume: 0.08, lfoFreq: 0.5, lfoDepth: 12 }));
+    }
+    case 4: { // Betrayal — beating-frequency dread
+      nodes.push(...startOsc(c, gain, { freq: 51.91, type: 'sine', volume: 0.10 })); // G#1
+      nodes.push(...startOsc(c, gain, { freq: 52.65, type: 'sine', volume: 0.07 })); // tiny detune ⇒ ~0.7 Hz beat
+      nodes.push(...startOsc(c, gain, { freq: 415.30, type: 'sine', volume: 0.012, lfoFreq: 0.07, lfoDepth: 5 })); // G#4
       break;
-    case 5: // Pendulum Pass — rhythmic
-      nodes.push(...startOsc(c, gain, { freq: 70, type: 'triangle', volume: 0.45 }));
-      nodes.push(...startOsc(c, gain, { freq: 220, type: 'sine', volume: 0.18, lfoFreq: 0.6, lfoDepth: 30 }));
+    }
+    case 5: { // Pendulum Pass — slow far-off bell
+      nodes.push(...startOsc(c, gain, { freq: 65.41, type: 'sine', volume: 0.10 })); // C2
+      nodes.push(...startOsc(c, gain, { freq: 98.00, type: 'sine', volume: 0.05 })); // G2 (5th)
+      nodes.push(...startOsc(c, gain, { freq: 523.25, type: 'sine', volume: 0.012, lfoFreq: 0.18, lfoDepth: 7 })); // C5 bell
       break;
-    case 6: // Gauntlet — mechanical
-      nodes.push(...startOsc(c, gain, { freq: 110, type: 'square', volume: 0.32 }));
-      nodes.push(...startOsc(c, gain, { freq: 220, type: 'sawtooth', volume: 0.10, lfoFreq: 0.8, lfoDepth: 10 }));
+    }
+    case 6: { // Gauntlet — distant mechanical hum
+      nodes.push(...startOsc(c, gain, { freq: 55.00, type: 'sine', volume: 0.10 })); // A1
+      nodes.push(...startOsc(c, gain, { freq: 110.00, type: 'sine', volume: 0.05 })); // A2
+      nodes.push(...startOsc(c, gain, { freq: 220.00, type: 'sine', volume: 0.014, lfoFreq: 0.2, lfoDepth: 4 })); // A3 hum LFO
       break;
-    case 7: // Eclipse — deep void
-      nodes.push(...startOsc(c, gain, { freq: 50, type: 'sine', volume: 0.55 }));
-      nodes.push(...startNoiseBed(c, gain, { duration: 6.0, volume: 0.04, lowpass: 240 }));
+    }
+    case 7: { // Eclipse — pure void
+      nodes.push(...startOsc(c, gain, { freq: 41.20, type: 'sine', volume: 0.12 })); // E1 sub
+      nodes.push(...startNoiseBed(c, gain, { duration: 10.0, volume: 0.02, lowpass: 160 })); // very faint breath
+      nodes.push(...startOsc(c, gain, { freq: 82.41, type: 'sine', volume: 0.04, lfoFreq: 0.06, lfoDepth: 0.4 })); // E2
       break;
-    case 8: // Mirror — ethereal
-      nodes.push(...startOsc(c, gain, { freq: 200, type: 'triangle', volume: 0.30 }));
-      nodes.push(...startOsc(c, gain, { freq: 400, type: 'sine', volume: 0.18, lfoFreq: 0.18, lfoDepth: 5 }));
-      nodes.push(...startOsc(c, gain, { freq: 800, type: 'sine', volume: 0.06, lfoFreq: 0.35, lfoDepth: 15 }));
+    }
+    case 8: { // Mirror — celestial fifth above the void
+      nodes.push(...startOsc(c, gain, { freq: 61.74, type: 'sine', volume: 0.09 })); // B1
+      nodes.push(...startOsc(c, gain, { freq: 92.50, type: 'sine', volume: 0.06 })); // F#2 (5th)
+      nodes.push(...startOsc(c, gain, { freq: 740.00, type: 'sine', volume: 0.018, lfoFreq: 0.13, lfoDepth: 9 })); // F#5 shimmer
+      nodes.push(...startOsc(c, gain, { freq: 988.00, type: 'sine', volume: 0.010, lfoFreq: 0.17, lfoDepth: 7 })); // B5 sparkle
       break;
-    case 9: // Storm Surge — wind
-      nodes.push(...startOsc(c, gain, { freq: 70, type: 'triangle', volume: 0.35 }));
-      nodes.push(...startNoiseBed(c, gain, { duration: 5.0, volume: 0.16, lowpass: 1100 }));
+    }
+    case 9: { // Storm Surge — cosmic gale
+      nodes.push(...startOsc(c, gain, { freq: 49.00, type: 'sine', volume: 0.07 })); // G1
+      nodes.push(...startNoiseBed(c, gain, { duration: 7.0, volume: 0.07, lowpass: 500 })); // wind
+      nodes.push(...startOsc(c, gain, { freq: 392.00, type: 'sine', volume: 0.010, lfoFreq: 0.22, lfoDepth: 10 })); // G4 thin
       break;
-    case 10: // Architect — boss tension
-      nodes.push(...startOsc(c, gain, { freq: 55, type: 'square', volume: 0.45 }));
-      nodes.push(...startOsc(c, gain, { freq: 90, type: 'triangle', volume: 0.22, lfoFreq: 0.3, lfoDepth: 4 }));
-      nodes.push(...startOsc(c, gain, { freq: 180, type: 'sine', volume: 0.10, lfoFreq: 1.2, lfoDepth: 8 })); // pulse
+    }
+    case 10: { // Architect — ominous void heartbeat
+      nodes.push(...startOsc(c, gain, { freq: 36.71, type: 'sine', volume: 0.12 })); // D1 deep sub
+      nodes.push(...startOsc(c, gain, { freq: 55.00, type: 'sine', volume: 0.06 })); // A1 (5th)
+      nodes.push(...startOsc(c, gain, { freq: 110.00, type: 'sine', volume: 0.04, lfoFreq: 0.4, lfoDepth: 1.5 })); // A2 pulse
+      nodes.push(...startOsc(c, gain, { freq: 880.00, type: 'sine', volume: 0.012, lfoFreq: 0.09, lfoDepth: 6 })); // A5 echo
       break;
+    }
     default:
-      // No ambient (start screen, menus, etc.)
-      try { gain.disconnect(); } catch {}
+      try { gain.disconnect(); lp.disconnect(); delay.disconnect(); feedback.disconnect(); wet.disconnect(); } catch {}
       return;
   }
 
