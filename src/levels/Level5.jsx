@@ -13,33 +13,26 @@ import './Level.css';
 const STEP = 7;
 const PLAYER_HALF = 0.5;
 
-const COLOR_NORMAL  = [0.7, 0.7, 0.85];
-const COLOR_CRUMBLE = [0.8, 0.55, 0.3];
-const COLOR_GOAL    = [1.0, 0.84, 0.0];
+const COLOR_NORMAL = [0.7, 0.7, 0.85];
+const COLOR_GOAL   = [1.0, 0.84, 0.0];
 
 function buildLevel5Blocks() {
   const blocks = [];
   // Start
   blocks.push({
     x: 0, y: 0, z: 25, w: 8, h: 1, d: 8,
-    visible: true, color: [...COLOR_NORMAL], isCrumble: false,
+    visible: true, color: [...COLOR_NORMAL],
   });
-  // 8 path platforms (NARROWER than before) — first 2 stable, the next 6 all crumble
+  // 8 stable path platforms — wider than before so the player has solid
+  // footing while timing the pendulum swings. (No more crumble tiles.)
   for (let i = 0; i < 8; i++) {
     const z = 25 - (i + 1) * STEP;
-    const isCrumble = i >= 2;            // was: i >= 4
     blocks.push({
       x: 0, y: 0, z,
       startX: 0, startY: 0, startZ: z,
-      w: 3.0, h: 1, d: 3.0,              // tighter than BLOCK_SIZE (was 4)
+      w: 5.0, h: 1, d: 5.0,
       visible: true,
-      color: isCrumble ? [...COLOR_CRUMBLE] : [...COLOR_NORMAL],
-      isCrumble,
-      stepped: false,
-      crumbleTimer: 0.4,                  // was 0.6 — less time to react
-      warning: false,
-      falling: false,
-      fallSpeed: 0,
+      color: [...COLOR_NORMAL],
     });
   }
   // Goal
@@ -124,7 +117,6 @@ function Level5({ deathCount, onDeath, onComplete }) {
   const goalRef = useRef(initial.current.goal);
   const pendulumsRef = useRef(buildPendulums());
   const playerPosRef = useRef([0, 5, 25]);
-  const prevBlockIdxRef = useRef(-1);
 
   const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
@@ -154,7 +146,6 @@ function Level5({ deathCount, onDeath, onComplete }) {
     blocksRef.current.forEach((b, i) => Object.assign(b, fresh.blocks[i]));
     goalRef.current = fresh.goal;
     pendulumsRef.current = buildPendulums();
-    prevBlockIdxRef.current = -1;
     playerPosRef.current = [0, 5, 25];
     setPlayerPosition([0, 5, 25]);
     setDeathReason('');
@@ -174,24 +165,18 @@ function Level5({ deathCount, onDeath, onComplete }) {
     playerPosRef.current = pos;
     setPlayerPosition(pos);
 
-    // Find which block player is on (by AABB top)
-    let onIdx = -1;
-    for (let i = 0; i < blocksRef.current.length; i++) {
-      const b = blocksRef.current[i];
-      if (!b.visible || b.solid === false) continue;
+    // Detect goal touch
+    let onGoal = false;
+    for (const b of blocksRef.current) {
+      if (!b.isGoal || !b.visible) continue;
       const top = b.y + b.h / 2;
       if (pos[1] - 0.5 < top - 0.1 || pos[1] - 0.5 > top + 0.4) continue;
       if (Math.abs(pos[0] - b.x) > b.w / 2 + 0.4) continue;
       if (Math.abs(pos[2] - b.z) > b.d / 2 + 0.4) continue;
-      onIdx = i;
+      onGoal = true;
       break;
     }
-    if (onIdx !== prevBlockIdxRef.current) {
-      const cur = onIdx >= 0 ? blocksRef.current[onIdx] : null;
-      if (cur?.isCrumble) cur.stepped = true;
-      if (cur?.isGoal && gameState === 'playing') setGameState('won');
-      prevBlockIdxRef.current = onIdx;
-    }
+    if (onGoal && gameState === 'playing') setGameState('won');
   };
 
   useEffect(() => {
@@ -227,8 +212,8 @@ function Level5({ deathCount, onDeath, onComplete }) {
           <AnimatedBlock
             key={`${restartKey}-block-${i}`}
             block={b}
-            edgeColor={b.isGoal ? '#ffd966' : (b.isCrumble ? '#ff8855' : '#7fdaff')}
-            emissiveBoost={b.isGoal ? 0.55 : (b.isCrumble ? 0.2 : 0)}
+            edgeColor={b.isGoal ? '#ffd966' : '#7fdaff'}
+            emissiveBoost={b.isGoal ? 0.55 : 0}
           />
         ))}
 
@@ -253,7 +238,6 @@ function Level5({ deathCount, onDeath, onComplete }) {
 
         <Level5Sim
           gameState={gameState}
-          blocksRef={blocksRef}
           pendulumsRef={pendulumsRef}
           playerPosRef={playerPosRef}
           onPendulumHit={() => handlePlayerDeath('Smashed by a pendulum!')}
@@ -286,7 +270,7 @@ function Level5({ deathCount, onDeath, onComplete }) {
   );
 }
 
-function Level5Sim({ gameState, blocksRef, pendulumsRef, playerPosRef, onPendulumHit }) {
+function Level5Sim({ gameState, pendulumsRef, playerPosRef, onPendulumHit }) {
   const timerRef = useRef(0);
   const hitRef = useRef(false);
   const PEND_ANGLE_MAX = 1.25; // ~72° — pendulums reach further out into the path
@@ -315,29 +299,6 @@ function Level5Sim({ gameState, blocksRef, pendulumsRef, playerPosRef, onPendulu
       }
     }
 
-    // Crumbling tiles
-    for (const b of blocksRef.current) {
-      if (b.isCrumble && b.stepped && !b.falling) {
-        b.crumbleTimer -= delta;
-        // warn with quick orange/red flash near end
-        if (b.crumbleTimer <= 0.25) {
-          b.warning = true;
-          b.color = Math.floor(timerRef.current * 12) % 2 === 0
-            ? [1.0, 0.4, 0.2]
-            : [...COLOR_CRUMBLE];
-        }
-        if (b.crumbleTimer <= 0) {
-          b.falling = true;
-          b.fallSpeed = 0;
-          b.solid = false;
-        }
-      }
-      if (b.falling) {
-        b.fallSpeed += 50 * delta;
-        b.y -= b.fallSpeed * delta;
-        if (b.y < -30) b.visible = false;
-      }
-    }
   });
   return null;
 }
