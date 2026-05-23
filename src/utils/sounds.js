@@ -38,6 +38,28 @@ function ctx() {
   return _ctx;
 }
 
+// Install a one-shot primer that resumes the AudioContext on the first
+// real user gesture. Without this, sounds scheduled against a suspended
+// context's currentTime can be inaudible (they were scheduled "in the past"
+// relative to the clock once it finally started).
+if (typeof window !== 'undefined') {
+  const prime = () => {
+    const c = ctx();
+    if (c && c.state !== 'running') c.resume().catch(() => {});
+  };
+  const events = ['pointerdown', 'keydown', 'touchstart', 'click'];
+  events.forEach(ev => window.addEventListener(ev, prime, { passive: true }));
+}
+
+// Helper: run callback once the context is actually running. If it's already
+// running, run synchronously; otherwise resume() first, then run.
+function withRunningCtx(fn) {
+  const c = ctx();
+  if (!c) return;
+  if (c.state === 'running') { fn(c); return; }
+  c.resume().then(() => fn(c)).catch(() => {});
+}
+
 // ===== Mute + volume API =====
 export function setMuted(v) {
   _muted = !!v;
@@ -66,47 +88,47 @@ function channelVolume(channel = 'sfx') {
 
 // ===== One-shot building blocks =====
 function tone({ freq, freqEnd, duration, type = 'sine', volume = 0.18, delay = 0, channel = 'sfx' }) {
-  const c = ctx();
-  if (!c) return;
   const ch = channelVolume(channel);
   if (ch <= 0) return;
-  const now = c.currentTime + delay;
-  const osc = c.createOscillator();
-  const gain = c.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(Math.max(freq, 1), now);
-  if (freqEnd != null) {
-    osc.frequency.exponentialRampToValueAtTime(Math.max(freqEnd, 1), now + duration);
-  }
-  gain.gain.setValueAtTime(volume * ch, now);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  osc.connect(gain).connect(c.destination);
-  osc.start(now);
-  osc.stop(now + duration + 0.05);
+  withRunningCtx((c) => {
+    const now = c.currentTime + delay;
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(Math.max(freq, 1), now);
+    if (freqEnd != null) {
+      osc.frequency.exponentialRampToValueAtTime(Math.max(freqEnd, 1), now + duration);
+    }
+    gain.gain.setValueAtTime(volume * ch, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    osc.connect(gain).connect(c.destination);
+    osc.start(now);
+    osc.stop(now + duration + 0.05);
+  });
 }
 
 function noiseBurst({ duration = 0.18, volume = 0.12, freq = 800, delay = 0, channel = 'sfx' }) {
-  const c = ctx();
-  if (!c) return;
   const ch = channelVolume(channel);
   if (ch <= 0) return;
-  const now = c.currentTime + delay;
-  const bufferSize = Math.floor(c.sampleRate * duration);
-  const buf = c.createBuffer(1, bufferSize, c.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
-  const src = c.createBufferSource();
-  src.buffer = buf;
-  const filter = c.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.setValueAtTime(freq, now);
-  filter.frequency.exponentialRampToValueAtTime(80, now + duration);
-  const gain = c.createGain();
-  gain.gain.setValueAtTime(volume * ch, now);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  src.connect(filter).connect(gain).connect(c.destination);
-  src.start(now);
-  src.stop(now + duration + 0.05);
+  withRunningCtx((c) => {
+    const now = c.currentTime + delay;
+    const bufferSize = Math.floor(c.sampleRate * duration);
+    const buf = c.createBuffer(1, bufferSize, c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const filter = c.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(freq, now);
+    filter.frequency.exponentialRampToValueAtTime(80, now + duration);
+    const gain = c.createGain();
+    gain.gain.setValueAtTime(volume * ch, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    src.connect(filter).connect(gain).connect(c.destination);
+    src.start(now);
+    src.stop(now + duration + 0.05);
+  });
 }
 
 // ===== Gameplay sounds (sfx channel) =====
@@ -288,11 +310,12 @@ export function stopAmbient() {
 }
 
 export function startAmbient(level) {
-  const c = ctx();
-  if (!c) return;
   if (_ambient && _ambient.level === level) return; // already playing
   stopAmbient();
+  withRunningCtx((c) => buildAmbient(c, level));
+}
 
+function buildAmbient(c, level) {
   const gain = c.createGain();
   gain.gain.value = 0;
   gain.connect(c.destination);
