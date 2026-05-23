@@ -1,0 +1,67 @@
+.home-button {
+  position: fixed;
+  bottom: 14px;
+  left: 14px;
+  z-index: 1500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(15, 5, 30, 0.78);
+  border: 1px solid rgba(120, 200, 255, 0.45);
+  border-radius: 10px;
+  color: #c8e6ff;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  user-select: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 0 12px rgba(80, 180, 255, 0.4);
+  transition: all 0.2s ease;
+}
+
+.home-button:hover {
+  background: rgba(40, 60, 90, 0.8);
+  border-color: rgba(120, 200, 255, 0.7);
+  box-shadow: 0 0 18px rgba(80, 180, 255, 0.7);
+  transform: translateY(-1px);
+}
+
+.home-button:active {
+  transform: translateY(0);
+}
+
+.home-icon {
+  font-size: 16px;
+}
+
+.home-label {
+  font-weight: 600;
+  letter-spacing: 0.8px;
+}
+
+.home-kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-left: 4px;
+  border: 1px solid rgba(180, 230, 255, 0.45);
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 10px;
+  color: #c8e6ff;
+  background: rgba(20, 40, 60, 0.55);
+  letter-spacing: 0;
+}
+
+@media (max-width: 600px) {
+  .home-button {
+    bottom: 10px;
+    left: 10px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  .home-icon { font-size: 14px; }
+  .home-kbd { display: none; }
+}

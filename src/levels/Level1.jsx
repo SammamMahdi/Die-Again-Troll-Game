@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { Stars, Sparkles } from '@react-three/drei';
 import Player from '../components/Player';
 import Block from '../components/Block';
 import Gate from '../components/Gate';
@@ -14,6 +15,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   const [gameState, setGameState] = useState('playing'); // 'playing', 'dead', 'won'
   const [deathReason, setDeathReason] = useState('');
   const [blocks, setBlocks] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [middleBlocks, setMiddleBlocks] = useState([]);
   const [gate, setGate] = useState({ x: 0, y: 1, z: 0, visible: true });
   
@@ -32,6 +34,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   const [playerPosition, setPlayerPosition] = useState([0, 3, 20]);
   
   // Mobile controls refs
+  // eslint-disable-next-line no-unused-vars
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
@@ -147,6 +150,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState, PLANE_SIZE, BLOCK_SIZE, GAP_SIZE, STEP_SIZE]);
 
   const handleRestart = () => {
@@ -254,37 +258,68 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
     <div className="level-container">
       <Canvas
         camera={{ position: [30, 20, 40], fov: 60 }}
-        style={{ background: 'linear-gradient(180deg, #0c0c19 0%, #1a1a2e 100%)' }}
+        style={{ background: 'linear-gradient(180deg, #05051a 0%, #160c3e 55%, #3a1f6a 100%)', touchAction: 'none' }}
+        gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        <pointLight position={[0, 10, 0]} intensity={0.5} />
+        <fog attach="fog" args={['#100a26', 45, 200]} />
+        <ambientLight intensity={0.4} />
+        <hemisphereLight args={['#b8c4ff', '#150b30', 0.55]} />
+        <directionalLight position={[12, 22, 8]} intensity={1.1} color="#dde6ff" />
+        {/* Soft moonlight rim from the side for depth */}
+        <pointLight position={[-25, 14, 5]} intensity={0.6} color="#7a90ff" distance={80} />
+        {/* Warm accent at the goal */}
+        <pointLight position={[0, 4, -28]} intensity={0.9} color="#ffc245" distance={32} />
+        {/* Cool accent at the start */}
+        <pointLight position={[0, 6, 20]} intensity={0.45} color="#a0c0ff" distance={28} />
+
+        {/* Parallax starfield in the distance */}
+        <Stars radius={180} depth={60} count={2200} factor={4} saturation={0} fade speed={0.6} />
+
+        {/* Magic sparkles near the gate */}
+        <Sparkles
+          position={[0, 3, -28]}
+          count={45}
+          scale={[8, 5, 4]}
+          size={3.5}
+          speed={0.35}
+          color="#ffd966"
+        />
 
         <InfiniteGrid />
         
         {/* Render blocks */}
         {blocks.map((block, index) => {
           if (!block.visible) return null;
-          
-          // Dynamic color based on sequence state (like Python version)
+
+          // Dynamic color + neon edge per sequence-state phase
           let displayColor = block.color;
+          let edgeColor = '#7fe9ff';      // default cyan platform outline
+          let emissive = 0;
           if (block.index >= 0 && block.index <= 4) {
             const idx = block.index;
             if (sequenceState > idx + 1) {
-              displayColor = [0.3, 0.6, 0.3]; // Greenish for passed blocks
+              displayColor = [0.3, 0.7, 0.4];      // Passed: green
+              edgeColor = '#5fff9c';
+              emissive = 0.35;
             } else if (sequenceState === idx + 1) {
-              displayColor = [0.9, 0.9, 0.2]; // Yellowish for current target block
+              displayColor = [1.0, 0.95, 0.25];    // Current target: bright yellow
+              edgeColor = '#ffe14a';
+              emissive = 0.9;                       // strong glow draws the eye
             } else {
-              displayColor = [0.5, 0.5, 0.5]; // Gray for upcoming blocks
+              displayColor = [0.55, 0.55, 0.65];   // Upcoming: muted gray
+              edgeColor = '#8a8ab8';
+              emissive = 0.05;
             }
           }
-          
+
           return (
             <Block
               key={index}
               position={[block.x, block.y, block.z]}
               size={[block.w, block.h, block.d]}
               color={displayColor}
+              edgeColor={edgeColor}
+              emissiveIntensity={emissive}
             />
           );
         })}

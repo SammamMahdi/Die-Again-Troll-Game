@@ -23,11 +23,13 @@ function MobileControls({ onCameraMove, onMove, onJump, enabled }) {
     let touchId = null;
 
     const handleTouchStart = (e) => {
+      console.log('Touch start', e.touches.length);
       if (e.touches.length > 0 && touchId === null) {
         const touch = e.touches[0];
         touchId = touch.identifier;
         lastTouchX = touch.clientX;
         lastTouchY = touch.clientY;
+        console.log('Camera touch started at:', lastTouchX, lastTouchY);
       }
     };
 
@@ -41,6 +43,7 @@ function MobileControls({ onCameraMove, onMove, onJump, enabled }) {
           const deltaX = touch.clientX - lastTouchX;
           const deltaY = touch.clientY - lastTouchY;
           
+          console.log('Camera delta:', deltaX, deltaY);
           if (onCameraMove) {
             onCameraMove(deltaX, deltaY);
           }
@@ -55,6 +58,7 @@ function MobileControls({ onCameraMove, onMove, onJump, enabled }) {
     };
 
     const handleTouchEnd = (e) => {
+      console.log('Touch end');
       // Check if our tracked touch ended
       let found = false;
       for (let i = 0; i < e.touches.length; i++) {

@@ -1,0 +1,263 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Stars, Sparkles } from '@react-three/drei';
+import * as THREE from 'three';
+import Player from '../components/Player';
+import AnimatedBlock from '../components/AnimatedBlock';
+import Gate from '../components/Gate';
+import InfiniteGrid from '../components/InfiniteGrid';
+import HUD from '../components/HUD';
+import CameraController from '../components/CameraController';
+import MobileControls from '../components/MobileControls';
+import './Level.css';
+
+const COLOR_PATH = [0.7, 0.78, 0.95];
+const COLOR_GOAL = [1.0, 0.84, 0.0];
+
+function buildLevel9() {
+  const blocks = [];
+  // Eased: widened path slightly (2.5 → 3.2) so light gusts don't insta-kill.
+  blocks.push({ x: 0, y: 0, z: 25, w: 8, h: 1, d: 6, visible: true, color: [...COLOR_PATH] });
+  let z = 18;
+  for (let i = 0; i < 8; i++) {
+    blocks.push({
+      x: 0, y: 0, z, w: 3.2, h: 1, d: 3.5, visible: true, color: [...COLOR_PATH],
+    });
+    z -= 6;
+  }
+  blocks.push({ x: 0, y: 0, z: -32, w: 10, h: 1, d: 8, visible: true, color: [...COLOR_GOAL], isGoal: true });
+  return { blocks, goal: { x: 0, y: 0.5, z: -32 } };
+}
+
+function buildWindZones() {
+  // Eased: 5 zones with moderately strong gusts (was ±10/12 → ±7/9). Final
+  // diagonal zone keeps its kicker but with a smaller Z component.
+  return [
+    { x: 0, y: 0, z: 15,  w: 12, h: 8, d: 8, dirX:  7, dirZ: 0,  freq: 1.7, phase: 0.0 },
+    { x: 0, y: 0, z:  5,  w: 12, h: 8, d: 8, dirX: -8, dirZ: 0,  freq: 1.5, phase: 1.2 },
+    { x: 0, y: 0, z:  -5, w: 12, h: 8, d: 8, dirX:  8, dirZ: 0,  freq: 1.9, phase: 0.6 },
+    { x: 0, y: 0, z: -15, w: 12, h: 8, d: 8, dirX: -9, dirZ: 0,  freq: 1.7, phase: 2.0 },
+    { x: 0, y: 0, z: -25, w: 12, h: 8, d: 8, dirX:  6, dirZ: 4,  freq: 2.0, phase: 0.4 },
+  ];
+}
+
+function WindZoneVisual({ zone }) {
+  const groupRef = useRef();
+  const t = useRef(0);
+  useFrame((_, delta) => {
+    t.current += delta;
+    if (groupRef.current) {
+      groupRef.current.position.set(zone.x, zone.y + zone.h / 2, zone.z);
+      // Pulse opacity based on current wind strength
+      const strength = Math.max(0, Math.sin(t.current * zone.freq + zone.phase));
+      groupRef.current.children.forEach(child => {
+        if (child.material && child.material.transparent) {
+          child.material.opacity = 0.12 + 0.22 * strength;
+        }
+      });
+    }
+  });
+  // Wind direction visualized as semi-transparent box + horizontal streaks
+  const color = zone.dirX > 0 ? '#88ddff' : '#ff99cc';
+  return (
+    <group ref={groupRef}>
+      <mesh>
+        <boxGeometry args={[zone.w, zone.h, zone.d]} />
+        <meshBasicMaterial color={color} transparent opacity={0.15} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Streak lines indicating wind direction */}
+      {[0, 1, 2].map(i => (
+        <mesh key={i} position={[zone.dirX > 0 ? -3 : 3, -2 + i * 2, 0]} rotation={[0, 0, 0]}>
+          <boxGeometry args={[6, 0.05, 0.05]} />
+          <meshBasicMaterial color={color} transparent opacity={0.6} toneMapped={false} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function Level9({ deathCount, onDeath, onComplete }) {
+  const [gameState, setGameState] = useState('playing');
+  const [deathReason, setDeathReason] = useState('');
+  const [restartKey, setRestartKey] = useState(0);
+  const [playerPosition, setPlayerPosition] = useState([0, 5, 25]);
+
+  const initial = useRef(buildLevel9());
+  const blocksRef = useRef(initial.current.blocks);
+  const goalRef = useRef(initial.current.goal);
+  const zonesRef = useRef(buildWindZones());
+  const playerPosRef = useRef([0, 5, 25]);
+
+  const [showMobileControls, setShowMobileControls] = useState(false);
+  const cameraControlRef = useRef(null);
+  const playerControlRef = useRef(null);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
+        || ('ontouchstart' in window);
+      setShowMobileControls(mobile);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const handlePlayerDeath = (reason) => {
+    if (gameState !== 'playing') return;
+    setGameState('dead');
+    setDeathReason(reason);
+    onDeath();
+  };
+
+  const handleRestart = () => {
+    const fresh = buildLevel9();
+    blocksRef.current.forEach((b, i) => Object.assign(b, fresh.blocks[i]));
+    goalRef.current = fresh.goal;
+    zonesRef.current = buildWindZones();
+    playerPosRef.current = [0, 5, 25];
+    setPlayerPosition([0, 5, 25]);
+    setDeathReason('');
+    setGameState('playing');
+    setRestartKey(prev => prev + 1);
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key.toLowerCase() === 'r' && gameState === 'dead') handleRestart();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [gameState]); // eslint-disable-line
+
+  const handlePlayerUpdate = (pos) => {
+    playerPosRef.current = pos;
+    setPlayerPosition(pos);
+    const g = goalRef.current;
+    const dx = pos[0] - g.x;
+    const dz = pos[2] - g.z;
+    if (gameState === 'playing' && Math.sqrt(dx * dx + dz * dz) < 4.0 && pos[1] < 2.5) {
+      setGameState('won');
+    }
+  };
+
+  useEffect(() => {
+    if (gameState === 'won') {
+      const t = setTimeout(() => onComplete(), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [gameState, onComplete]);
+
+  return (
+    <div className="level-container">
+      <Canvas
+        camera={{ position: [30, 18, 40], fov: 60 }}
+        style={{
+          background: 'linear-gradient(180deg, #00141a 0%, #023a4a 60%, #0a6080 100%)',
+          touchAction: 'none',
+        }}
+        gl={{ preserveDrawingBuffer: true, antialias: true }}
+      >
+        <fog attach="fog" args={['#0a2a3a', 40, 180]} />
+        <ambientLight intensity={0.5} color="#aaddff" />
+        <hemisphereLight args={['#ccf0ff', '#001830', 0.55]} />
+        <directionalLight position={[15, 25, 10]} intensity={1.0} color="#e8f8ff" />
+        <pointLight position={[0, 8, 0]} intensity={0.7} color="#88ccff" distance={50} />
+        <pointLight position={[0, 5, -32]} intensity={0.9} color="#ffd055" distance={32} />
+
+        <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.7} />
+        <Sparkles position={[0, 3, -32]} count={45} scale={[10, 6, 4]} size={3.5} speed={0.35} color="#ffd966" />
+        {/* Whipping wind particles across the level */}
+        <Sparkles position={[0, 4, -5]} count={120} scale={[20, 8, 50]} size={1.5} speed={2.5} color="#cceeff" />
+
+        <InfiniteGrid />
+
+        {zonesRef.current.map((z, i) => (
+          <WindZoneVisual key={`${restartKey}-zone-${i}`} zone={z} />
+        ))}
+
+        {blocksRef.current.map((b, i) => (
+          <AnimatedBlock
+            key={`${restartKey}-block-${i}`}
+            block={b}
+            edgeColor={b.isGoal ? '#ffd966' : '#7fdaff'}
+            emissiveBoost={b.isGoal ? 0.55 : 0.05}
+          />
+        ))}
+
+        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} />
+
+        <Player
+          key={restartKey}
+          startPosition={[0, 5, 25]}
+          blocks={blocksRef.current}
+          gate={null}
+          onDeath={handlePlayerDeath}
+          onWin={() => {}}
+          onUpdate={handlePlayerUpdate}
+          onGateTrigger={() => {}}
+          gameState={gameState}
+          mobileControlRef={playerControlRef}
+        />
+
+        <Level9Sim
+          gameState={gameState}
+          zonesRef={zonesRef}
+          playerPosRef={playerPosRef}
+          playerControlRef={playerControlRef}
+        />
+
+        <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
+      </Canvas>
+
+      <HUD
+        level={9}
+        deathCount={deathCount}
+        gameState={gameState}
+        deathReason={deathReason}
+        onRestart={handleRestart}
+      />
+
+      {gameState === 'playing' && (
+        <div className="level-tagline">Lean into the wind. Watch the gusts.</div>
+      )}
+
+      {showMobileControls && (
+        <MobileControls
+          enabled={gameState === 'playing'}
+          onCameraMove={(dx, dy) => cameraControlRef.current?.rotate(dx, dy)}
+          onMove={(dir, p) => playerControlRef.current?.setMove(dir, p)}
+          onJump={(p) => playerControlRef.current?.setJump(p)}
+        />
+      )}
+    </div>
+  );
+}
+
+function Level9Sim({ gameState, zonesRef, playerPosRef, playerControlRef }) {
+  const tRef = useRef(0);
+  useFrame((_, deltaRaw) => {
+    if (gameState !== 'playing') return;
+    const delta = Math.min(deltaRaw, 0.05);
+    tRef.current += delta;
+    const [px, py, pz] = playerPosRef.current;
+
+    for (const z of zonesRef.current) {
+      // Inside the zone?
+      if (Math.abs(px - z.x) > z.w / 2) continue;
+      if (Math.abs(py - (z.y + z.h / 2)) > z.h / 2) continue;
+      if (Math.abs(pz - z.z) > z.d / 2) continue;
+      // Wind strength pulses (gust)
+      const strength = Math.max(0, Math.sin(tRef.current * z.freq + z.phase));
+      const dx = z.dirX * strength * delta;
+      const dz = z.dirZ * strength * delta;
+      if (playerControlRef.current?.addExternalDelta) {
+        playerControlRef.current.addExternalDelta(dx, 0, dz);
+      }
+    }
+  });
+  return null;
+}
+
+export default Level9;
