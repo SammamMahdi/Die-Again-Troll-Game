@@ -43,7 +43,14 @@ function Leaderboard({ currentUserUid, onBack }) {
         <div className="leaderboard-header">
           <button className="leaderboard-back" onClick={onBack}>← Back</button>
           <h1 className="leaderboard-title">LEADERBOARD</h1>
-          <div className="leaderboard-subtitle">Top 50 players · click a row to expand</div>
+          <div className="leaderboard-subtitle">Top 50 players by total score · click a row for details</div>
+        </div>
+
+        <div className="leaderboard-legend">
+          <span><strong className="lb-leg-gold">G</strong> = gold medals</span>
+          <span><strong className="lb-leg-silver">S</strong> = silver medals</span>
+          <span><strong className="lb-leg-bronze">B</strong> = bronze medals</span>
+          <span><strong className="lb-leg-deaths">💀</strong> = deaths on best run</span>
         </div>
 
         {loading && <div className="leaderboard-message">Loading…</div>}
@@ -55,9 +62,9 @@ function Leaderboard({ currentUserUid, onBack }) {
         {rows.length > 0 && (
           <div className="leaderboard-table">
             <div className="lb-row lb-header-row">
-              <div className="lb-rank">#</div>
+              <div className="lb-rank">Rank</div>
               <div className="lb-name">Player</div>
-              <div className="lb-medals" title="Gold / Silver / Bronze counts">GSB</div>
+              <div className="lb-medals" title="Gold / Silver / Bronze medal counts">Medals</div>
               <div className="lb-score">Score</div>
             </div>
             {rows.map((row, idx) => {
@@ -81,13 +88,15 @@ function Leaderboard({ currentUserUid, onBack }) {
                         <span className="lb-expand-caret">{isExpanded ? '▼' : '▶'}</span>
                       </div>
                       <div className="lb-substats">
-                        Runs {row.totalRuns ?? 0} · Cleared {row.totalCompletes ?? 0} · ★ {row.achievements?.length ?? 0}/{ACHIEVEMENTS.length}
+                        <span title="Total times the player started a game">Runs <strong>{row.totalRuns ?? 0}</strong></span>
+                        <span title="Total times they cleared all 10 levels in one run">Full clears <strong>{row.totalCompletes ?? 0}</strong></span>
+                        <span title="Achievements unlocked">Achievements <strong>{row.achievements?.length ?? 0}/{ACHIEVEMENTS.length}</strong></span>
                       </div>
                     </div>
                     <div className="lb-medals">
-                      <span className="lb-gold">{row.medalCounts?.gold ?? 0}</span>
-                      <span className="lb-silver">{row.medalCounts?.silver ?? 0}</span>
-                      <span className="lb-bronze">{row.medalCounts?.bronze ?? 0}</span>
+                      <span className="lb-gold"   title={`${row.medalCounts?.gold ?? 0} gold medals`}>{row.medalCounts?.gold ?? 0}</span>
+                      <span className="lb-silver" title={`${row.medalCounts?.silver ?? 0} silver medals`}>{row.medalCounts?.silver ?? 0}</span>
+                      <span className="lb-bronze" title={`${row.medalCounts?.bronze ?? 0} bronze medals`}>{row.medalCounts?.bronze ?? 0}</span>
                     </div>
                     <div className="lb-score">{row.totalScore ?? 0}</div>
                   </button>
@@ -133,17 +142,19 @@ function ExpandedDetail({ row }) {
       </div>
 
       <div className="lb-detail-section">
-        <div className="lb-detail-label">Best run per level</div>
+        <div className="lb-detail-label">Best run per level (time · deaths)</div>
         <div className="lb-times">
           {LEVELS.map(n => {
             const t = bestTimes[n] ?? bestTimes[String(n)];
             const d = bestDeaths[n] ?? bestDeaths[String(n)];
             const has = Number.isFinite(t);
             return (
-              <div key={n} className={`lb-time ${has ? '' : 'lb-time-empty'}`}>
-                <div className="lb-time-lvl">L{n}</div>
+              <div key={n}
+                   className={`lb-time ${has ? '' : 'lb-time-empty'}`}
+                   title={has ? `Level ${n}: best time ${formatTime(t)}, ${d ?? 0} deaths` : `Level ${n}: not cleared yet`}>
+                <div className="lb-time-lvl">Level {n}</div>
                 <div className="lb-time-val">{has ? formatTime(t) : '—'}</div>
-                <div className="lb-time-deaths">{has ? `${d ?? 0}† ` : ''}</div>
+                <div className="lb-time-deaths">{has ? `💀 ${d ?? 0}` : ''}</div>
               </div>
             );
           })}

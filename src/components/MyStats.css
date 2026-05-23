@@ -1,0 +1,369 @@
+.mystats {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 25% 30%, rgba(120, 60, 220, 0.25) 0%, transparent 55%),
+    radial-gradient(circle at 75% 70%, rgba(60, 220, 200, 0.18) 0%, transparent 55%),
+    linear-gradient(180deg, #04041a 0%, #160a36 100%);
+  color: #f5ecff;
+  z-index: 2000;
+  overflow-y: auto;
+  padding: 40px 20px 80px;
+}
+
+.mystats-bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(140, 80, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(80, 220, 255, 0.08) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  mask-image: radial-gradient(circle at 50% 50%, black 0%, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 0%, transparent 80%);
+}
+
+.mystats-card {
+  position: relative;
+  width: min(820px, 96vw);
+  padding: 28px 36px 36px;
+  background: rgba(15, 6, 36, 0.7);
+  border: 1px solid rgba(200, 140, 255, 0.35);
+  border-radius: 16px;
+  box-shadow: 0 0 30px rgba(180, 100, 255, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.mystats-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.mystats-back {
+  padding: 6px 14px;
+  background: rgba(200, 130, 255, 0.15);
+  color: #e8d9ff;
+  border: 1px solid rgba(200, 130, 255, 0.4);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+
+.mystats-back:hover {
+  background: rgba(200, 130, 255, 0.3);
+  box-shadow: 0 0 10px rgba(255, 100, 220, 0.4);
+}
+
+.mystats-title {
+  margin: 0;
+  font-size: 1.8rem;
+  letter-spacing: 4px;
+  color: #ff7ad0;
+  text-shadow: 0 0 10px #ff5cc7, 0 0 26px #c47aff;
+}
+
+.mystats-name {
+  margin-top: 4px;
+  font-size: 0.95rem;
+  color: #e8d9ff;
+  letter-spacing: 0.5px;
+}
+
+.mystats-rank {
+  color: #ffd966;
+  text-shadow: 0 0 8px rgba(255, 200, 80, 0.45);
+}
+
+.mystats-message {
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: rgba(255, 200, 60, 0.1);
+  border: 1px solid rgba(255, 200, 60, 0.3);
+  border-radius: 8px;
+  color: #ffd966;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.mystats-error {
+  background: rgba(255, 100, 120, 0.12);
+  border-color: rgba(255, 100, 120, 0.4);
+  color: #ffaaaa;
+}
+
+/* ===== Hero ===== */
+.mystats-hero {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) 1fr;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.mystats-score-card {
+  padding: 14px 16px;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(255, 80, 200, 0.22) 0%, rgba(180, 80, 255, 0.22) 100%);
+  border: 1px solid rgba(255, 120, 220, 0.55);
+  border-radius: 12px;
+  box-shadow: 0 0 18px rgba(255, 100, 200, 0.4);
+}
+
+.mystats-score-label {
+  font-size: 0.7rem;
+  letter-spacing: 3px;
+  color: #ffcce5;
+}
+
+.mystats-score-value {
+  margin-top: 4px;
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: #ffd966;
+  text-shadow: 0 0 14px rgba(255, 200, 80, 0.7), 0 0 30px rgba(255, 100, 200, 0.4);
+}
+
+.mystats-key-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.mystats-stat {
+  padding: 10px 14px;
+  background: rgba(20, 8, 40, 0.55);
+  border: 1px solid rgba(160, 100, 220, 0.25);
+  border-radius: 8px;
+}
+
+.mystats-stat-label {
+  font-size: 0.66rem;
+  letter-spacing: 1.8px;
+  color: #b9a4d8;
+  text-transform: uppercase;
+}
+
+.mystats-stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 0 6px rgba(200, 160, 255, 0.45);
+  margin-top: 2px;
+}
+
+/* ===== Section frame ===== */
+.mystats-section {
+  margin-top: 18px;
+}
+
+.mystats-section-label {
+  font-size: 0.72rem;
+  letter-spacing: 2px;
+  color: #b9a4d8;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* ===== Medal totals ===== */
+.mystats-medal-totals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.mystats-medal-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+
+.mystats-medal-pill-gold {
+  background: radial-gradient(circle, rgba(255, 215, 100, 0.32) 0%, rgba(174, 110, 38, 0.32) 100%);
+  border-color: rgba(255, 200, 80, 0.55);
+  box-shadow: 0 0 12px rgba(255, 200, 80, 0.3);
+}
+.mystats-medal-pill-silver {
+  background: radial-gradient(circle, rgba(220, 230, 245, 0.3) 0%, rgba(120, 134, 165, 0.3) 100%);
+  border-color: rgba(200, 215, 235, 0.55);
+  box-shadow: 0 0 12px rgba(200, 215, 235, 0.25);
+}
+.mystats-medal-pill-bronze {
+  background: radial-gradient(circle, rgba(220, 160, 110, 0.3) 0%, rgba(120, 70, 36, 0.3) 100%);
+  border-color: rgba(220, 160, 110, 0.55);
+  box-shadow: 0 0 12px rgba(220, 160, 110, 0.25);
+}
+
+.mystats-medal-letter {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Georgia', serif;
+  font-size: 1.1rem;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.3);
+  text-shadow: 0 0 6px currentColor;
+}
+
+.mystats-medal-pill-gold .mystats-medal-letter   { color: #ffd966; }
+.mystats-medal-pill-silver .mystats-medal-letter { color: #e8eef9; }
+.mystats-medal-pill-bronze .mystats-medal-letter { color: #ffc99a; }
+
+.mystats-medal-count {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.mystats-medal-tier {
+  margin-left: auto;
+  font-size: 0.72rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #b9a4d8;
+}
+
+/* ===== Per-level breakdown ===== */
+.mystats-levels {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.mystats-level {
+  padding: 10px 8px;
+  text-align: center;
+  background: rgba(20, 8, 40, 0.55);
+  border: 1px solid rgba(160, 100, 220, 0.18);
+  border-radius: 8px;
+}
+
+.mystats-level-num {
+  font-size: 0.62rem;
+  letter-spacing: 1.5px;
+  color: #b9a4d8;
+  text-transform: uppercase;
+}
+
+.mystats-level-medal {
+  margin-top: 4px;
+  font-size: 1.4rem;
+  font-weight: 800;
+  font-family: 'Georgia', serif;
+  text-shadow: 0 0 6px currentColor;
+}
+
+.mystats-level-stats {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.72rem;
+}
+
+.mystats-level-time {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  color: #e8d9ff;
+}
+
+.mystats-level-deaths {
+  color: #ff9aaa;
+  opacity: 0.85;
+}
+
+.mystats-level-gold   { border-color: rgba(255, 200, 80, 0.55); }
+.mystats-level-gold   .mystats-level-medal { color: #ffd966; }
+.mystats-level-silver { border-color: rgba(200, 215, 235, 0.55); }
+.mystats-level-silver .mystats-level-medal { color: #e8eef9; }
+.mystats-level-bronze { border-color: rgba(220, 160, 110, 0.55); }
+.mystats-level-bronze .mystats-level-medal { color: #ffc99a; }
+.mystats-level-empty .mystats-level-medal  { color: rgba(180, 160, 220, 0.45); }
+
+/* ===== Achievements ===== */
+.mystats-achievements {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.mystats-ach {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(20, 8, 40, 0.45);
+  border: 1px solid rgba(160, 100, 220, 0.18);
+  border-radius: 8px;
+  opacity: 0.55;
+}
+
+.mystats-ach.mystats-ach-owned {
+  opacity: 1;
+  border-color: rgba(255, 200, 80, 0.55);
+  background: rgba(255, 200, 80, 0.08);
+}
+
+.mystats-ach-star {
+  font-size: 1.1rem;
+  width: 18px;
+  text-align: center;
+  color: rgba(180, 160, 220, 0.6);
+}
+
+.mystats-ach.mystats-ach-owned .mystats-ach-star {
+  color: #ffd966;
+  text-shadow: 0 0 8px rgba(255, 200, 80, 0.6);
+}
+
+.mystats-ach-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mystats-ach-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #e8d9ff;
+  letter-spacing: 0.3px;
+}
+
+.mystats-ach.mystats-ach-owned .mystats-ach-name {
+  color: #ffe28b;
+}
+
+.mystats-ach-desc {
+  font-size: 0.72rem;
+  color: #b9a4d8;
+  opacity: 0.9;
+  margin-top: 1px;
+}
+
+.mystats-ach-points {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ffd966;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 600px) {
+  .mystats-hero {
+    grid-template-columns: 1fr;
+  }
+  .mystats-levels {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .mystats-achievements {
+    grid-template-columns: 1fr;
+  }
+}

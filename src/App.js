@@ -5,6 +5,7 @@ import AdminBadge from './components/AdminBadge';
 import RewardScreen from './components/RewardScreen';
 import AuthModal from './components/AuthModal';
 import Leaderboard from './components/Leaderboard';
+import MyStats from './components/MyStats';
 import HomeButton from './components/HomeButton';
 import Level1 from './levels/Level1';
 import Level2 from './levels/Level2';
@@ -356,6 +357,7 @@ function App() {
           onRegister={() => setAuthModalMode('register')}
           onSignOut={async () => { await signOutUser(); }}
           onLeaderboard={() => setCurrentScreen('leaderboard')}
+          onMyStats={() => setCurrentScreen('mystats')}
           cloudEnabled={isCloudEnabled()}
           isAdmin={isAdmin}
         />
@@ -420,6 +422,13 @@ function App() {
       {currentScreen === 'leaderboard' && (
         <Leaderboard
           currentUserUid={authUser?.uid}
+          onBack={() => setCurrentScreen('start')}
+        />
+      )}
+      {currentScreen === 'mystats' && (
+        <MyStats
+          authUser={authUser}
+          progress={persistedProgress}
           onBack={() => setCurrentScreen('start')}
         />
       )}
