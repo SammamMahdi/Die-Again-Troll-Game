@@ -7,6 +7,8 @@ import AuthModal from './components/AuthModal';
 import Leaderboard from './components/Leaderboard';
 import MyStats from './components/MyStats';
 import HomeButton from './components/HomeButton';
+import AbilityHUD from './components/AbilityHUD';
+import Guide from './components/Guide';
 import Level1 from './levels/Level1';
 import Level2 from './levels/Level2';
 import Level3 from './levels/Level3';
@@ -358,6 +360,7 @@ function App() {
           onSignOut={async () => { await signOutUser(); }}
           onLeaderboard={() => setCurrentScreen('leaderboard')}
           onMyStats={() => setCurrentScreen('mystats')}
+          onGuide={() => setCurrentScreen('guide')}
           cloudEnabled={isCloudEnabled()}
           isAdmin={isAdmin}
         />
@@ -432,6 +435,9 @@ function App() {
           onBack={() => setCurrentScreen('start')}
         />
       )}
+      {currentScreen === 'guide' && (
+        <Guide onBack={() => setCurrentScreen('start')} />
+      )}
 
       {authModalMode && (
         <AuthModal
@@ -443,6 +449,11 @@ function App() {
 
       {currentScreen !== 'start' && currentScreen !== 'leaderboard' && (
         <HomeButton onHome={goToStart} />
+      )}
+
+      {/* Ability hint shown only while playing a level */}
+      {currentScreen.startsWith('level') && (
+        <AbilityHUD level={parseInt(currentScreen.replace('level', ''), 10)} />
       )}
 
       {adminMode && (

@@ -1,0 +1,51 @@
+.ability-hud {
+  position: fixed;
+  top: 70px;
+  left: 16px;
+  z-index: 1400;
+  padding: 8px 14px;
+  max-width: min(420px, 90vw);
+  background: rgba(15, 5, 30, 0.78);
+  border: 1px solid var(--ah-accent, #ffd966);
+  border-radius: 10px;
+  color: #f0e8ff;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  user-select: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow:
+    0 0 14px var(--ah-accent, #ffd966),
+    inset 0 0 12px rgba(0, 0, 0, 0.4);
+  animation: ability-hud-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ability-hud-pulse {
+  0%, 100% { box-shadow: 0 0 12px var(--ah-accent, #ffd966), inset 0 0 12px rgba(0,0,0,0.4); }
+  50%      { box-shadow: 0 0 22px var(--ah-accent, #ffd966), inset 0 0 12px rgba(0,0,0,0.4); }
+}
+
+.ability-hud-label {
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ah-accent, #ffd966);
+  text-shadow: 0 0 6px currentColor;
+  opacity: 0.95;
+  margin-bottom: 2px;
+}
+
+.ability-hud-text {
+  font-size: 0.86rem;
+  letter-spacing: 0.4px;
+  color: #f0e8ff;
+}
+
+@media (max-width: 600px) {
+  .ability-hud {
+    top: 60px;
+    left: 10px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
+  .ability-hud-text { font-size: 0.78rem; }
+}

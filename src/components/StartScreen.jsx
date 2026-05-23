@@ -4,7 +4,7 @@ import './StartScreen.css';
 
 function StartScreen({
   onStart, adminMode, onToggleAdmin, onAdminJump, onLevelJump, progress,
-  authUser, onSignIn, onRegister, onSignOut, onLeaderboard, onMyStats,
+  authUser, onSignIn, onRegister, onSignOut, onLeaderboard, onMyStats, onGuide,
   cloudEnabled, isAdmin,
 }) {
   const [levelInput, setLevelInput] = useState('');
@@ -63,6 +63,7 @@ function StartScreen({
             <button className="auth-chip-btn" onClick={onRegister}>Register</button>
           </>
         )}
+        <button className="auth-chip-btn" onClick={onGuide}>📖 Guide</button>
         <button className="auth-chip-btn" onClick={onLeaderboard}>🏆 Leaderboard</button>
       </div>
 

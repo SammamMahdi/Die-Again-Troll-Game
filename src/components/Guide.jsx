@@ -1,0 +1,281 @@
+import React, { useState } from 'react';
+import './Guide.css';
+
+// Level entries read like myth, not manuals. Each one is a prologue, a
+// handful of whispers (oblique hints), and a closing warning (mantra).
+const LEVELS = [
+  {
+    n: 1, name: 'The Vanishing Path', accent: '#ffe14a',
+    ability: 'A sense of order — the next safe stone glows brighter than the others. Follow the yellow.',
+    abilityHint: '✨ Follow the yellow — the path comes in order',
+    prologue:
+      'You wake on a stone island in the dark. Beyond you, a row of stepping stones flickers in and out, never quite committing to being real. A gold light pulses where the path ends, patient and a little smug.',
+    whispers: [
+      'The path remembers your footsteps. Only briefly.',
+      'The light moves where you should follow.',
+      'When you reach the gate, it may not stay where it promised. Be ready to retrace your steps faster than they vanish.',
+    ],
+    warning: 'Patience is the path. Haste is the void.',
+  },
+  {
+    n: 2, name: 'Globe Chase', accent: '#ff6fb5',
+    ability: 'Stillness. The watchers cannot see what does not move. Standing perfectly still disarms them while the red light burns.',
+    abilityHint: '🔴 RED = freeze · 🔵 BLUE = run',
+    prologue:
+      'Four watchers hang in the purple air, asleep behind blue eyes. The path passes beneath them. They will not wake unless you give them a reason.',
+    whispers: [
+      'Blue is dream. Red is hunt.',
+      'They only chase what runs.',
+      'One platform along the way will betray its weight to you. Read the colour before you trust it.',
+    ],
+    warning: 'Stillness shields you. Speed is a confession.',
+  },
+  {
+    n: 3, name: 'Phantom Frost', accent: '#82eaff',
+    ability: 'Sonar Pulse. Holding SPACE sends out a brief pulse of light that reveals invisible blocks for as long as you hold it. The world re-hides them the moment you let go.',
+    abilityHint: '🌀 Hold SPACE — sonar reveals hidden stones',
+    prologue:
+      'A wind that knows your shape rolls over the ice. Some platforms are visible. Some are not. Some lie about being either.',
+    whispers: [
+      'A pulse from your hand reveals the hidden — but the world hides again the moment your breath catches.',
+      'Trust the silence between the blink. The two halves of the bridge breathe in turn.',
+      'Where the path forks, the safe-looking road is a lie. The truest road is one no eye has seen.',
+    ],
+    warning: 'Believe the world only when you have touched it.',
+  },
+  {
+    n: 4, name: 'The Betrayal', accent: '#ffaa44',
+    ability: 'A flicker-sense. When a platform is about to drop, the world flashes yellow for a beat. When something is an illusion, it shimmers a fraction off-rhythm. Look for the wrongness.',
+    abilityHint: '👁 Watch for the flicker — it warns before it betrays',
+    prologue:
+      'Everything in this place is wearing a face. The blue blocks smile. The gray ones whisper. The orange ones laugh, and then they throw you.',
+    whispers: [
+      'Trust no platform that smiles. Some blues are doors with the floor missing.',
+      'Gray is a memory of solidness, not solidness itself.',
+      'When something flings you, do not fight the air. Land soft, look around, find the next lie.',
+    ],
+    warning: 'Trust nothing. Move anyway.',
+  },
+  {
+    n: 5, name: 'Pendulum Pass', accent: '#ff4466',
+    ability: 'Read the rhythm. The bells repeat in a pattern. If you watch one full swing before stepping forward, your body will already know when to move.',
+    abilityHint: '⏱ Wait the swing — step on the silence',
+    prologue:
+      'The bells of the dead are swinging. Each one faster than the last. They have all the time in the world. You do not.',
+    whispers: [
+      'Walk in the silence between the swings.',
+      'The first bells are gentle teachers. Use them to learn the rhythm before the harder ones begin.',
+      'A square of stone is wider than it looks. Tuck yourself into a corner if the room must shrink.',
+    ],
+    warning: 'You cannot outrun a pendulum. You can only outwait one.',
+  },
+  {
+    n: 6, name: 'The Gauntlet', accent: '#ff3366',
+    ability: 'Counter-rotation. While you stand on a spinning disc, walking opposite to its motion holds you in place. Walking with it sends you over the edge faster.',
+    abilityHint: '🔄 Walk against the spin · time the twin beams',
+    prologue:
+      'The wheels of the gauntlet turn for no one. Beams of light open and close like eyes. Three discs, each angrier than the last, expect you to know your place on them.',
+    whispers: [
+      'Move with the world, or against it — but never stand still.',
+      'There is no safe side of a beam that has another beam on its back.',
+      'The bridges between are narrow. The discs are not. Choose where to commit.',
+    ],
+    warning: 'A still foot is a fallen one.',
+  },
+  {
+    n: 7, name: 'Eclipse', accent: '#c8e6ff',
+    ability: 'A small light follows your gaze. Wherever the camera looks, the world appears for a short distance. Look forward and the path emerges.',
+    abilityHint: '🔦 Your gaze is your lantern — look where you walk',
+    prologue:
+      'A great hand has dimmed the sky. You carry a small lamp in your chest. The world only exists as far as the lamp can reach.',
+    whispers: [
+      'The dark forgets you. Keep walking and it cannot remember where you were.',
+      'Things move in the unseen. Their colour glows where their shape does not.',
+      'Do not look back. The path behind has rearranged itself.',
+    ],
+    warning: 'The dark does not chase. It waits.',
+  },
+  {
+    n: 8, name: 'Mirror', accent: '#ff66cc',
+    ability: 'A reflection. Your shadow walks beside you at the mirror of your position. Every step you take, the shadow takes the same step on the other side of zero.',
+    abilityHint: '🪞 Your shadow mirrors at -X — move opposite',
+    prologue:
+      'A shadow remembers your shape and walks beside you, on the other side of the river that runs through this hall. What hurts the shadow hurts you.',
+    whispers: [
+      'You are not alone. Each step you take, your shadow takes the opposite.',
+      'The spikes hunger for it, not for you. To save yourself, save the shadow.',
+      'When fear pulls you one way, pull the other. Your instinct is a betrayer here.',
+    ],
+    warning: 'What you fear lives on the other side of yourself.',
+  },
+  {
+    n: 9, name: 'Storm Surge', accent: '#88ddff',
+    ability: 'Wind-sense. The streaks in each zone tell you which way the gust will push you. The pulse rises and falls — between gusts there is a moment of still.',
+    abilityHint: '🌬 Gusts pulse · wait the silence',
+    prologue:
+      'The wind has thoughts. Each gust is a sentence it speaks once before fading. Stand in the wrong one and it will carry you into nothing.',
+    whispers: [
+      'Lean into the wind. It whispers its direction in the way the air moves before it arrives.',
+      'Between the gusts is a pause. The pause is the path.',
+      'At the end the wind speaks in two directions at once. Listen for the corner.',
+    ],
+    warning: 'The wind is not your enemy. It is your map.',
+  },
+  {
+    n: 10, name: 'The Architect', accent: '#ffd066',
+    ability: 'No new gift. Everything you have learned will be tested at once. Movement, friction, timing, courage. The Architect grants nothing — it only takes from those who pause.',
+    abilityHint: '💎 Wake all 3 pillars · then sprint to the centre',
+    prologue:
+      'You stand in the centre of a place that knows you have been here before. The Architect remembers each fall. Three pillars sing at the corners of the world. To reach the gate, you must wake all three.',
+    whispers: [
+      'It is always behind you. Keep moving. Direction matters less than motion.',
+      'Each pillar you touch summons another hunter. The price of progress is more company.',
+      'The bridges between are slick with ice. Plan your slide before you start it.',
+      'When the third pillar sings, the centre opens. Do not pause to admire — sprint.',
+    ],
+    warning: 'Crown yourself, or be consumed.',
+  },
+];
+
+// Exported for the in-game HUD so each level can show its own ability hint.
+export const ABILITY_HINTS = Object.fromEntries(
+  LEVELS.map(l => [l.n, { hint: l.abilityHint, accent: l.accent, ability: l.ability }])
+);
+
+const CORE_MECHANICS = [
+  { title: 'Movement', detail: 'WASD moves relative to the camera. "Forward" always means whatever way you’re looking.' },
+  { title: 'Jumping', detail: 'SPACE jumps from any solid platform. No double-jump.' },
+  { title: 'Friction', detail: 'Normal blocks slow you quickly. Ice blocks let you slide far past where you wanted to stop.' },
+  { title: 'Void death', detail: 'Falling below the world resets you to the level start. The death counter remembers.' },
+  { title: 'Shadow projection', detail: 'A faint disc under your pawn shows where you would land if you fell. It fades the higher you jump.' },
+  { title: 'Camera', detail: 'Arrow keys or mouse drag rotate the view. The camera follows the pawn at a fixed distance.' },
+];
+
+const TIPS = [
+  'Press **ESC** anytime to bail to the home screen.',
+  'After clearing a level, **the next level is unlocked** on the start screen. Click "Continue from level".',
+  'Sign in to save your medals to the cloud and **compete on the leaderboard**.',
+  '**Gold medals** require 0 deaths in a level. Silver tolerates a few. Bronze is just for finishing.',
+  '**Iron Will** and **Flawless** need a clean L1→L10 run — admin or level-select jumps disqualify the attempt.',
+  '**Don’t fear death.** Most levels become readable after a handful of attempts. The death counter is your trophy.',
+];
+
+function Guide({ onBack }) {
+  const [expanded, setExpanded] = useState(1);
+
+  return (
+    <div className="guide">
+      <div className="guide-bg" />
+      <div className="guide-card">
+
+        <div className="guide-header">
+          <button className="guide-back" onClick={onBack}>← Back</button>
+          <h1 className="guide-title">GAME GUIDE</h1>
+          <div className="guide-subtitle">How everything works · whispers for each level</div>
+        </div>
+
+        {/* Overview */}
+        <section className="guide-section">
+          <h2 className="guide-section-title">Overview</h2>
+          <p className="guide-paragraph">
+            <strong>Die Again</strong> is a 10-level 3D platformer. Every level introduces
+            a different mechanic — disappearing platforms, swinging hammers, gravity tricks,
+            chasers, and worse. Reach the gold gate at the end to advance.
+          </p>
+          <p className="guide-paragraph">
+            Dying is part of the loop. You respawn on the same level instantly, and the
+            death counter only matters to you. Each level has its own atmosphere, lighting
+            palette, and rules. The hints below are deliberately oblique — the levels are
+            meant to be felt out, not solved on paper.
+          </p>
+        </section>
+
+        {/* Controls */}
+        <section className="guide-section">
+          <h2 className="guide-section-title">Controls</h2>
+          <div className="guide-controls-grid">
+            <div className="guide-control"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>Move (relative to camera)</span></div>
+            <div className="guide-control"><kbd>SPACE</kbd><span>Jump (Level 3: also sonar pulse)</span></div>
+            <div className="guide-control"><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd><span>Rotate camera</span></div>
+            <div className="guide-control"><kbd>Mouse drag</kbd><span>Rotate camera</span></div>
+            <div className="guide-control"><kbd>R</kbd><span>Restart level after dying</span></div>
+            <div className="guide-control"><kbd>Esc</kbd><span>Return to home screen / close modals</span></div>
+            <div className="guide-control"><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd><span>Admin level jump (admin account only)</span></div>
+          </div>
+        </section>
+
+        {/* Core mechanics */}
+        <section className="guide-section">
+          <h2 className="guide-section-title">Core mechanics</h2>
+          <div className="guide-mech-grid">
+            {CORE_MECHANICS.map(m => (
+              <div className="guide-mech" key={m.title}>
+                <div className="guide-mech-title">{m.title}</div>
+                <div className="guide-mech-detail">{m.detail}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Tips */}
+        <section className="guide-section">
+          <h2 className="guide-section-title">Tips & strategy</h2>
+          <ul className="guide-tip-list">
+            {TIPS.map((t, i) => (
+              <li key={i} dangerouslySetInnerHTML={{ __html: t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} />
+            ))}
+          </ul>
+        </section>
+
+        {/* Per-level whispers */}
+        <section className="guide-section">
+          <h2 className="guide-section-title">Whispers from the levels</h2>
+          <p className="guide-paragraph guide-paragraph-quiet">
+            What follows are hints, not instructions. They are arranged in the order you will
+            meet them. Read them as you would a rumour about a place you are about to visit.
+          </p>
+          <div className="guide-level-list">
+            {LEVELS.map(lvl => {
+              const isOpen = expanded === lvl.n;
+              return (
+                <div
+                  key={lvl.n}
+                  className={`guide-level ${isOpen ? 'guide-level-open' : ''}`}
+                  style={{ '--accent': lvl.accent }}
+                >
+                  <button
+                    className="guide-level-header"
+                    onClick={() => setExpanded(isOpen ? null : lvl.n)}
+                  >
+                    <span className="guide-level-badge">L{lvl.n}</span>
+                    <span className="guide-level-name">{lvl.name}</span>
+                    <span className="guide-level-caret">{isOpen ? '▼' : '▶'}</span>
+                  </button>
+
+                  {isOpen && (
+                    <div className="guide-level-body">
+                      <p className="guide-prologue">{lvl.prologue}</p>
+                      <div className="guide-ability">
+                        <div className="guide-ability-label">What this level gives you</div>
+                        <div className="guide-ability-text">{lvl.ability}</div>
+                      </div>
+                      <ul className="guide-whispers">
+                        {lvl.whispers.map((w, i) => (
+                          <li key={i}>{w}</li>
+                        ))}
+                      </ul>
+                      <div className="guide-warning">— {lvl.warning}</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+      </div>
+    </div>
+  );
+}
+
+export default Guide;
