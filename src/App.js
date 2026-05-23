@@ -67,16 +67,29 @@ function App() {
     return () => unsub && unsub();
   }, []);
 
-  // When the signed-in user changes, pull their cloud progress so the UI
-  // shows the right state for that account (not whoever was here last).
-  // For brand-new accounts cloudData will be the freshly-seeded empty doc,
-  // which correctly clears any prior local progress from this browser.
+  // When auth state changes, progress is owned by whoever is signed in.
+  // - Signed-in: cloud doc IS the truth; replace local display + storage.
+  // - Signed-out: clear local display so the previous account's progress
+  //   isn't visible to whoever uses this device next.
   useEffect(() => {
-    if (!authUser || !isCloudEnabled()) return;
+    if (!isCloudEnabled()) return;
+    const EMPTY = {
+      bestDeaths: {}, bestTimes: {}, medals: {},
+      achievements: [], totalRuns: 0, totalCompletes: 0, lastRun: null,
+    };
+
+    // Signed out — wipe local
+    if (!authUser) {
+      setPersistedProgress(EMPTY);
+      saveProgress(EMPTY);
+      return;
+    }
+
+    // Signed in — fetch + overwrite local with cloud truth
     let cancelled = false;
     fetchMyScore(authUser.uid).then((cloudData) => {
-      if (cancelled || !cloudData) return;
-      const adapted = {
+      if (cancelled) return;
+      const adapted = cloudData ? {
         bestDeaths: cloudData.bestDeaths || {},
         bestTimes: cloudData.bestTimes || {},
         medals: cloudData.medals || {},
@@ -84,10 +97,20 @@ function App() {
         totalRuns: cloudData.totalRuns || 0,
         totalCompletes: cloudData.totalCompletes || 0,
         lastRun: cloudData.lastRun || null,
-      };
+      } : EMPTY;
       setPersistedProgress(adapted);
-      saveProgress(adapted);  // also keep local in sync for offline play
-    }).catch(() => {});
+      saveProgress(adapted);
+      // eslint-disable-next-line no-console
+      console.log('[progress sync] loaded for', authUser.email,
+        'medals:', Object.keys(adapted.medals).length,
+        'achievements:', adapted.achievements.length);
+    }).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn('[progress sync] failed to read cloud doc:', err?.message || err);
+      if (cancelled) return;
+      setPersistedProgress(EMPTY);
+      saveProgress(EMPTY);
+    });
     return () => { cancelled = true; };
   }, [authUser]);
 
