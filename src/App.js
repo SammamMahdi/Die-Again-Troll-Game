@@ -31,6 +31,7 @@ import Level10 from './levels/Level10';
 import ModeSelectScreen from './components/ModeSelectScreen';
 import PracticeLevelSelect from './components/PracticeLevelSelect';
 import RunFailedScreen from './components/RunFailedScreen';
+import Shop from './components/Shop';
 import {
   getMedal,
   evaluateLevelComplete,
@@ -47,6 +48,8 @@ import {
 } from './utils/rewards';
 import { RunStatsProvider } from './components/RunStatsContext';
 import { getJewels, setJewelsFromCloud } from './utils/jewels';
+import { getCosmetics, applyCloudCosmetics } from './utils/cosmetics';
+import { getInventory, consumeOne, applyCloudInventory } from './utils/consumables';
 import {
   isCloudEnabled,
   subscribeToAuth,
@@ -147,6 +150,15 @@ function App() {
       // Pull the persisted jewel purse from the cloud doc too.
       if (cloudData && typeof cloudData.jewels === 'number') {
         setJewelsFromCloud(cloudData.jewels);
+      }
+      // Merge cloud cosmetics (owned arrays unioned; equipped picks kept
+      // if owned in cloud, else stay local).
+      if (cloudData && cloudData.cosmetics) {
+        applyCloudCosmetics(cloudData.cosmetics);
+      }
+      // Cloud-side consumable counts win (truth across devices).
+      if (cloudData && cloudData.consumables) {
+        applyCloudInventory(cloudData.consumables);
       }
       // eslint-disable-next-line no-console
       console.log('[progress sync] loaded for', authUser.email,
@@ -389,6 +401,12 @@ function App() {
       setTriesLeft(prev => {
         const next = prev - 1;
         if (prev > 0 && next <= 0) {
+          // Extra Life consumable: if owned, burn one and refill tries
+          // instead of ending the run. The player keeps everything they
+          // earned so far.
+          if ((getInventory().extra_life || 0) > 0 && consumeOne('extra_life')) {
+            return HARDCORE_TRIES;
+          }
           // Snapshot everything for the RunFailed screen + bail. setTimeout
           // so the death sound + state update lands before the screen swap.
           setTimeout(() => {
@@ -516,6 +534,8 @@ function App() {
           totalRuns: updated.totalRuns || 0,
           totalCompletes: updated.totalCompletes || 0,
           jewels: getJewels(),
+          cosmetics: getCosmetics(),
+          consumables: getInventory(),
         },
       }).catch((e) => {
         // eslint-disable-next-line no-console
@@ -613,6 +633,7 @@ function App() {
           onLeaderboard={() => setCurrentScreen('leaderboard')}
           onMyStats={() => setCurrentScreen('mystats')}
           onGuide={() => setCurrentScreen('guide')}
+          onShop={() => setCurrentScreen('shop')}
           onSettings={() => { playUIOpen(); setSettingsOpen(true); }}
           muted={muted}
           onToggleMute={toggleMuted}
@@ -628,6 +649,9 @@ function App() {
       )}
       {currentScreen === 'runFailed' && runFailedSummary && (
         <RunFailedScreen summary={runFailedSummary} onBack={goToStart} />
+      )}
+      {currentScreen === 'shop' && (
+        <Shop onClose={() => setCurrentScreen('start')} />
       )}
       {currentScreen === 'level0' && (
         <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>

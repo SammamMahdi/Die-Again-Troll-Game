@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { cameraYawRef, pushShake, pushFovPulse } from './CameraController';
 import { playJump } from '../utils/sounds';
 import { useGraphics } from './GraphicsProvider';
+import { useCosmetics } from './CosmeticsProvider';
+import { useConsumables } from './ConsumablesProvider';
 
 // Physics constants
 const GRAVITY = -45.0;
@@ -33,6 +35,8 @@ const SLAM_SPEED = 25.0;            // downward velocity during the slam dive
                                     // (a touch faster than natural fall, not snap)
 
 function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateTrigger, gameState, mobileControlRef }) {
+  // Per-frame access to active potions (speed boost). Bypasses re-renders.
+  const { activeRef: effectsRef } = useConsumables();
   const meshRef = useRef();
   const [position, setPosition] = useState(startPosition);
   const [velocity, setVelocity] = useState([0, 0, 0]);
@@ -135,11 +139,13 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     if (keys['d']) { ax += rx; az += rz; }
 
     const length = Math.sqrt(ax * ax + az * az);
+    // Speed Potion: 1.5× walking acceleration while the timer is live.
+    const speedMul = (effectsRef.current.speedBoostUntil > Date.now()) ? 1.5 : 1.0;
     if (length > 0) {
       ax /= length;
       az /= length;
-      vx += ax * PLAYER_SPEED * delta;
-      vz += az * PLAYER_SPEED * delta;
+      vx += ax * PLAYER_SPEED * speedMul * delta;
+      vz += az * PLAYER_SPEED * speedMul * delta;
     }
 
     // ---------------- Roll / Slam handling ----------------
@@ -411,6 +417,9 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
 function PlayerVisual({ blocksProp, positionRef, rollStateRef }) {
   const q = useGraphics();
   const minimal = q.minimalPlayer;
+  // Equipped cosmetic body + crown — drives the colors of capsule/base/head
+  // and the crown variant. Defaults to the original green / classic torus.
+  const { body: equippedBody, crown: equippedCrown } = useCosmetics();
   const haloRef = useRef();
   const shadowRef = useRef();
   const headMatRef = useRef();
@@ -544,20 +553,21 @@ function PlayerVisual({ blocksProp, positionRef, rollStateRef }) {
         <meshBasicMaterial color="#000000" transparent opacity={0.5} depthWrite={false} />
       </mesh>
 
-      {/* Body group (breathes — bob disabled on Potato) */}
+      {/* Body group (breathes — bob disabled on Potato). Colors come from
+          the equipped cosmetic body skin (defaults to original green). */}
       <group ref={bodyRef}>
         {/* Base "feet" */}
         <mesh position={[0, -0.55, 0]}>
           <sphereGeometry args={[0.45, minimal ? 10 : 24, minimal ? 8 : 16]} />
-          <meshStandardMaterial color="#1f7a39" roughness={0.4} metalness={0.35}
-            emissive="#1a8a33" emissiveIntensity={minimal ? 0 : 0.5} />
+          <meshStandardMaterial color={equippedBody.baseColor} roughness={0.4} metalness={0.35}
+            emissive={equippedBody.baseEmissive} emissiveIntensity={minimal ? 0 : 0.5} />
         </mesh>
 
         {/* Capsule body */}
         <mesh position={[0, -0.05, 0]}>
           <capsuleGeometry args={[0.32, 0.55, minimal ? 4 : 8, minimal ? 8 : 16]} />
-          <meshStandardMaterial color="#37d164" roughness={0.35} metalness={0.4}
-            emissive="#33cc55" emissiveIntensity={minimal ? 0 : 0.7} />
+          <meshStandardMaterial color={equippedBody.color} roughness={0.35} metalness={0.4}
+            emissive={equippedBody.emissive} emissiveIntensity={minimal ? 0 : 0.7} />
         </mesh>
 
         {/* Head — non-emissive on Potato (no bloom anyway) */}
@@ -565,8 +575,8 @@ function PlayerVisual({ blocksProp, positionRef, rollStateRef }) {
           <sphereGeometry args={[0.38, minimal ? 12 : 32, minimal ? 10 : 24]} />
           <meshStandardMaterial
             ref={headMatRef}
-            color={minimal ? '#7ad9a0' : '#aeffce'}
-            emissive="#5cff8a"
+            color={equippedBody.headColor}
+            emissive={equippedBody.headEmissive}
             emissiveIntensity={minimal ? 0 : 1.2}
             roughness={0.18}
             metalness={0.15}
@@ -582,22 +592,40 @@ function PlayerVisual({ blocksProp, positionRef, rollStateRef }) {
           </mesh>
         )}
 
-        {/* Rotating crown (skipped on Potato) */}
-        {!minimal && (
+        {/* Rotating crown variant (skipped on Potato OR if 'none' is equipped) */}
+        {!minimal && equippedCrown.kind !== 'none' && (
           <group ref={crownRef} position={[0, 0.95, 0]}>
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.4, 0.04, 12, 36]} />
-              <meshStandardMaterial color="#ffd966" emissive="#ffd966" emissiveIntensity={2.0}
-                roughness={0.2} metalness={0.7} toneMapped={false} />
-            </mesh>
-            <mesh position={[0.4, 0, 0]}>
-              <sphereGeometry args={[0.08, 12, 8]} />
-              <meshBasicMaterial color="#fff5b3" toneMapped={false} />
-            </mesh>
-            <mesh position={[-0.4, 0, 0]}>
-              <sphereGeometry args={[0.08, 12, 8]} />
-              <meshBasicMaterial color="#fff5b3" toneMapped={false} />
-            </mesh>
+            {equippedCrown.kind === 'torus' && (
+              <>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                  <torusGeometry args={[0.4, 0.04, 12, 36]} />
+                  <meshStandardMaterial color="#ffd966" emissive="#ffd966" emissiveIntensity={2.0}
+                    roughness={0.2} metalness={0.7} toneMapped={false} />
+                </mesh>
+                <mesh position={[0.4, 0, 0]}>
+                  <sphereGeometry args={[0.08, 12, 8]} />
+                  <meshBasicMaterial color="#fff5b3" toneMapped={false} />
+                </mesh>
+                <mesh position={[-0.4, 0, 0]}>
+                  <sphereGeometry args={[0.08, 12, 8]} />
+                  <meshBasicMaterial color="#fff5b3" toneMapped={false} />
+                </mesh>
+              </>
+            )}
+            {equippedCrown.kind === 'diamond' && (
+              <mesh position={[0, 0.1, 0]}>
+                <octahedronGeometry args={[0.28, 0]} />
+                <meshStandardMaterial color="#aef0ff" emissive="#5cdaff" emissiveIntensity={1.8}
+                  roughness={0.1} metalness={0.85} toneMapped={false} />
+              </mesh>
+            )}
+            {equippedCrown.kind === 'halo' && (
+              <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+                <torusGeometry args={[0.55, 0.03, 8, 64]} />
+                <meshStandardMaterial color="#ffffff" emissive="#aef0ff" emissiveIntensity={2.2}
+                  roughness={0.1} metalness={0.6} toneMapped={false} />
+              </mesh>
+            )}
           </group>
         )}
       </group>

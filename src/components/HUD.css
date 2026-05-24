@@ -122,6 +122,68 @@
   opacity: 0.85;
 }
 
+/* Inventory chips — bottom-left, one per owned consumable. */
+.hud-inventory {
+  position: absolute;
+  bottom: 70px;        /* sits above the home/settings buttons */
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(15, 6, 36, 0.72);
+  border: 1px solid rgba(140, 230, 255, 0.35);
+  border-radius: 20px;
+  color: #e8d9ff;
+  font-size: 0.82rem;
+  letter-spacing: 0.3px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 0 10px rgba(140, 230, 255, 0.18);
+  transition: all 0.2s ease;
+}
+
+.hud-chip.active {
+  background: linear-gradient(135deg, rgba(255, 200, 80, 0.4) 0%, rgba(255, 150, 60, 0.35) 100%);
+  border-color: rgba(255, 200, 80, 0.85);
+  box-shadow:
+    0 0 14px rgba(255, 200, 80, 0.7),
+    0 0 26px rgba(255, 150, 60, 0.35);
+  animation: hud-chip-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes hud-chip-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
+}
+
+.hud-chip-icon {
+  font-size: 1.05rem;
+  filter: drop-shadow(0 0 4px rgba(140, 230, 255, 0.55));
+}
+
+.hud-chip-count {
+  font-family: var(--font-mono, 'JetBrains Mono'), Consolas, monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.hud-chip-key {
+  font-family: var(--font-mono, 'JetBrains Mono'), Consolas, monospace;
+  font-size: 0.7rem;
+  color: #c8b6ff;
+  opacity: 0.7;
+  margin-left: -3px;
+}
+
 /* Hardcore tries badge — red-pink, pulses when down to last try. */
 .hud-stat-tries .hud-stat-icon {
   color: #ff7a98;

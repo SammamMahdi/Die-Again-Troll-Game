@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { addJewels } from '../utils/jewels';
 import { playJewelPickup } from '../utils/sounds';
+import { useConsumables } from './ConsumablesProvider';
 
 // Floating octahedron pickup — collidable via AABB against the live player
 // position read from the level's playerPosRef. On collect, increments the
@@ -12,6 +13,7 @@ import { playJewelPickup } from '../utils/sounds';
 //   common  — gold, value 1, smaller
 //   bonus   — iridescent cyan, value 5, larger + aura
 function Jewel({ position, kind = 'common', playerPosRef, onCollect, hidden }) {
+  const { activeRef: effectsRef } = useConsumables();
   const groupRef = useRef();
   const meshRef = useRef();
   const [picked, setPicked] = useState(false);
@@ -33,12 +35,14 @@ function Jewel({ position, kind = 'common', playerPosRef, onCollect, hidden }) {
       meshRef.current.rotation.x = Math.sin(t.current * 0.9) * 0.25;
     }
     // AABB pickup: small box around the jewel vs. player half-extent (~0.5).
+    // Jewel Magnet potion expands the pickup radius by +4 units while active.
     const p = playerPosRef && playerPosRef.current;
     if (!p) return;
+    const magnet = (effectsRef.current.magnetUntil > Date.now()) ? 4.0 : 0;
     const dx = Math.abs(p[0] - position[0]);
     const dy = Math.abs(p[1] - (position[1] + Math.sin(t.current * 1.8) * 0.18));
     const dz = Math.abs(p[2] - position[2]);
-    if (dx < cfg.size + 0.5 && dy < cfg.size + 0.7 && dz < cfg.size + 0.5) {
+    if (dx < cfg.size + 0.5 + magnet && dy < cfg.size + 0.7 + magnet && dz < cfg.size + 0.5 + magnet) {
       setPicked(true);
       addJewels(cfg.value);
       playJewelPickup(kind);

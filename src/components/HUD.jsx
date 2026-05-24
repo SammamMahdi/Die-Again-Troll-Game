@@ -2,12 +2,24 @@ import React, { useEffect, useState, useRef } from 'react';
 import './HUD.css';
 import { useRunStats } from './RunStatsContext';
 import { useJewels } from './JewelProvider';
+import { useConsumables } from './ConsumablesProvider';
+import { CONSUMABLES_CATALOG } from '../utils/consumables';
 import { MEDAL_THRESHOLDS } from '../utils/rewards';
 
 function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
   const { runScore, levelStartDeaths, mode, triesLeft, streak } = useRunStats();
   const jewels = useJewels();
+  const { inventory, activeRef: effectsRef } = useConsumables();
   const [elapsed, setElapsed] = useState(0);
+  // Tick once a second so the active-glow chips refresh while a potion is live.
+  const [, forceRefresh] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => forceRefresh(t => t + 1), 500);
+    return () => clearInterval(id);
+  }, []);
+  const now = Date.now();
+  const speedActive = effectsRef.current.speedBoostUntil > now;
+  const magnetActive = effectsRef.current.magnetUntil > now;
   const startRef = useRef(Date.now());
   const isTutorial = level === 0;
   const isHardcore = mode === 'hardcore';
@@ -113,6 +125,30 @@ function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
           <span className="hud-stat-value">{jewels}</span>
         </div>
       </div>
+
+      {/* BOTTOM-LEFT — consumable inventory chips */}
+      {!isTutorial && (
+        <div className="hud-inventory">
+          {CONSUMABLES_CATALOG.map((item) => {
+            const count = inventory[item.id] || 0;
+            if (count <= 0) return null;
+            const active =
+              (item.id === 'speed_potion' && speedActive) ||
+              (item.id === 'jewel_magnet' && magnetActive);
+            return (
+              <div
+                key={item.id}
+                className={`hud-chip ${active ? 'active' : ''}`}
+                title={item.hotkey ? `Press ${item.hotkey} — ${item.desc}` : item.desc}
+              >
+                <span className="hud-chip-icon">{item.icon}</span>
+                <span className="hud-chip-count">×{count}</span>
+                {item.hotkey && <span className="hud-chip-key">[{item.hotkey}]</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* GAME STATE OVERLAYS */}
       {gameState === 'won' && (
