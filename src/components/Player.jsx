@@ -6,6 +6,7 @@ import { playJump } from '../utils/sounds';
 import { useGraphics } from './GraphicsProvider';
 import { useCosmetics } from './CosmeticsProvider';
 import { useConsumables } from './ConsumablesProvider';
+import { useRunStats } from './RunStatsContext';
 
 // Physics constants
 const GRAVITY = -45.0;
@@ -37,6 +38,11 @@ const SLAM_SPEED = 25.0;            // downward velocity during the slam dive
 function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateTrigger, gameState, mobileControlRef }) {
   // Per-frame access to active potions (speed boost). Bypasses re-renders.
   const { activeRef: effectsRef } = useConsumables();
+  // Phase 3b: pause flag flows from the RunStatsProvider that wraps each
+  // level. When main is hidden behind an active Echo Dimension, App.js
+  // sets paused=true on main's provider — Player's useFrame short-circuits
+  // and keyboard input is ignored.
+  const { paused } = useRunStats();
   const meshRef = useRef();
   const [position, setPosition] = useState(startPosition);
   const [velocity, setVelocity] = useState([0, 0, 0]);
@@ -107,11 +113,26 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
           externalDeltaRef.current[1] += dy;
           externalDeltaRef.current[2] += dz;
         },
+        // Phase 3b: hard-teleport the player to an absolute position. Used
+        // by App.js after an Echo Dimension clears, so the main level's
+        // Player resumes at the portal spot. Resets velocity + roll state
+        // so the player doesn't carry mid-air motion across the warp.
+        teleportTo: (pos) => {
+          if (!Array.isArray(pos)) return;
+          const next = [pos[0], pos[1], pos[2]];
+          positionRef.current = next;
+          setPosition(next);
+          setVelocity([0, 0, 0]);
+          launchRef.current = null;
+          externalDeltaRef.current = [0, 0, 0];
+          rollStateRef.current = { phase: 'idle', timer: 0, cooldown: 0, dirX: 0, dirZ: 0 };
+        },
       };
     }
   }, [mobileControlRef]);
 
   useFrame((state, deltaRaw) => {
+    if (paused) return;  // Phase 3b: main level frozen while echo is active.
     if (gameState !== 'playing') return;
     if (!blocks || blocks.length === 0) return; // Wait for blocks to be ready
 

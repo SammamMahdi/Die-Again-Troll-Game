@@ -115,7 +115,7 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(buildLevel2());
 
 function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
   const q = useGraphics();
-  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [0, 3, 25];
@@ -137,6 +137,13 @@ function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
+
+  useEffect(() => {
+    if (teleportRequest && teleportRequest.pos && playerControlRef.current?.teleportTo) {
+      playerControlRef.current.teleportTo(teleportRequest.pos);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teleportRequest?.signal]);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -299,12 +306,12 @@ function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           onWin={() => {}}
           onUpdate={handlePlayerUpdate}
           onGateTrigger={() => {}}
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           mobileControlRef={playerControlRef}
         />
 
         <Level2Sim
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           blocksRef={blocksRef}
           globesRef={globesRef}
           cycleTimerRef={cycleTimerRef}
@@ -326,7 +333,7 @@ function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <HUD
         level={2}
         deathCount={deathCount}
-        gameState={gameState}
+        gameState={paused ? 'paused' : gameState}
         deathReason={deathReason}
         onRestart={handleRestart}
       />

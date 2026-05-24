@@ -261,11 +261,26 @@ function App() {
   //   pendingSideQuestComplete: set by handleEchoComplete; OR'd into the
   //     next handleLevelComplete's sideQuest result so finishing the main
   //     level after an echo clear awards Platinum (or Diamond on 0 deaths).
-  //   returnPortalPos: portal world position captured at entry; passed to
-  //     the main level as startPositionOverride on return so the player
-  //     respawns next to the portal instead of at the level's spawn.
+  //   returnPortalPos: portal world position captured at entry. After the
+  //     echo ends, mainTeleportRequest fires so the main level (still
+  //     mounted under the hidden echo screen) teleports its Player to
+  //     this exact spot.
+  //   mainTeleportRequest: { signal, pos } — bumped each round-trip to
+  //     trigger the teleport useEffect inside the active main level.
+  //   warpPhase: 'in' | 'out' | null — drives the rotating-blur warp
+  //     overlay rendered above everything during the screen swap.
   const [pendingSideQuestComplete, setPendingSideQuestComplete] = useState(false);
   const returnPortalPosRef = useRef(null);
+  const [mainTeleportRequest, setMainTeleportRequest] = useState(null);
+  const [warpPhase, setWarpPhase] = useState(null);
+  const warpTimerRef = useRef(null);
+  const WARP_DURATION_MS = 400;
+
+  const playWarp = (phase) => {
+    setWarpPhase(phase);
+    if (warpTimerRef.current) clearTimeout(warpTimerRef.current);
+    warpTimerRef.current = setTimeout(() => setWarpPhase(null), WARP_DURATION_MS);
+  };
 
   const [persistedProgress, setPersistedProgress] = useState(() => loadProgress());
 
@@ -422,20 +437,28 @@ function App() {
     if (!echoScreen) return;
     returnPortalPosRef.current = pos || null;
     setPendingSideQuestComplete(false);
+    playWarp('in');
     setCurrentScreen(echoScreen);
   };
 
-  const handleEchoComplete = (levelNumber) => {
-    setPendingSideQuestComplete(true);
+  const finishEcho = (levelNumber, sideQuestCleared) => {
+    setPendingSideQuestComplete(sideQuestCleared);
     const main = LEVEL_SCREENS[levelNumber];
-    if (main) setCurrentScreen(main);
+    if (!main) return;
+    playWarp('out');
+    setCurrentScreen(main);
+    // Bump the teleport request so the main level (still mounted under
+    // the now-unmounting echo subtree) drops the player back at the
+    // portal world position. Using Date.now() as the signal value
+    // guarantees a fresh value even if two echoes resolve in the same
+    // millisecond.
+    if (returnPortalPosRef.current) {
+      setMainTeleportRequest({ signal: Date.now(), pos: returnPortalPosRef.current });
+    }
   };
 
-  const handleEchoDeath = (levelNumber) => {
-    setPendingSideQuestComplete(false);
-    const main = LEVEL_SCREENS[levelNumber];
-    if (main) setCurrentScreen(main);
-  };
+  const handleEchoComplete = (levelNumber) => finishEcho(levelNumber, true);
+  const handleEchoDeath = (levelNumber) => finishEcho(levelNumber, false);
 
   const handleToggleAdmin = (next) => {
     if (!isAdmin) {
@@ -757,72 +780,98 @@ function App() {
           />
         </RunStatsProvider>
       )}
-      {/* Main-level renderers (Hardcore + Practice). Phase 3b additions:
-            - onPortalEnter forwards the portal world position up so the
-              return-from-echo respawn anchors there.
-            - startPositionOverride is non-null only when we just returned
-              from an echo — fresh main-level mounts pick it up so the
-              player drops back next to the portal. */}
-      {[
-        { n: 1, C: Level1 }, { n: 2, C: Level2 }, { n: 3, C: Level3 },
-        { n: 4, C: Level4 }, { n: 5, C: Level5 }, { n: 6, C: Level6 },
-        { n: 7, C: Level7 }, { n: 8, C: Level8 }, { n: 9, C: Level9 },
-        { n: 10, C: Level10 },
-      ].map(({ n, C }) =>
-        currentScreen === `level${n}` ? (
-          <RunStatsProvider
-            key={`main-prov-${n}`}
-            runScore={runScore} levelStartDeaths={levelStartDeaths}
-            mode={mode} triesLeft={triesLeft} streak={streak}
-            portalEligible={portalEligibleFor(n)} portalAlwaysSpawn={portalAlwaysSpawn}
-          >
-            <C
-              key={`level${n}-${qid}`}
-              deathCount={deathCount}
-              onDeath={handleDeath}
-              onComplete={(arg) => handleLevelComplete(n, arg)}
-              onRestart={handleRestart}
-              onPortalEnter={(pos) => handlePortalEnter(n, pos)}
-              startPositionOverride={returnPortalPosRef.current}
-            />
-          </RunStatsProvider>
-        ) : null
-      )}
+      {/* Main + Echo render hosts (Phase 3b).
+          Critical invariant: the main-level component must NOT unmount
+          while its echo is active. If it unmounted, all its game state
+          (blocks visibility, vanishing timers, pendulum positions, the
+          sequence index, deaths, etc.) would be lost and the player
+          couldn't resume the main level after returning from the echo.
+          So we render the main level whenever currentScreen is either
+          `level{n}` OR `level{n}Echo` — they share the same mainLevelNum.
+          The wrapping <div display:none> hides it visually while echo
+          is on top; the RunStatsProvider paused flag freezes its
+          useFrame physics. */}
+      {(() => {
+        const s = currentScreen;
+        // Derive which main-level number (if any) needs to be mounted.
+        // Both `level{n}` and `level{n}Echo` map to the same main level.
+        let mainLevelNum = null;
+        if (s.startsWith('level') && s !== 'level0') {
+          const tail = s.slice(5);
+          const num = parseInt(tail.replace('Echo', ''), 10);
+          if (Number.isInteger(num) && num >= 1 && num <= 10) mainLevelNum = num;
+        }
+        const echoActive = s.endsWith('Echo');
+        if (mainLevelNum == null) return null;
+        const LEVEL_COMPONENTS = {
+          1: Level1, 2: Level2, 3: Level3, 4: Level4, 5: Level5,
+          6: Level6, 7: Level7, 8: Level8, 9: Level9, 10: Level10,
+        };
+        const Main = LEVEL_COMPONENTS[mainLevelNum];
+        const Echo = LEVEL_COMPONENTS[mainLevelNum];
+        return (
+          <>
+            {/* Main level — stays mounted across portal round-trips.
+                Hidden + paused while echo is overlaid. */}
+            <div
+              key={`main-host-${mainLevelNum}`}
+              style={{
+                display: echoActive ? 'none' : 'block',
+                width: '100%', height: '100%',
+              }}
+            >
+              <RunStatsProvider
+                runScore={runScore} levelStartDeaths={levelStartDeaths}
+                mode={mode} triesLeft={triesLeft} streak={streak}
+                portalEligible={portalEligibleFor(mainLevelNum)} portalAlwaysSpawn={portalAlwaysSpawn}
+                paused={echoActive}
+                teleportRequest={mainTeleportRequest}
+              >
+                <Main
+                  key={`level${mainLevelNum}-${qid}`}
+                  deathCount={deathCount}
+                  onDeath={handleDeath}
+                  onComplete={(arg) => handleLevelComplete(mainLevelNum, arg)}
+                  onRestart={handleRestart}
+                  onPortalEnter={(pos) => handlePortalEnter(mainLevelNum, pos)}
+                  startPositionOverride={null}
+                />
+              </RunStatsProvider>
+            </div>
 
-      {/* Echo-Dimension renderers — same Level components wrapped in the
-          EchoLevel framing (warped-prism sky, glitch ambient, vignette).
-          Portal is gated OFF (portalEligible=false) so the player can't
-          recurse into a nested echo. onDeath and onComplete are rerouted
-          to handleEchoDeath / handleEchoComplete, so deaths inside an
-          echo just bail to the main level without spending Hardcore
-          tries. */}
-      {[
-        { n: 1, C: Level1 }, { n: 2, C: Level2 }, { n: 3, C: Level3 },
-        { n: 4, C: Level4 }, { n: 5, C: Level5 }, { n: 6, C: Level6 },
-        { n: 7, C: Level7 }, { n: 8, C: Level8 }, { n: 9, C: Level9 },
-        { n: 10, C: Level10 },
-      ].map(({ n, C }) =>
-        currentScreen === `level${n}Echo` ? (
-          <RunStatsProvider
-            key={`echo-prov-${n}`}
-            runScore={runScore} levelStartDeaths={levelStartDeaths}
-            mode={mode} triesLeft={triesLeft} streak={streak}
-            portalEligible={false} portalAlwaysSpawn={false}
-          >
-            <EchoLevel level={n}>
-              <C
-                key={`level${n}Echo-${qid}`}
-                deathCount={0}
-                onDeath={() => handleEchoDeath(n)}
-                onComplete={() => handleEchoComplete(n)}
-                onRestart={handleRestart}
-                onPortalEnter={() => {}}
-                startPositionOverride={null}
-              />
-            </EchoLevel>
-          </RunStatsProvider>
-        ) : null
-      )}
+            {/* Echo overlay — mounted only while currentScreen is an
+                echo. Renders the same Level component inside <EchoLevel>
+                with hardMode + the universal echo framing. Portal is
+                gated off so the player can't recurse. Deaths bail back
+                to the main level without spending Hardcore tries. */}
+            {echoActive && (
+              <RunStatsProvider
+                key={`echo-prov-${mainLevelNum}`}
+                runScore={runScore} levelStartDeaths={levelStartDeaths}
+                mode={mode} triesLeft={triesLeft} streak={streak}
+                portalEligible={false} portalAlwaysSpawn={false}
+              >
+                <EchoLevel level={mainLevelNum}>
+                  <Echo
+                    key={`level${mainLevelNum}Echo-${qid}`}
+                    deathCount={0}
+                    onDeath={() => handleEchoDeath(mainLevelNum)}
+                    onComplete={() => handleEchoComplete(mainLevelNum)}
+                    onRestart={handleRestart}
+                    onPortalEnter={() => {}}
+                    startPositionOverride={null}
+                    hardMode
+                  />
+                </EchoLevel>
+              </RunStatsProvider>
+            )}
+          </>
+        );
+      })()}
+
+      {/* Warp transition overlay — rotating violet blur covering the
+          screen swap when entering or leaving an Echo Dimension. */}
+      {warpPhase && <div className={`warp-overlay warp-${warpPhase}`} aria-hidden="true" />}
       {currentScreen === 'reward' && rewardData && (
         <RewardScreen data={rewardData} onContinue={handleRewardContinue} />
       )}

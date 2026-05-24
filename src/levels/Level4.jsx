@@ -146,7 +146,7 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
 
 function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
   const q = useGraphics();
-  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [ 0, 5, 40 ];
@@ -161,6 +161,13 @@ function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
+
+  useEffect(() => {
+    if (teleportRequest && teleportRequest.pos && playerControlRef.current?.teleportTo) {
+      playerControlRef.current.teleportTo(teleportRequest.pos);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teleportRequest?.signal]);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -308,12 +315,12 @@ function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           onWin={() => {}}
           onUpdate={handlePlayerUpdate}
           onGateTrigger={() => {}}
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           mobileControlRef={playerControlRef}
         />
 
         <Level4Sim
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           blocksRef={blocksRef}
         />
 
@@ -325,7 +332,7 @@ function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <HUD
         level={4}
         deathCount={deathCount}
-        gameState={gameState}
+        gameState={paused ? 'paused' : gameState}
         deathReason={deathReason}
         onRestart={handleRestart}
       />

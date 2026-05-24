@@ -5,6 +5,68 @@
   overflow: hidden;
 }
 
+/* Phase 3b — Echo Dimension warp transition.
+   Full-screen rotating violet blur covering the screen swap when the
+   player enters or leaves an echo. The .warp-in variant rotates one
+   way; .warp-out reverses, but visually they're indistinguishable —
+   both classes exist so we can tune them independently later. */
+.warp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(80, 0, 160, 0.0) 0%, rgba(60, 0, 120, 0.65) 60%, rgba(20, 0, 40, 0.95) 100%);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  will-change: transform, opacity, backdrop-filter;
+}
+
+.warp-in  { animation: warp-spin-blur 400ms cubic-bezier(0.5, 0, 0.5, 1) forwards; }
+.warp-out { animation: warp-spin-blur-reverse 400ms cubic-bezier(0.5, 0, 0.5, 1) forwards; }
+
+@keyframes warp-spin-blur {
+  0% {
+    transform: rotate(0deg) scale(0.92);
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.25);
+    opacity: 1;
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+  }
+  100% {
+    transform: rotate(360deg) scale(0.92);
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+}
+
+@keyframes warp-spin-blur-reverse {
+  0% {
+    transform: rotate(0deg) scale(0.92);
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  50% {
+    transform: rotate(-180deg) scale(1.25);
+    opacity: 1;
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+  }
+  100% {
+    transform: rotate(-360deg) scale(0.92);
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+}
+
 /* Prevent overscroll on mobile */
 body {
   position: fixed;

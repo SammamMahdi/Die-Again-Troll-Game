@@ -16,6 +16,7 @@ import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { goalPlatformColor } from '../utils/palette';
+import { getEchoMechanic } from '../utils/echoThemes';
 import './Level.css';
 
 const STEP = 7;
@@ -25,7 +26,8 @@ const COLOR_NORMAL = [0.7, 0.7, 0.85];
 const JEWEL_HEX    = '#ff4466';                       // pendulum-red theme
 const COLOR_GOAL   = goalPlatformColor(JEWEL_HEX);    // pastel-red goal platform
 
-function buildLevel5Blocks() {
+function buildLevel5Blocks(params = {}) {
+  const shrink = params.platformShrink || 1;
   const blocks = [];
   // Start
   blocks.push({
@@ -39,7 +41,7 @@ function buildLevel5Blocks() {
     blocks.push({
       x: 0, y: 0, z,
       startX: 0, startY: 0, startZ: z,
-      w: 4.0, h: 1, d: 4.0,
+      w: 4.0 * shrink, h: 1, d: 4.0 * shrink,
       visible: true,
       color: [...COLOR_NORMAL],
     });
@@ -64,17 +66,15 @@ function buildLevel5Blocks() {
   return { blocks, goal: { x: 0, y: 0.5, z: goalZ } };
 }
 
-function buildPendulums() {
-  // 6 pendulums ordered by z. Each one swings faster than the previous,
-  // so the player is gently introduced and the final pendulums are brutal.
-  // Phases are staggered so adjacent swings don't line up perfectly.
+function buildPendulums(params = {}) {
+  const sm = params.pendulumSpeedMul || 1;
   return [
-    { pivot: [0, 9,  15], arm: 6, freq: 1.0, phase: 0.0, bobRadius: 1.3, angle: 0 },
-    { pivot: [0, 9,   6], arm: 7, freq: 1.3, phase: 1.4, bobRadius: 1.3, angle: 0 },
-    { pivot: [0, 9,  -3], arm: 6, freq: 1.6, phase: 0.7, bobRadius: 1.3, angle: 0 },
-    { pivot: [0, 9, -12], arm: 7, freq: 1.9, phase: 2.1, bobRadius: 1.3, angle: 0 },
-    { pivot: [0, 9, -21], arm: 6, freq: 2.2, phase: 1.0, bobRadius: 1.3, angle: 0 },
-    { pivot: [0, 9, -30], arm: 7, freq: 2.5, phase: 0.4, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9,  15], arm: 6, freq: 1.0 * sm, phase: 0.0, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9,   6], arm: 7, freq: 1.3 * sm, phase: 1.4, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9,  -3], arm: 6, freq: 1.6 * sm, phase: 0.7, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9, -12], arm: 7, freq: 1.9 * sm, phase: 2.1, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9, -21], arm: 6, freq: 2.2 * sm, phase: 1.0, bobRadius: 1.3, angle: 0 },
+    { pivot: [0, 9, -30], arm: 7, freq: 2.5 * sm, phase: 0.4, bobRadius: 1.3, angle: 0 },
   ];
 }
 
@@ -132,25 +132,33 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
   Array.isArray(__l5_fresh) ? __l5_fresh : __l5_fresh.blocks
 );
 
-function Level5({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
+function Level5({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
-  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [ 0, 5, 25 ];
+  const echoMechanic = hardMode ? getEchoMechanic(5) : {};
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
   const [playerPosition, setPlayerPosition] = useState(START);
 
-  const initial = useRef(buildLevel5Blocks());
+  const initial = useRef(buildLevel5Blocks(echoMechanic));
   const blocksRef = useRef(initial.current.blocks);
   const goalRef = useRef(initial.current.goal);
-  const pendulumsRef = useRef(buildPendulums());
+  const pendulumsRef = useRef(buildPendulums(echoMechanic));
   const playerPosRef = useRef(START);
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
+
+  useEffect(() => {
+    if (teleportRequest && teleportRequest.pos && playerControlRef.current?.teleportTo) {
+      playerControlRef.current.teleportTo(teleportRequest.pos);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teleportRequest?.signal]);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -160,10 +168,10 @@ function Level5({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
   };
 
   const handleRestart = () => {
-    const fresh = buildLevel5Blocks();
+    const fresh = buildLevel5Blocks(echoMechanic);
     blocksRef.current.forEach((b, i) => Object.assign(b, fresh.blocks[i]));
     goalRef.current = fresh.goal;
-    pendulumsRef.current = buildPendulums();
+    pendulumsRef.current = buildPendulums(echoMechanic);
     playerPosRef.current = START;
     setPlayerPosition(START);
     setDeathReason('');
@@ -273,12 +281,12 @@ function Level5({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           onWin={() => {}}
           onUpdate={handlePlayerUpdate}
           onGateTrigger={() => {}}
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           mobileControlRef={playerControlRef}
         />
 
         <Level5Sim
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           pendulumsRef={pendulumsRef}
           playerPosRef={playerPosRef}
           onPendulumHit={() => handlePlayerDeath('Smashed by a pendulum!')}
@@ -292,7 +300,7 @@ function Level5({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <HUD
         level={5}
         deathCount={deathCount}
-        gameState={gameState}
+        gameState={paused ? 'paused' : gameState}
         deathReason={deathReason}
         onRestart={handleRestart}
       />

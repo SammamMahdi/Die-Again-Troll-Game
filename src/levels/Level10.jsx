@@ -157,7 +157,7 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
 
 function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
   const q = useGraphics();
-  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [ 0, 5, 8 ];
@@ -180,6 +180,13 @@ function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPosition
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
+
+  useEffect(() => {
+    if (teleportRequest && teleportRequest.pos && playerControlRef.current?.teleportTo) {
+      playerControlRef.current.teleportTo(teleportRequest.pos);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teleportRequest?.signal]);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -357,12 +364,12 @@ function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPosition
           onWin={() => {}}
           onUpdate={handlePlayerUpdate}
           onGateTrigger={() => {}}
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           mobileControlRef={playerControlRef}
         />
 
         <Level10Sim
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           orbRef={orbRef}
           extraOrbsRef={extraOrbsRef}
           playerPosRef={playerPosRef}
@@ -379,7 +386,7 @@ function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPosition
       <HUD
         level={10}
         deathCount={deathCount}
-        gameState={gameState}
+        gameState={paused ? 'paused' : gameState}
         deathReason={deathReason}
         onRestart={handleRestart}
       />

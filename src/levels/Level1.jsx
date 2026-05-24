@@ -22,7 +22,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, sta
   const q = useGraphics();
   // Phase 3 portal — only spawns if player has Gold on this level + is in
   // Hardcore mode (gated upstream). Random ~35% chance per attempt.
-  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   // Phase 3b: kept around for the legacy "portal touch = sideQuestComplete"
   // fallback when no onPortalEnter handler is supplied (i.e. dev contexts).
@@ -55,6 +55,17 @@ function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, sta
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
+
+  // Phase 3b: when an Echo Dimension ends, App.js bumps teleportRequest
+  // with the portal world position so the player re-enters the main
+  // level at the spot they originally entered the portal — without
+  // remounting (which would reset block state, sequence, timers).
+  useEffect(() => {
+    if (teleportRequest && teleportRequest.pos && playerControlRef.current?.teleportTo) {
+      playerControlRef.current.teleportTo(teleportRequest.pos);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teleportRequest?.signal]);
 
   // JEWEL_CANDIDATES — derive from the level's static block layout once.
   // Random-subset spawning happens inside <JewelField>.
@@ -382,12 +393,12 @@ function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, sta
           onWin={handlePlayerWin}
           onUpdate={handlePlayerUpdate}
           onGateTrigger={handleGateTrigger}
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           mobileControlRef={playerControlRef}
         />
 
         <SequenceManager
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           startTriggered={startTriggered}
           sequenceState={sequenceState}
           setSequenceState={setSequenceState}
@@ -419,7 +430,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, sta
       <HUD
         level={1}
         deathCount={deathCount}
-        gameState={gameState}
+        gameState={paused ? 'paused' : gameState}
         deathReason={deathReason}
         onRestart={handleRestart}
       />

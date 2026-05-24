@@ -17,6 +17,7 @@ import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { goalPlatformColor } from '../utils/palette';
+import { getEchoMechanic } from '../utils/echoThemes';
 import './Level.css';
 
 const PLAYER_HALF = 0.5;
@@ -25,7 +26,8 @@ const COLOR_BRIDGE = [0.7, 0.7, 0.85];
 const JEWEL_HEX   = '#ff3366';                       // rotating-disc red-pink theme
 const COLOR_GOAL  = goalPlatformColor(JEWEL_HEX);    // pastel-pink goal platform
 
-function buildLevel6() {
+function buildLevel6(params = {}) {
+  const ds = params.discSpeedMul || 1;
   // Pattern: start → small bridge → DISC → bridge → DISC → bridge → DISC → bridge → GOAL
   // Discs are square hitboxes for our collision system but rendered as cylinders.
   const blocks = [];
@@ -39,7 +41,7 @@ function buildLevel6() {
   // Disc 1 — gentle spin
   blocks.push({
     x: 0, y: 0, z: 5, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_DISC],
-    isDisc: true, rotateSpeed: 0.65, radius: 4,
+    isDisc: true, rotateSpeed: 0.65 * ds, radius: 4,
   });
 
   blocks.push({ x: 0, y: 0, z: -5, w: 3.5, h: 1, d: 3.5, visible: true, color: [...COLOR_BRIDGE] });
@@ -54,7 +56,7 @@ function buildLevel6() {
   // Disc 2 — counter-clockwise, moderate
   blocks.push({
     x: 0, y: 0, z: -15, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_DISC],
-    isDisc: true, rotateSpeed: -0.95, radius: 4,
+    isDisc: true, rotateSpeed: -0.95 * ds, radius: 4,
   });
 
   blocks.push({ x: 0, y: 0, z: -25, w: 3.5, h: 1, d: 3.5, visible: true, color: [...COLOR_BRIDGE] });
@@ -62,7 +64,7 @@ function buildLevel6() {
   // Disc 3 — the fastest, but still readable
   blocks.push({
     x: 0, y: 0, z: -35, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_DISC],
-    isDisc: true, rotateSpeed: 1.15, radius: 4,
+    isDisc: true, rotateSpeed: 1.15 * ds, radius: 4,
   });
 
   blocks.push({ x: 0, y: 0, z: -45, w: 3.5, h: 1, d: 3.5, visible: true, color: [...COLOR_BRIDGE] });
@@ -77,17 +79,15 @@ function buildLevel6() {
   return { blocks, goal: { x: 0, y: 0.5, z: goalZ } };
 }
 
-function buildLasers() {
-  // Two beams per emitter (180° apart) but slower sweeps so you have time to
-  // commit to a step between them. Thinner beam radius gives a little more
-  // wiggle-room too.
+function buildLasers(params = {}) {
+  const ls = params.laserSpeedMul || 1;
   return [
-    { origin: [0, 2, 5],   length: 10, speed: 0.8,  phase: 0.0,           thickness: 0.38 },
-    { origin: [0, 2, 5],   length: 10, speed: 0.8,  phase: Math.PI,       thickness: 0.38 },
-    { origin: [0, 2, -15], length: 10, speed: -1.0, phase: 1.2,           thickness: 0.38 },
-    { origin: [0, 2, -15], length: 10, speed: -1.0, phase: 1.2 + Math.PI, thickness: 0.38 },
-    { origin: [0, 2, -35], length: 10, speed: 0.95, phase: 0.5,           thickness: 0.38 },
-    { origin: [0, 2, -35], length: 10, speed: 0.95, phase: 0.5 + Math.PI, thickness: 0.38 },
+    { origin: [0, 2, 5],   length: 10, speed:  0.8 * ls, phase: 0.0,           thickness: 0.38 },
+    { origin: [0, 2, 5],   length: 10, speed:  0.8 * ls, phase: Math.PI,       thickness: 0.38 },
+    { origin: [0, 2, -15], length: 10, speed: -1.0 * ls, phase: 1.2,           thickness: 0.38 },
+    { origin: [0, 2, -15], length: 10, speed: -1.0 * ls, phase: 1.2 + Math.PI, thickness: 0.38 },
+    { origin: [0, 2, -35], length: 10, speed: 0.95 * ls, phase: 0.5,           thickness: 0.38 },
+    { origin: [0, 2, -35], length: 10, speed: 0.95 * ls, phase: 0.5 + Math.PI, thickness: 0.38 },
   ];
 }
 
@@ -177,25 +177,33 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
   Array.isArray(__l6_fresh) ? __l6_fresh : __l6_fresh.blocks
 );
 
-function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
+function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
-  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [ 0, 5, 25 ];
+  const echoMechanic = hardMode ? getEchoMechanic(6) : {};
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
   const [playerPosition, setPlayerPosition] = useState(START);
 
-  const initial = useRef(buildLevel6());
+  const initial = useRef(buildLevel6(echoMechanic));
   const blocksRef = useRef(initial.current.blocks);
   const goalRef = useRef(initial.current.goal);
-  const lasersRef = useRef(buildLasers());
+  const lasersRef = useRef(buildLasers(echoMechanic));
   const playerPosRef = useRef(START);
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
+
+  useEffect(() => {
+    if (teleportRequest && teleportRequest.pos && playerControlRef.current?.teleportTo) {
+      playerControlRef.current.teleportTo(teleportRequest.pos);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teleportRequest?.signal]);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -205,10 +213,10 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
   };
 
   const handleRestart = () => {
-    const fresh = buildLevel6();
+    const fresh = buildLevel6(echoMechanic);
     blocksRef.current.forEach((b, i) => Object.assign(b, fresh.blocks[i]));
     goalRef.current = fresh.goal;
-    lasersRef.current = buildLasers();
+    lasersRef.current = buildLasers(echoMechanic);
     playerPosRef.current = START;
     setPlayerPosition(START);
     setDeathReason('');
@@ -317,12 +325,12 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           onWin={() => {}}
           onUpdate={handlePlayerUpdate}
           onGateTrigger={() => {}}
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           mobileControlRef={playerControlRef}
         />
 
         <Level6Sim
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           blocksRef={blocksRef}
           lasersRef={lasersRef}
           playerPosRef={playerPosRef}
@@ -338,7 +346,7 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <HUD
         level={6}
         deathCount={deathCount}
-        gameState={gameState}
+        gameState={paused ? 'paused' : gameState}
         deathReason={deathReason}
         onRestart={handleRestart}
       />
