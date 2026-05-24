@@ -11,7 +11,7 @@ const STORAGE_KEY = 'die-again-rewards-v1';
 // gold:   deaths <= gold threshold
 // silver: deaths <= silver threshold
 // bronze: any completion (you have to die a lot to be human about it)
-const MEDAL_THRESHOLDS = {
+export const MEDAL_THRESHOLDS = {
   1:  { gold: 0, silver: 2 },
   2:  { gold: 0, silver: 2 },
   3:  { gold: 0, silver: 3 },
@@ -55,13 +55,19 @@ export const ACHIEVEMENTS = [
   { id: 'speed_demon_3',     name: 'Speed Demon III',     desc: 'Complete Level 3 in under 60s.',                score: 50 },
 ];
 
-// Medal point values (per level)
-const MEDAL_POINTS = { gold: 100, silver: 50, bronze: 20, none: 0 };
+// Medal point values (per level). Exported so the HUD + RewardScreen can show
+// "+100 (Gold medal)" lines without re-deriving the table.
+export const MEDAL_POINTS = { gold: 100, silver: 50, bronze: 20, none: 0 };
 
 /**
  * Compute total score for a progress object.
- *   Sum of medal points (10 levels × up to 100) + achievement points.
- * Theoretical max ≈ 1000 (medals) + 800 (achievements) ≈ 1800.
+ *   Sum of medal points (10 levels × up to 100 = 1000) + achievement points.
+ *
+ * Achievement maximum = 25 (first_steps) + 9×25 (per-level no-deaths L1–L9)
+ *                     + 50 (architect_slayer / L10 no-deaths) + 250 (iron_will)
+ *                     + 500 (flawless) + 3×50 (speed_demon_1..3) = 1200.
+ *
+ * Theoretical max ≈ 1000 (medals) + 1200 (achievements) = 2200.
  */
 export function computeScore(progress) {
   if (!progress) return 0;
@@ -106,11 +112,12 @@ const NO_DEATH_ACHIEVEMENT = {
 
 // Evaluate which achievements unlock right now (filtering ones already owned).
 // Inputs:
-//   level         number 1-3
+//   level         number 1-10 (the level just completed)
 //   deathsUsed    deaths for THIS level only
-//   timeMs        elapsed ms for THIS level
+//   timeMs        elapsed ms for THIS level (pass 0 / -1 if the timer was
+//                 never started — speed achievements will be skipped)
 //   runStats      { [lvl]: {deaths, time, medal} } accumulated this run incl. current
-//   usedAdmin     whether admin jump was used in this run
+//   usedAdmin     whether admin jump was used in this run (gates iron_will / flawless)
 //   alreadyOwned  ids already in the user's persistent set
 export function evaluateLevelComplete({ level, deathsUsed, timeMs, runStats, usedAdmin, alreadyOwned }) {
   const newly = [];
@@ -126,7 +133,9 @@ export function evaluateLevelComplete({ level, deathsUsed, timeMs, runStats, use
     add(NO_DEATH_ACHIEVEMENT[level]);
   }
 
-  // Speed achievements
+  // Speed achievements — require a positive elapsed time. `timeMs <= 0` means
+  // the timer was never started (defensive: prevents false-triggering a
+  // sub-30s achievement when elapsedMs defaulted to 0).
   if (SPEED_THRESHOLDS_MS[level] && timeMs > 0 && timeMs < SPEED_THRESHOLDS_MS[level]) {
     add(`speed_demon_${level}`);
   }
@@ -180,7 +189,12 @@ export function saveProgress(progress) {
 export function recordLevelComplete({ level, deathsUsed, timeMs, medal, newlyUnlocked }) {
   const prog = loadProgress();
   prog.bestDeaths[level] = Math.min(prog.bestDeaths[level] ?? Infinity, deathsUsed);
-  prog.bestTimes[level]  = Math.min(prog.bestTimes[level]  ?? Infinity, timeMs);
+  // Only update bestTimes if we have a real elapsed time. `timeMs <= 0`
+  // means the level start ref was missing — using it would corrupt the
+  // user's record to 0ms forever.
+  if (timeMs > 0) {
+    prog.bestTimes[level] = Math.min(prog.bestTimes[level] ?? Infinity, timeMs);
+  }
   const currentRank = MEDAL_RANK[prog.medals[level] || 'none'];
   const newRank = MEDAL_RANK[medal];
   if (newRank > currentRank) prog.medals[level] = medal;
@@ -189,6 +203,18 @@ export function recordLevelComplete({ level, deathsUsed, timeMs, medal, newlyUnl
   }
   saveProgress(prog);
   return prog;
+}
+
+// Sum the points a player earned from one level completion. Used by the HUD
+// (running run total) and the RewardScreen (per-level breakdown) so both
+// show the same number from the same source of truth.
+export function pointsForLevelResult({ medal, newlyUnlocked }) {
+  let total = MEDAL_POINTS[medal] || 0;
+  for (const id of newlyUnlocked || []) {
+    const def = ACHIEVEMENTS.find(a => a.id === id);
+    if (def) total += def.score || 0;
+  }
+  return total;
 }
 
 export function recordRunComplete({ runStats, totalDeaths, totalMs }) {

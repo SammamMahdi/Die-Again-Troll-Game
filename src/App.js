@@ -38,7 +38,9 @@ import {
   medalCounts,
   formatTime,
   getAchievementById,
+  pointsForLevelResult,
 } from './utils/rewards';
+import { RunStatsProvider } from './components/RunStatsContext';
 import {
   isCloudEnabled,
   subscribeToAuth,
@@ -169,6 +171,7 @@ function App() {
         setDeathCount(0);
         setRunStats({});
         setUsedAdmin(false);
+        setRunScore(0);
         runStartTimeRef.current = null;
         setCurrentScreen('start');
       }
@@ -184,6 +187,13 @@ function App() {
   const runStartTimeRef = useRef(null);
   const levelStartTimeRef = useRef(null);
   const levelStartDeathsRef = useRef(0);
+  // Mirror of the levelStartDeaths ref as state, so the in-level HUD can
+  // re-render when a fresh level starts and recompute "next medal" hints.
+  const [levelStartDeaths, setLevelStartDeaths] = useState(0);
+  // Running total score for the CURRENT run only. Resets on resetRun /
+  // handleLevelJump. Surfaced in the HUD so the player feels each medal +
+  // achievement land in real time, not just on the CompleteScreen.
+  const [runScore, setRunScore] = useState(0);
   const [persistedProgress, setPersistedProgress] = useState(() => loadProgress());
 
   // Whenever the screen changes into a level, mark start time + start deaths.
@@ -191,6 +201,7 @@ function App() {
     if (currentScreen.startsWith('level')) {
       levelStartTimeRef.current = Date.now();
       levelStartDeathsRef.current = deathCount;
+      setLevelStartDeaths(deathCount);     // mirror for the HUD context
       if (runStartTimeRef.current == null) runStartTimeRef.current = Date.now();
       // Start per-level ambient
       const n = parseInt(currentScreen.replace('level', ''), 10);
@@ -247,6 +258,7 @@ function App() {
     setDeathCount(0);
     setRunStats({});
     setUsedAdmin(false);
+    setRunScore(0);
     runStartTimeRef.current = null;
   };
 
@@ -274,6 +286,7 @@ function App() {
     setDeathCount(0);
     setRunStats({});
     setUsedAdmin(true);
+    setRunScore(0);
     runStartTimeRef.current = null;
     setCurrentScreen(screen);
   };
@@ -294,6 +307,11 @@ function App() {
   const handleLevelComplete = (levelNumber) => {
     playWin();
     const deathsUsed = Math.max(0, deathCount - levelStartDeathsRef.current);
+    // Defensive: if the level start time ref is null (unlikely but possible
+    // around the screen-change useEffect), prefer `0` here AND downstream the
+    // rewards module guards `timeMs <= 0` to skip the bestTimes update + the
+    // speed achievement check (would otherwise corrupt bestTimes to 0ms and
+    // wrongly award `speed_demon_*`).
     const elapsedMs = levelStartTimeRef.current
       ? Date.now() - levelStartTimeRef.current
       : 0;
@@ -319,6 +337,11 @@ function App() {
       newlyUnlocked,
     });
     setPersistedProgress(updated);
+
+    // Per-level points (medal + freshly-unlocked achievements). Surfaced in
+    // the running run score (HUD) and the reward screen breakdown.
+    const pointsEarned = pointsForLevelResult({ medal, newlyUnlocked });
+    setRunScore(prev => prev + pointsEarned);
 
     // Sync to cloud (best-effort; failures don't break local progress)
     if (authUser && isCloudEnabled()) {
@@ -349,6 +372,8 @@ function App() {
       time: elapsedMs,
       medal,
       newlyUnlocked,
+      pointsEarned,
+      runScoreAfter: runScore + pointsEarned,
       isFinal: levelNumber === TOTAL_LEVELS,
       runStats: nextRunStats,
     });
@@ -421,52 +446,72 @@ function App() {
         />
       )}
       {currentScreen === 'level1' && (
-        <Level1
-          key={`level1-${qid}`}
-          deathCount={deathCount}
-          onDeath={handleDeath}
-          onComplete={() => handleLevelComplete(1)}
-          onRestart={handleRestart}
-        />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+          <Level1
+            key={`level1-${qid}`}
+            deathCount={deathCount}
+            onDeath={handleDeath}
+            onComplete={() => handleLevelComplete(1)}
+            onRestart={handleRestart}
+          />
+        </RunStatsProvider>
       )}
       {currentScreen === 'level2' && (
-        <Level2
-          key={`level2-${qid}`}
-          deathCount={deathCount}
-          onDeath={handleDeath}
-          onComplete={() => handleLevelComplete(2)}
-          onRestart={handleRestart}
-        />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+          <Level2
+            key={`level2-${qid}`}
+            deathCount={deathCount}
+            onDeath={handleDeath}
+            onComplete={() => handleLevelComplete(2)}
+            onRestart={handleRestart}
+          />
+        </RunStatsProvider>
       )}
       {currentScreen === 'level3' && (
-        <Level3
-          key={`level3-${qid}`}
-          deathCount={deathCount}
-          onDeath={handleDeath}
-          onComplete={() => handleLevelComplete(3)}
-          onRestart={handleRestart}
-        />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+          <Level3
+            key={`level3-${qid}`}
+            deathCount={deathCount}
+            onDeath={handleDeath}
+            onComplete={() => handleLevelComplete(3)}
+            onRestart={handleRestart}
+          />
+        </RunStatsProvider>
       )}
       {currentScreen === 'level4' && (
-        <Level4 key={`level4-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(4)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+          <Level4 key={`level4-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(4)} onRestart={handleRestart} />
+        </RunStatsProvider>
       )}
       {currentScreen === 'level5' && (
-        <Level5 key={`level5-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(5)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+          <Level5 key={`level5-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(5)} onRestart={handleRestart} />
+        </RunStatsProvider>
       )}
       {currentScreen === 'level6' && (
-        <Level6 key={`level6-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(6)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+          <Level6 key={`level6-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(6)} onRestart={handleRestart} />
+        </RunStatsProvider>
       )}
       {currentScreen === 'level7' && (
-        <Level7 key={`level7-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(7)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+          <Level7 key={`level7-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(7)} onRestart={handleRestart} />
+        </RunStatsProvider>
       )}
       {currentScreen === 'level8' && (
-        <Level8 key={`level8-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(8)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+          <Level8 key={`level8-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(8)} onRestart={handleRestart} />
+        </RunStatsProvider>
       )}
       {currentScreen === 'level9' && (
-        <Level9 key={`level9-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(9)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+          <Level9 key={`level9-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(9)} onRestart={handleRestart} />
+        </RunStatsProvider>
       )}
       {currentScreen === 'level10' && (
-        <Level10 key={`level10-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(10)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+          <Level10 key={`level10-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(10)} onRestart={handleRestart} />
+        </RunStatsProvider>
       )}
       {currentScreen === 'reward' && rewardData && (
         <RewardScreen data={rewardData} onContinue={handleRewardContinue} />

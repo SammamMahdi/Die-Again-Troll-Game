@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { formatTime, getAchievementById } from '../utils/rewards';
+import { formatTime, getAchievementById, MEDAL_POINTS } from '../utils/rewards';
 import './RewardScreen.css';
 
 function RewardScreen({ data, onContinue }) {
-  // data: { level, deaths, time, medal, newlyUnlocked, isFinal, runStats }
+  // data: { level, deaths, time, medal, newlyUnlocked, pointsEarned, runScoreAfter, isFinal, runStats }
   const [revealAchievements, setRevealAchievements] = useState(false);
+  const medalPoints = MEDAL_POINTS[data.medal] || 0;
+  const newlyUnlocked = data.newlyUnlocked || [];
 
   useEffect(() => {
     const t = setTimeout(() => setRevealAchievements(true), 900);
@@ -55,10 +57,38 @@ function RewardScreen({ data, onContinue }) {
           </div>
         </div>
 
-        {data.newlyUnlocked && data.newlyUnlocked.length > 0 && (
+        {/* Points breakdown — medal + each newly-unlocked achievement, with a
+            total earned this level and the resulting run-total readout. */}
+        <div className="reward-points">
+          <div className="reward-points-line">
+            <span className="reward-points-label">{data.medal[0].toUpperCase() + data.medal.slice(1)} medal</span>
+            <span className="reward-points-value">+{medalPoints}</span>
+          </div>
+          {newlyUnlocked.map((id) => {
+            const a = getAchievementById(id);
+            if (!a) return null;
+            return (
+              <div key={`pts-${id}`} className="reward-points-line">
+                <span className="reward-points-label">{a.name}</span>
+                <span className="reward-points-value">+{a.score}</span>
+              </div>
+            );
+          })}
+          <div className="reward-points-total">
+            <span className="reward-points-label">Earned this level</span>
+            <span className="reward-points-value">+{data.pointsEarned ?? medalPoints}</span>
+          </div>
+          {typeof data.runScoreAfter === 'number' && (
+            <div className="reward-points-run">
+              Run total: <strong>{data.runScoreAfter} pts</strong>
+            </div>
+          )}
+        </div>
+
+        {newlyUnlocked.length > 0 && (
           <div className={`achievements ${revealAchievements ? 'revealed' : ''}`}>
             <div className="achievements-title">★ Achievements Unlocked ★</div>
-            {data.newlyUnlocked.map((id, idx) => {
+            {newlyUnlocked.map((id, idx) => {
               const a = getAchievementById(id);
               if (!a) return null;
               return (
@@ -67,7 +97,10 @@ function RewardScreen({ data, onContinue }) {
                   className="achievement-badge"
                   style={{ transitionDelay: `${idx * 120}ms` }}
                 >
-                  <div className="achievement-name">{a.name}</div>
+                  <div className="achievement-row">
+                    <div className="achievement-name">{a.name}</div>
+                    <div className="achievement-score">+{a.score}</div>
+                  </div>
                   <div className="achievement-desc">{a.desc}</div>
                 </div>
               );

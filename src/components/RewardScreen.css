@@ -203,6 +203,68 @@
   text-shadow: 0 0 8px rgba(200, 160, 255, 0.5);
 }
 
+/* ===== Points breakdown ===== */
+.reward-points {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: rgba(15, 6, 36, 0.6);
+  border: 1px solid rgba(255, 200, 100, 0.35);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.reward-points-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.85rem;
+  color: #e8d9ff;
+}
+
+.reward-points-label {
+  letter-spacing: 0.3px;
+}
+
+.reward-points-value {
+  font-family: var(--font-mono);
+  color: #ffd966;
+  font-weight: 600;
+  text-shadow: 0 0 6px rgba(255, 200, 80, 0.35);
+}
+
+.reward-points-total {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 200, 100, 0.25);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.reward-points-total .reward-points-value {
+  font-size: 1.0rem;
+}
+
+.reward-points-run {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #c8b6ff;
+  text-align: right;
+  letter-spacing: 0.3px;
+}
+
+.reward-points-run strong {
+  color: #ffd966;
+  font-family: var(--font-mono);
+  text-shadow: 0 0 6px rgba(255, 200, 80, 0.4);
+}
+
 /* ===== Achievements ===== */
 .achievements {
   margin-top: 6px;
@@ -237,11 +299,25 @@
   transform: translateY(0);
 }
 
+.achievement-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
 .achievement-name {
   font-size: 0.95rem;
   font-weight: 600;
   color: #ffe28b;
   letter-spacing: 0.5px;
+}
+
+.achievement-score {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: #ffd966;
+  text-shadow: 0 0 6px rgba(255, 200, 80, 0.4);
 }
 
 .achievement-desc {

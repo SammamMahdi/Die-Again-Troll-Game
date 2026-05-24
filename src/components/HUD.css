@@ -122,6 +122,68 @@
   opacity: 0.85;
 }
 
+/* Run-score readout: gold tint to read distinctly from deaths/time. */
+.hud-stat-score .hud-stat-icon {
+  color: #ffd966;
+  filter: drop-shadow(0 0 5px rgba(255, 217, 102, 0.55));
+}
+
+.hud-stat-score .hud-stat-value {
+  color: #ffd966;
+  text-shadow: 0 0 8px rgba(255, 200, 80, 0.4);
+}
+
+.hud-stat-unit {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: #c8b6ff;
+  opacity: 0.7;
+  margin-left: -2px;
+}
+
+/* ===== Next-medal hint row ===== */
+.hud-medal-hint {
+  margin-top: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.7rem;
+  letter-spacing: 0.4px;
+}
+
+.hud-medal-tier {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.hud-medal-gold .hud-medal-tier {
+  background: linear-gradient(135deg, #ffd966 0%, #ffaa3a 100%);
+  color: #2a1300;
+  box-shadow: 0 0 8px rgba(255, 200, 80, 0.55);
+}
+
+.hud-medal-silver .hud-medal-tier {
+  background: linear-gradient(135deg, #e0e6f0 0%, #99a6c2 100%);
+  color: #16213a;
+  box-shadow: 0 0 7px rgba(200, 210, 230, 0.45);
+}
+
+.hud-medal-bronze .hud-medal-tier {
+  background: linear-gradient(135deg, #d09060 0%, #8b5a30 100%);
+  color: #fff;
+  box-shadow: 0 0 6px rgba(208, 144, 96, 0.45);
+}
+
+.hud-medal-text {
+  color: #e8d9ff;
+  opacity: 0.85;
+}
+
 /* ===== Center game-state overlays ===== */
 .hud-center {
   position: absolute;
