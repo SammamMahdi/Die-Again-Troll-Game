@@ -8,6 +8,8 @@ import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
@@ -105,6 +107,11 @@ function buildLevel4() {
 }
 
 const GATE = { x: 0, y: 0.5, z: -70 };
+
+const __l4_fresh = buildLevel4();
+const JEWEL_CANDIDATES = candidatesFromBlocks(
+  Array.isArray(__l4_fresh) ? __l4_fresh : __l4_fresh.blocks
+);
 
 function Level4({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
@@ -236,6 +243,12 @@ function Level4({ deathCount, onDeath, onComplete }) {
         })}
 
         <Gate position={[GATE.x, GATE.y, GATE.z]} jewelColor={JEWEL_HEX} />
+
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
 
         <Player
           key={restartKey}

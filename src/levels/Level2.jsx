@@ -9,6 +9,8 @@ import Globe from '../components/Globe';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
@@ -83,6 +85,11 @@ function buildGlobes() {
   }
   return out;
 }
+
+// Module-level precompute: jewel candidate positions float above every
+// landable block in the initial layout. <JewelField> random-subsets these
+// on each level entry.
+const JEWEL_CANDIDATES = candidatesFromBlocks(buildLevel2());
 
 function Level2({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
@@ -232,6 +239,12 @@ function Level2({ deathCount, onDeath, onComplete }) {
         {goalBlock && (
           <Gate position={[goalBlock.x, goalBlock.y + 0.5, goalBlock.z]} jewelColor={JEWEL_HEX} />
         )}
+
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
 
         {/* Globes */}
         {globesRef.current.map((g, i) => (

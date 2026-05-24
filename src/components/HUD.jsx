@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './HUD.css';
 import { useRunStats } from './RunStatsContext';
+import { useJewels } from './JewelProvider';
 import { MEDAL_THRESHOLDS } from '../utils/rewards';
 
 function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
   const { runScore, levelStartDeaths, mode, triesLeft, streak } = useRunStats();
+  const jewels = useJewels();
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
   const isTutorial = level === 0;
@@ -106,6 +108,10 @@ function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
             <span className="hud-stat-unit">pts</span>
           </div>
         )}
+        <div className="hud-stat hud-stat-jewels">
+          <span className="hud-stat-icon">💎</span>
+          <span className="hud-stat-value">{jewels}</span>
+        </div>
       </div>
 
       {/* GAME STATE OVERLAYS */}

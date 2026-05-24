@@ -8,6 +8,8 @@ import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
@@ -119,6 +121,12 @@ function buildLevel3() {
 
 const GATE = { x: 0, y: -0.5, z: -60 };
 const WIN_RADIUS = 3.0;
+
+// Module-level jewel candidates derived once from the initial layout.
+const __l3_fresh = buildLevel3();
+const JEWEL_CANDIDATES = candidatesFromBlocks(
+  Array.isArray(__l3_fresh) ? __l3_fresh : __l3_fresh.blocks
+);
 
 function Level3({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
@@ -257,6 +265,12 @@ function Level3({ deathCount, onDeath, onComplete }) {
 
         {/* Goal gate */}
         <Gate position={[GATE.x, GATE.y, GATE.z]} jewelColor="#82eaff" />
+
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
 
         {/* Player */}
         <Player

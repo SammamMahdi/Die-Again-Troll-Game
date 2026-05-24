@@ -203,6 +203,18 @@ export function playPillarChime() {
   tone({ freq: 1175, duration: 0.45, type: 'sine', volume: 0.15, delay: 0.1 });
   tone({ freq: 1568, duration: 0.55, type: 'sine', volume: 0.11, delay: 0.2 });
 }
+// Jewel pickup chime — bright arpeggio. Bonus jewels get a longer richer
+// version so they FEEL like a bigger reward than commons.
+export function playJewelPickup(kind = 'common') {
+  if (kind === 'bonus') {
+    tone({ freq: 1175, duration: 0.10, type: 'sine', volume: 0.16 });
+    tone({ freq: 1568, duration: 0.12, type: 'sine', volume: 0.14, delay: 0.05 });
+    tone({ freq: 2093, duration: 0.18, type: 'sine', volume: 0.10, delay: 0.1 });
+  } else {
+    tone({ freq: 1400, duration: 0.06, type: 'sine', volume: 0.12 });
+    tone({ freq: 2100, duration: 0.08, type: 'sine', volume: 0.08, delay: 0.03 });
+  }
+}
 export function playOrbSpawn() {
   tone({ freq: 80, freqEnd: 320, duration: 0.32, type: 'sawtooth', volume: 0.16 });
   tone({ freq: 200, freqEnd: 60, duration: 0.4, type: 'triangle', volume: 0.10, delay: 0.1 });

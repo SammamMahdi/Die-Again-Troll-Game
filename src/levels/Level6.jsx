@@ -9,6 +9,8 @@ import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
@@ -161,6 +163,11 @@ function DiscVisual({ block }) {
   );
 }
 
+const __l6_fresh = buildLevel6();
+const JEWEL_CANDIDATES = candidatesFromBlocks(
+  Array.isArray(__l6_fresh) ? __l6_fresh : __l6_fresh.blocks
+);
+
 function Level6({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
   const [gameState, setGameState] = useState('playing');
@@ -264,6 +271,12 @@ function Level6({ deathCount, onDeath, onComplete }) {
         })}
 
         <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor={JEWEL_HEX} />
+
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
 
         {lasersRef.current.map((l, i) => (
           <LaserBeam key={`${restartKey}-laser-${i}`} laser={l} />

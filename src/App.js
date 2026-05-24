@@ -46,6 +46,7 @@ import {
   pointsForLevelResult,
 } from './utils/rewards';
 import { RunStatsProvider } from './components/RunStatsContext';
+import { getJewels, setJewelsFromCloud } from './utils/jewels';
 import {
   isCloudEnabled,
   subscribeToAuth,
@@ -143,10 +144,15 @@ function App() {
       } : EMPTY;
       setPersistedProgress(adapted);
       saveProgress(adapted);
+      // Pull the persisted jewel purse from the cloud doc too.
+      if (cloudData && typeof cloudData.jewels === 'number') {
+        setJewelsFromCloud(cloudData.jewels);
+      }
       // eslint-disable-next-line no-console
       console.log('[progress sync] loaded for', authUser.email,
         'medals:', Object.keys(adapted.medals).length,
-        'achievements:', adapted.achievements.length);
+        'achievements:', adapted.achievements.length,
+        'jewels:', cloudData?.jewels ?? 0);
     }).catch((err) => {
       // eslint-disable-next-line no-console
       console.warn('[progress sync] failed to read cloud doc:', err?.message || err);
@@ -202,6 +208,9 @@ function App() {
   const runStartTimeRef = useRef(null);
   const levelStartTimeRef = useRef(null);
   const levelStartDeathsRef = useRef(0);
+  // Jewel-balance snapshot at the start of the current run. Lets us report
+  // "jewels earned this run" without having to instrument every pickup.
+  const runStartJewelsRef = useRef(0);
   // Mirror of the levelStartDeaths ref as state, so the in-level HUD can
   // re-render when a fresh level starts and recompute "next medal" hints.
   const [levelStartDeaths, setLevelStartDeaths] = useState(0);
@@ -229,7 +238,12 @@ function App() {
       levelStartTimeRef.current = Date.now();
       levelStartDeathsRef.current = deathCount;
       setLevelStartDeaths(deathCount);     // mirror for the HUD context
-      if (runStartTimeRef.current == null) runStartTimeRef.current = Date.now();
+      if (runStartTimeRef.current == null) {
+        runStartTimeRef.current = Date.now();
+        // Snapshot jewel balance so the RunFailed/Complete screens can
+        // show "+N jewels earned this run".
+        runStartJewelsRef.current = getJewels();
+      }
       // Reset the per-level tries counter on every Hardcore level entry.
       // Practice + Tutorial don't use it.
       if (mode === 'hardcore') setTriesLeft(HARDCORE_TRIES);
@@ -388,7 +402,7 @@ function App() {
               totalDeaths,
               totalMs,
               pointsEarned: runScore,
-              jewelsEarned: 0,            // wired in Phase 2
+              jewelsEarned: Math.max(0, getJewels() - runStartJewelsRef.current),
               maxStreak,
               runStats,
             });
@@ -501,6 +515,7 @@ function App() {
           bestDeaths: updated.bestDeaths || {},
           totalRuns: updated.totalRuns || 0,
           totalCompletes: updated.totalCompletes || 0,
+          jewels: getJewels(),
         },
       }).catch((e) => {
         // eslint-disable-next-line no-console
@@ -553,6 +568,7 @@ function App() {
             achievements: updated.achievements || [],
             totalRuns: updated.totalRuns || 0,
             totalCompletes: updated.totalCompletes || 0,
+            jewels: getJewels(),
           },
         }).catch(() => {});
       }

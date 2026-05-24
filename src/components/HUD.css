@@ -150,6 +150,15 @@
   text-shadow: 0 0 8px rgba(255, 160, 60, 0.5);
 }
 
+/* Jewel balance — cyan-purple to match the bonus-jewel aesthetic. */
+.hud-stat-jewels .hud-stat-icon {
+  filter: drop-shadow(0 0 5px rgba(140, 230, 255, 0.7));
+}
+.hud-stat-jewels .hud-stat-value {
+  color: #aef0ff;
+  text-shadow: 0 0 8px rgba(140, 230, 255, 0.55);
+}
+
 /* Run-score readout: gold tint to read distinctly from deaths/time. */
 .hud-stat-score .hud-stat-icon {
   color: #ffd966;

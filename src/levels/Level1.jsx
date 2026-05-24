@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import QualityCanvas from '../components/QualityCanvas';
 import QualityStars from '../components/QualityStars';
 import QualitySparkles from '../components/QualitySparkles';
@@ -7,6 +7,8 @@ import Player from '../components/Player';
 import Block from '../components/Block';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import SequenceManager from '../components/SequenceManager';
@@ -36,9 +38,15 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   const [currentBlockIndex, setCurrentBlockIndex] = useState(-1);
   const [restartKey, setRestartKey] = useState(0);
   const [playerPosition, setPlayerPosition] = useState([0, 3, 20]);
-  
+  // Mirror as ref so jewel pickups can poll without forcing a re-render.
+  const playerPosRef = useRef([0, 3, 20]);
+
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
+
+  // JEWEL_CANDIDATES — derive from the level's static block layout once.
+  // Random-subset spawning happens inside <JewelField>.
+  const JEWEL_CANDIDATES = useMemo(() => candidatesFromBlocks(blocks), [blocks]);
   // (mobile detection removed — PC only)
   useEffect(() => {
     return () => {};
@@ -186,6 +194,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   // Callback for player position updates
   const handlePlayerUpdate = (playerPos, blockIdx) => {
     setPlayerPosition(playerPos);
+    playerPosRef.current = playerPos;
     setCurrentBlockIndex(blockIdx);
     
     // Check if player crossed z=12 to trigger sequence
@@ -302,6 +311,12 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
         {gate.visible && (
           <Gate position={[gate.x, 0.5, gate.z]} jewelColor="#ffe14a" />
         )}
+
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
 
         {/* Player */}
         <Player

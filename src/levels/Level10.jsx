@@ -8,6 +8,8 @@ import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
@@ -137,6 +139,11 @@ function ArchitectOrb({ orb }) {
     </group>
   );
 }
+
+const __l10_fresh = buildLevel10();
+const JEWEL_CANDIDATES = candidatesFromBlocks(
+  Array.isArray(__l10_fresh) ? __l10_fresh : __l10_fresh.blocks
+);
 
 function Level10({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
@@ -297,6 +304,12 @@ function Level10({ deathCount, onDeath, onComplete }) {
 
         {/* Goal gate only renders/unlocks once all pillars touched */}
         {gateUnlocked && <Gate position={[0, 0.5, 0]} jewelColor={JEWEL_HEX} grand />}
+
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
 
         {pillarsRef.current.map(p => (
           <PillarVisual key={`${restartKey}-pillar-${p.id}`} pillar={p} />

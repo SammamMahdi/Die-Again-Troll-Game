@@ -8,6 +8,8 @@ import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
@@ -150,6 +152,11 @@ function PlayerFlashlight({ playerPosRef }) {
 }
 
 
+const __l7_fresh = buildLevel7();
+const JEWEL_CANDIDATES = candidatesFromBlocks(
+  Array.isArray(__l7_fresh) ? __l7_fresh : __l7_fresh.blocks
+);
+
 function Level7({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
   const [gameState, setGameState] = useState('playing');
@@ -263,6 +270,12 @@ function Level7({ deathCount, onDeath, onComplete }) {
         ))}
 
         <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor={JEWEL_HEX} />
+
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
 
         {/* Sliding walls — rendered + tracked */}
         {wallsRef.current.map((w, i) => (

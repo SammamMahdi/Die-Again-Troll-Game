@@ -8,6 +8,8 @@ import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
@@ -113,6 +115,11 @@ function Pendulum({ pendulum }) {
   );
 }
 
+const __l5_fresh = buildLevel5Blocks();
+const JEWEL_CANDIDATES = candidatesFromBlocks(
+  Array.isArray(__l5_fresh) ? __l5_fresh : __l5_fresh.blocks
+);
+
 function Level5({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
   const [gameState, setGameState] = useState('playing');
@@ -216,6 +223,12 @@ function Level5({ deathCount, onDeath, onComplete }) {
         ))}
 
         <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor={JEWEL_HEX} />
+
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
 
         {pendulumsRef.current.map((p, i) => (
           <Pendulum key={`${restartKey}-pen-${i}`} pendulum={p} />
