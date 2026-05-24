@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import QualityCanvas from '../components/QualityCanvas';
 import QualityStars from '../components/QualityStars';
@@ -18,9 +18,13 @@ import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { goalPlatformColor } from '../utils/palette';
 import { getEchoMechanic } from '../utils/echoThemes';
+import { PORTAL_SPAWN_CHANCE, PLAYER_HALF } from '../constants/gameConstants';
+import useRestartOnR from '../hooks/useRestartOnR';
+import useVictoryTimer from '../hooks/useVictoryTimer';
+import useTeleportOnRequest from '../hooks/useTeleportOnRequest';
+import usePortalEnter from '../hooks/usePortalEnter';
 import './Level.css';
 
-const PLAYER_HALF = 0.5;
 const COLOR_DISC  = [0.55, 0.6, 0.95];
 const COLOR_BRIDGE = [0.7, 0.7, 0.85];
 const JEWEL_HEX   = '#ff3366';                       // rotating-disc red-pink theme
@@ -180,7 +184,7 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
 function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
-  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [ 0, 5, 25 ];
   const echoMechanic = hardMode ? getEchoMechanic(6) : {};
@@ -198,12 +202,8 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
 
-  useEffect(() => {
-    if (teleportRequest && teleportRequest.pos && playerControlRef.current?.teleportTo) {
-      playerControlRef.current.teleportTo(teleportRequest.pos);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teleportRequest?.signal]);
+  useTeleportOnRequest(playerControlRef, teleportRequest);
+  const handlePortalEnterCb = usePortalEnter(onPortalEnter, sideQuestCompleteRef);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -224,13 +224,7 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
     setRestartKey(prev => prev + 1);
   };
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key.toLowerCase() === 'r' && gameState === 'dead') handleRestart();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [gameState]); // eslint-disable-line
+  useRestartOnR(gameState, handleRestart);
 
   const handlePlayerUpdate = (pos) => {
     playerPosRef.current = pos;
@@ -244,12 +238,7 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
     }
   };
 
-  useEffect(() => {
-    if (gameState === 'won') {
-      const t = setTimeout(() => onComplete({ complete: sideQuestCompleteRef.current }), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [gameState, onComplete]);
+  useVictoryTimer(gameState, () => onComplete({ complete: sideQuestCompleteRef.current }));
 
   return (
     <div className="level-container">
@@ -305,10 +294,7 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
             position={[8, 0.5, -5]}
             rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
-            onEnter={(pos) => {
-              if (onPortalEnter) onPortalEnter(pos);
-              else sideQuestCompleteRef.current = true;
-            }}
+            onEnter={handlePortalEnterCb}
           />
         )}
 

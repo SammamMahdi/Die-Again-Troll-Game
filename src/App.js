@@ -18,21 +18,12 @@ import {
   startAmbient, stopAmbient,
 } from './utils/sounds';
 import Level0 from './levels/Level0';
-import Level1 from './levels/Level1';
-import Level2 from './levels/Level2';
-import Level3 from './levels/Level3';
-import Level4 from './levels/Level4';
-import Level5 from './levels/Level5';
-import Level6 from './levels/Level6';
-import Level7 from './levels/Level7';
-import Level8 from './levels/Level8';
-import Level9 from './levels/Level9';
-import Level10 from './levels/Level10';
+import LevelHost from './components/LevelHost';
+import WarpOverlay from './components/WarpOverlay';
 import ModeSelectScreen from './components/ModeSelectScreen';
 import PracticeLevelSelect from './components/PracticeLevelSelect';
 import RunFailedScreen from './components/RunFailedScreen';
 import Shop from './components/Shop';
-import EchoLevel from './components/EchoLevel';
 import {
   getMedal,
   evaluateLevelComplete,
@@ -40,22 +31,22 @@ import {
   recordRunComplete,
   recordTutorialComplete,
   loadProgress,
-  saveProgress,
   computeScore,
   medalCounts,
   pointsForLevelResult,
 } from './utils/rewards';
 import { RunStatsProvider } from './components/RunStatsContext';
-import { getRealJewels, setJewelsFromCloud, setAdminUnlimited } from './utils/jewels';
-import { getCosmetics, applyCloudCosmetics } from './utils/cosmetics';
-import { getInventory, consumeOne, applyCloudInventory } from './utils/consumables';
+import { getRealJewels, setAdminUnlimited } from './utils/jewels';
+import { getCosmetics } from './utils/cosmetics';
+import { getInventory, consumeOne } from './utils/consumables';
 import {
   isCloudEnabled,
   subscribeToAuth,
   signOutUser,
   submitScore,
-  fetchMyScore,
 } from './firebase';
+import { HARDCORE_TRIES, TOTAL_LEVELS, WARP_DURATION_MS } from './constants/gameConstants';
+import useCloudProgressSync from './hooks/useCloudProgressSync';
 
 const LEVEL_SCREENS = {
   0: 'level0',
@@ -72,12 +63,8 @@ const ECHO_SCREENS = {
   6: 'level6Echo', 7: 'level7Echo', 8: 'level8Echo', 9: 'level9Echo', 10: 'level10Echo',
 };
 
-// How many tries (deaths) a player gets per level in Hardcore mode before
-// the whole run ends. Practice + Tutorial = unlimited.
-const HARDCORE_TRIES = 3;
 // Keyboard shortcuts: 1-9 = levels 1-9, 0 = level 10
 const ADMIN_KEY_TO_LEVEL = { '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '0': 10 };
-const TOTAL_LEVELS = 10;
 
 // Admin mode is reserved for these accounts. Anyone signed in with a
 // different email (or signed out) sees no admin UI and cannot use the
@@ -121,67 +108,6 @@ function App() {
     const unsub = subscribeToAuth((user) => setAuthUser(user));
     return () => unsub && unsub();
   }, []);
-
-  // When auth state changes, progress is owned by whoever is signed in.
-  // - Signed-in: cloud doc IS the truth; replace local display + storage.
-  // - Signed-out: clear local display so the previous account's progress
-  //   isn't visible to whoever uses this device next.
-  useEffect(() => {
-    if (!isCloudEnabled()) return;
-    const EMPTY = {
-      bestDeaths: {}, bestTimes: {}, medals: {},
-      achievements: [], totalRuns: 0, totalCompletes: 0, lastRun: null,
-    };
-
-    // Signed out — wipe local
-    if (!authUser) {
-      setPersistedProgress(EMPTY);
-      saveProgress(EMPTY);
-      return;
-    }
-
-    // Signed in — fetch + overwrite local with cloud truth
-    let cancelled = false;
-    fetchMyScore(authUser.uid).then((cloudData) => {
-      if (cancelled) return;
-      const adapted = cloudData ? {
-        bestDeaths: cloudData.bestDeaths || {},
-        bestTimes: cloudData.bestTimes || {},
-        medals: cloudData.medals || {},
-        achievements: cloudData.achievements || [],
-        totalRuns: cloudData.totalRuns || 0,
-        totalCompletes: cloudData.totalCompletes || 0,
-        lastRun: cloudData.lastRun || null,
-      } : EMPTY;
-      setPersistedProgress(adapted);
-      saveProgress(adapted);
-      // Pull the persisted jewel purse from the cloud doc too.
-      if (cloudData && typeof cloudData.jewels === 'number') {
-        setJewelsFromCloud(cloudData.jewels);
-      }
-      // Merge cloud cosmetics (owned arrays unioned; equipped picks kept
-      // if owned in cloud, else stay local).
-      if (cloudData && cloudData.cosmetics) {
-        applyCloudCosmetics(cloudData.cosmetics);
-      }
-      // Cloud-side consumable counts win (truth across devices).
-      if (cloudData && cloudData.consumables) {
-        applyCloudInventory(cloudData.consumables);
-      }
-      // eslint-disable-next-line no-console
-      console.log('[progress sync] loaded for', authUser.email,
-        'medals:', Object.keys(adapted.medals).length,
-        'achievements:', adapted.achievements.length,
-        'jewels:', cloudData?.jewels ?? 0);
-    }).catch((err) => {
-      // eslint-disable-next-line no-console
-      console.warn('[progress sync] failed to read cloud doc:', err?.message || err);
-      if (cancelled) return;
-      setPersistedProgress(EMPTY);
-      saveProgress(EMPTY);
-    });
-    return () => { cancelled = true; };
-  }, [authUser]);
 
   // Admin mode is gated by email — non-admin sign-ins (or sign-out) cannot
   // keep adminMode true.
@@ -274,9 +200,6 @@ function App() {
   const [mainTeleportRequest, setMainTeleportRequest] = useState(null);
   const [warpPhase, setWarpPhase] = useState(null);
   const warpTimerRef = useRef(null);
-  // Matches the longest .warp-* keyframe duration in App.css so the
-  // overlay tears down right as the animation finishes.
-  const WARP_DURATION_MS = 1500;
 
   const playWarp = (phase) => {
     setWarpPhase(phase);
@@ -285,6 +208,11 @@ function App() {
   };
 
   const [persistedProgress, setPersistedProgress] = useState(() => loadProgress());
+
+  // When auth state changes, progress is owned by whoever is signed in.
+  // Extracted to useCloudProgressSync — handles signed-out clear and
+  // signed-in cloud-fetch + jewel/cosmetics/consumables hydration.
+  useCloudProgressSync(authUser, setPersistedProgress);
 
   // Whenever the screen changes into a level, mark start time + start deaths.
   useEffect(() => {
@@ -782,108 +710,27 @@ function App() {
           />
         </RunStatsProvider>
       )}
-      {/* Main + Echo render hosts (Phase 3b).
-          Critical invariant: the main-level component must NOT unmount
-          while its echo is active. If it unmounted, all its game state
-          (blocks visibility, vanishing timers, pendulum positions, the
-          sequence index, deaths, etc.) would be lost and the player
-          couldn't resume the main level after returning from the echo.
-          So we render the main level whenever currentScreen is either
-          `level{n}` OR `level{n}Echo` — they share the same mainLevelNum.
-          The wrapping <div display:none> hides it visually while echo
-          is on top; the RunStatsProvider paused flag freezes its
-          useFrame physics. */}
-      {(() => {
-        const s = currentScreen;
-        // Derive which main-level number (if any) needs to be mounted.
-        // Both `level{n}` and `level{n}Echo` map to the same main level.
-        let mainLevelNum = null;
-        if (s.startsWith('level') && s !== 'level0') {
-          const tail = s.slice(5);
-          const num = parseInt(tail.replace('Echo', ''), 10);
-          if (Number.isInteger(num) && num >= 1 && num <= 10) mainLevelNum = num;
-        }
-        const echoActive = s.endsWith('Echo');
-        if (mainLevelNum == null) return null;
-        const LEVEL_COMPONENTS = {
-          1: Level1, 2: Level2, 3: Level3, 4: Level4, 5: Level5,
-          6: Level6, 7: Level7, 8: Level8, 9: Level9, 10: Level10,
-        };
-        const Main = LEVEL_COMPONENTS[mainLevelNum];
-        const Echo = LEVEL_COMPONENTS[mainLevelNum];
-        return (
-          <>
-            {/* Main level — stays mounted across portal round-trips.
-                Hidden + paused while echo is overlaid. */}
-            <div
-              key={`main-host-${mainLevelNum}`}
-              style={{
-                display: echoActive ? 'none' : 'block',
-                width: '100%', height: '100%',
-              }}
-            >
-              <RunStatsProvider
-                runScore={runScore} levelStartDeaths={levelStartDeaths}
-                mode={mode} triesLeft={triesLeft} streak={streak}
-                portalEligible={portalEligibleFor(mainLevelNum)} portalAlwaysSpawn={portalAlwaysSpawn}
-                paused={echoActive}
-                teleportRequest={mainTeleportRequest}
-              >
-                <Main
-                  key={`level${mainLevelNum}-${qid}`}
-                  deathCount={deathCount}
-                  onDeath={handleDeath}
-                  onComplete={(arg) => handleLevelComplete(mainLevelNum, arg)}
-                  onRestart={handleRestart}
-                  onPortalEnter={(pos) => handlePortalEnter(mainLevelNum, pos)}
-                  startPositionOverride={null}
-                />
-              </RunStatsProvider>
-            </div>
+      <LevelHost
+        currentScreen={currentScreen}
+        qid={qid}
+        deathCount={deathCount}
+        runScore={runScore}
+        levelStartDeaths={levelStartDeaths}
+        mode={mode}
+        triesLeft={triesLeft}
+        streak={streak}
+        portalEligibleFor={portalEligibleFor}
+        portalAlwaysSpawn={portalAlwaysSpawn}
+        mainTeleportRequest={mainTeleportRequest}
+        onDeath={handleDeath}
+        onComplete={handleLevelComplete}
+        onRestart={handleRestart}
+        onPortalEnter={handlePortalEnter}
+        onEchoDeath={handleEchoDeath}
+        onEchoComplete={handleEchoComplete}
+      />
 
-            {/* Echo overlay — mounted only while currentScreen is an
-                echo. Renders the same Level component inside <EchoLevel>
-                with hardMode + the universal echo framing. Portal is
-                gated off so the player can't recurse. Deaths bail back
-                to the main level without spending Hardcore tries. */}
-            {echoActive && (
-              <RunStatsProvider
-                key={`echo-prov-${mainLevelNum}`}
-                runScore={runScore} levelStartDeaths={levelStartDeaths}
-                mode={mode} triesLeft={triesLeft} streak={streak}
-                portalEligible={false} portalAlwaysSpawn={false}
-              >
-                <EchoLevel level={mainLevelNum}>
-                  <Echo
-                    key={`level${mainLevelNum}Echo-${qid}`}
-                    deathCount={0}
-                    onDeath={() => handleEchoDeath(mainLevelNum)}
-                    onComplete={() => handleEchoComplete(mainLevelNum)}
-                    onRestart={handleRestart}
-                    onPortalEnter={() => {}}
-                    startPositionOverride={null}
-                    hardMode
-                  />
-                </EchoLevel>
-              </RunStatsProvider>
-            )}
-          </>
-        );
-      })()}
-
-      {/* Warp transition overlay — tornado swirl covering the screen swap
-          when entering or leaving an Echo Dimension. Three thin ribbons
-          (purple, blue, white) spin around the center axis at different
-          speeds, twisting around each other like helical strands. */}
-      {warpPhase && (
-        <div className={`warp-overlay warp-${warpPhase}`} aria-hidden="true">
-          <div className="warp-glow" />
-          <div className="warp-ribbon warp-ribbon-1" />
-          <div className="warp-ribbon warp-ribbon-2" />
-          <div className="warp-ribbon warp-ribbon-3" />
-          <div className="warp-sparkles" />
-        </div>
-      )}
+      <WarpOverlay phase={warpPhase} />
       {currentScreen === 'reward' && rewardData && (
         <RewardScreen data={rewardData} onContinue={handleRewardContinue} />
       )}
