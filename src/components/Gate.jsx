@@ -34,14 +34,30 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
   const accentLightRef = useRef();
   const t = useRef(0);
 
+  // "Vivid" gates (e.g. L7's pure-white jewel) need to read as a vibrant
+  // beacon at all times, regardless of scene fog or low ambient — so for
+  // high-luminance jewels we punch the emissive way up, drop tone mapping,
+  // and tell the materials to ignore fog. This makes the L7 white gate
+  // stay vibrantly white whether it's at the edge of the lantern or far
+  // out past the fog line.
+  const jewelLum = useMemo(() => {
+    const c = new THREE.Color(jewelColor);
+    return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+  }, [jewelColor]);
+  const vivid = jewelLum > 0.9;
+  const ignoreFog = vivid;
+
   // Geometry + emissive constants per variant. At high quality both variants
   // get a stronger emissive baseline so the metal glows and catches bloom.
-  const baseEmissive = grand
+  // Vivid gates get a smaller boost on top — just enough that fog+darkness
+  // doesn't swallow them, NOT enough to flood the scene with white bloom.
+  const vividMul = vivid ? 1.35 : 1.0;
+  const baseEmissive = (grand
     ? (isHigh ? 0.7 : 0.45)
-    : (isHigh ? 0.4 : 0.22);
-  const finialEmissive = grand
+    : (isHigh ? 0.4 : 0.22)) * vividMul;
+  const finialEmissive = (grand
     ? (isHigh ? 1.2 : 0.8)
-    : (isHigh ? 0.85 : 0.5);
+    : (isHigh ? 0.85 : 0.5)) * vividMul;
   const cfg = grand
     ? {
         pillarW: 0.78, pillarH: 6.2, pillarD: 0.78,
@@ -121,15 +137,15 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
       {/* Themed ground halo at platform level */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[cfg.haloInner, cfg.haloOuter, 64]} />
-        <meshBasicMaterial color={jewelThree} transparent opacity={grand ? 0.32 : 0.22} depthWrite={false}
-          side={THREE.DoubleSide} toneMapped={false} />
+        <meshBasicMaterial color={jewelThree} transparent opacity={(grand ? 0.32 : 0.22) * (vivid ? 1.6 : 1.0)} depthWrite={false}
+          side={THREE.DoubleSide} toneMapped={false} fog={!ignoreFog} />
       </mesh>
 
       {/* A slow-rotating thin accent ring on the platform, matches theme */}
       <mesh ref={ringRef} position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[cfg.accentOuter, cfg.accentInner, 64]} />
         <meshBasicMaterial color={jewelThree} transparent opacity={grand ? 0.8 : 0.65} depthWrite={false}
-          side={THREE.DoubleSide} toneMapped={false} />
+          side={THREE.DoubleSide} toneMapped={false} fog={!ignoreFog} />
       </mesh>
 
       {/* High-quality only: themed accent point light above the arch so the
@@ -156,6 +172,8 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
             color={frameColor} emissive={frameColor}
             emissiveIntensity={cfg.emissive}
             roughness={0.22} metalness={0.78}
+            toneMapped={!vivid}
+            fog={!ignoreFog}
           />
         </mesh>
 
@@ -167,6 +185,8 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
             color={frameColor} emissive={frameColor}
             emissiveIntensity={cfg.emissive}
             roughness={0.22} metalness={0.78}
+            toneMapped={!vivid}
+            fog={!ignoreFog}
           />
         </mesh>
 
@@ -180,6 +200,8 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
                 color={frameColor} emissive={jewelThree}
                 emissiveIntensity={isHigh ? 0.6 : 0.35}
                 roughness={0.3} metalness={0.7}
+                toneMapped={!vivid}
+                fog={!ignoreFog}
               />
             </mesh>
             <mesh position={[cfg.pillarX, -cfg.pillarH / 2 + 0.18, 0]}>
@@ -189,6 +211,8 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
                 color={frameColor} emissive={jewelThree}
                 emissiveIntensity={isHigh ? 0.6 : 0.35}
                 roughness={0.3} metalness={0.7}
+                toneMapped={!vivid}
+                fog={!ignoreFog}
               />
             </mesh>
           </>
@@ -202,6 +226,8 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
             color={frameColor} emissive={frameColor}
             emissiveIntensity={cfg.emissive}
             roughness={0.22} metalness={0.78}
+            toneMapped={!vivid}
+            fog={!ignoreFog}
           />
         </mesh>
 
@@ -213,6 +239,7 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
             color={finialColor} emissive={jewelThree}
             emissiveIntensity={finialEmissive}
             toneMapped={false}
+            fog={!ignoreFog}
           />
         </mesh>
         <mesh position={[cfg.pillarX, cfg.finialY, 0]}>
@@ -222,6 +249,7 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
             color={finialColor} emissive={jewelThree}
             emissiveIntensity={finialEmissive}
             toneMapped={false}
+            fog={!ignoreFog}
           />
         </mesh>
 
@@ -235,6 +263,7 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
                 color={finialColor} emissive={jewelThree}
                 emissiveIntensity={isHigh ? 1.4 : 1.0}
                 roughness={0.2} metalness={0.85} toneMapped={false}
+                fog={!ignoreFog}
               />
             </mesh>
             <mesh position={[0, 0.35, 0]}>
@@ -244,6 +273,7 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
                 color={jewelThree} emissive={jewelThree}
                 emissiveIntensity={isHigh ? 1.6 : 1.2}
                 roughness={0.12} metalness={0.85} toneMapped={false}
+                fog={!ignoreFog}
               />
             </mesh>
           </group>
@@ -258,21 +288,22 @@ function Gate({ position, jewelColor = '#ffd966', grand = false }) {
           <meshStandardMaterial
             color={jewelThree}
             emissive={jewelThree}
-            emissiveIntensity={grand ? 0.9 : 0.6}
+            emissiveIntensity={(grand ? 0.9 : 0.6) * (vivid ? 1.25 : 1.0)}
             roughness={0.12}
             metalness={0.8}
             toneMapped={false}
+            fog={!ignoreFog}
           />
         </mesh>
         {/* Inner core for bloom anchor */}
         <mesh>
           <octahedronGeometry args={[grand ? 0.3 : 0.22, 0]} />
-          <meshBasicMaterial color="#ffffff" toneMapped={false} />
+          <meshBasicMaterial color="#ffffff" toneMapped={false} fog={!ignoreFog} />
         </mesh>
         {/* Faint outer aura */}
         <mesh>
           <sphereGeometry args={[grand ? 1.0 : 0.75, 24, 16]} />
-          <meshBasicMaterial color={jewelThree} transparent opacity={grand ? 0.12 : 0.08} depthWrite={false} />
+          <meshBasicMaterial color={jewelThree} transparent opacity={(grand ? 0.12 : 0.08) * (vivid ? 1.8 : 1.0)} depthWrite={false} fog={!ignoreFog} />
         </mesh>
       </group>
     </group>

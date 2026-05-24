@@ -6,6 +6,7 @@ import { useGraphics } from '../components/GraphicsProvider';
 import Player from '../components/Player';
 import Block from '../components/Block';
 import Gate from '../components/Gate';
+import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import SequenceManager from '../components/SequenceManager';
@@ -257,6 +258,8 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
           speed={0.35}
           color="#ffd966"
         />
+
+        <InfiniteGrid />
 
         {/* Render blocks */}
         {blocks.map((block, index) => {

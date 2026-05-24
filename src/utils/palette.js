@@ -25,14 +25,21 @@ export function goalPlatformColor(jewelHex) {
   ];
 }
 
-// Darker, slightly desaturated version of the jewel — used for the gate's
-// pillars and top bar (metallic structure tinted by theme).
+// Frame tone derived from the jewel — luminance-aware.
+//   - Bright/near-white jewels (e.g. L7's pure white): preserve the lightness
+//     so the gate reads as a white monument, not a gray one.
+//   - Saturated/darker jewels: darken & slightly desaturate so the metal
+//     structure is distinct from the jewel itself.
 export function gateFrameColor(jewelHex) {
   const c = new THREE.Color(jewelHex);
+  const lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+  const preserve = lum > 0.9;             // very bright → keep lightness
+  const factor = preserve ? 0.92 : 0.65;
+  const offset = preserve ? 0.07 : 0.12;
   return new THREE.Color(
-    Math.max(0, c.r * 0.65 + 0.12),
-    Math.max(0, c.g * 0.65 + 0.12),
-    Math.max(0, c.b * 0.65 + 0.12),
+    Math.min(1, Math.max(0, c.r * factor + offset)),
+    Math.min(1, Math.max(0, c.g * factor + offset)),
+    Math.min(1, Math.max(0, c.b * factor + offset)),
   );
 }
 

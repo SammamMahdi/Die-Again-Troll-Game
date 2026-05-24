@@ -1,11 +1,13 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import QualityCanvas from '../components/QualityCanvas';
+import QualityStars from '../components/QualityStars';
 import QualitySparkles from '../components/QualitySparkles';
 import { useGraphics } from '../components/GraphicsProvider';
 import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
+import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
@@ -13,7 +15,10 @@ import { goalPlatformColor } from '../utils/palette';
 import './Level.css';
 
 const PLAYER_HALF = 0.5;
-const COLOR_PATH = [0.68, 0.7, 0.85];
+// Stepping platforms in L7 are pure white. The lantern catches white better
+// than the prior light-blue tone, so the path you can walk on reads clearly
+// once it enters the lantern's bubble.
+const COLOR_PATH = [0.98, 0.98, 1.0];
 // Lantern level: pure-white gate reads as a final beacon at the end of the
 // dark hallway. Platform stays nearly white (goalPlatformColor pastels it).
 const JEWEL_HEX  = '#ffffff';
@@ -61,48 +66,89 @@ function buildSlidingWalls() {
 //                   a sibling Object3D and the spotLight is wired to it
 //                   imperatively — without that, three.js leaves the target
 //                   at world origin and the cone aims toward (0,0,0).
+// Platform top in L7 is y=0.5 and the player's center sits ~y=1.0 when
+// grounded, so any py above ~1.3 means the player is in the air.
+const GROUNDED_Y = 1.0;
+const AIR_THRESHOLD = 0.3;        // py - GROUNDED_Y above this counts as airborne
+const AIR_FULL = 1.6;             // py - GROUNDED_Y at/above this is fully lit
+const POINT_MAX = 6;              // peak point-light intensity while airborne
+const SPOT_MAX = 5;               // peak spot-light intensity while airborne
+const GROUND_FLOOR = 0.25;        // dim residual glow when grounded
+const LERP_SPEED = 8.0;           // 1/seconds — smooth ramp up/down
+
 function PlayerFlashlight({ playerPosRef }) {
   const pointRef = useRef();
   const spotRef = useRef();
   const targetRef = useRef();
+  // Smoothed airborne factor (0 = grounded, 1 = fully in the air).
+  const airRef = useRef(0);
 
-  useFrame(() => {
+  useFrame((_, deltaRaw) => {
+    const dt = Math.min(deltaRaw, 0.05);
     const [px, py, pz] = playerPosRef.current || [0, 0, 0];
+
+    // Raw airborne: linearly ramps from 0 at AIR_THRESHOLD to 1 at AIR_FULL.
+    const altitude = Math.max(0, py - GROUNDED_Y);
+    let targetAir;
+    if (altitude < AIR_THRESHOLD) targetAir = 0;
+    else if (altitude > AIR_FULL) targetAir = 1;
+    else targetAir = (altitude - AIR_THRESHOLD) / (AIR_FULL - AIR_THRESHOLD);
+
+    // Lerp toward target so the torch doesn't blink on/off frame-to-frame.
+    const k = 1 - Math.exp(-LERP_SPEED * dt);
+    airRef.current += (targetAir - airRef.current) * k;
+
+    // Compose final intensities: a tiny floor + the airborne ramp.
+    const air = airRef.current;
+    const pointI = GROUND_FLOOR + (POINT_MAX - GROUND_FLOOR) * air;
+    const spotI  = GROUND_FLOOR + (SPOT_MAX  - GROUND_FLOOR) * air;
+
     if (pointRef.current) {
-      pointRef.current.position.set(px, py + 1.5, pz);
+      pointRef.current.position.set(px, py + 0.6, pz);
+      pointRef.current.intensity = pointI;
     }
     if (spotRef.current && targetRef.current) {
-      spotRef.current.position.set(px, py + 6, pz);
+      // Spot follows the player vertically, so the downward cone tracks
+      // them through the apex of every jump.
+      spotRef.current.position.set(px, py + 4, pz);
+      spotRef.current.intensity = spotI;
       if (spotRef.current.target !== targetRef.current) {
         spotRef.current.target = targetRef.current;
       }
-      targetRef.current.position.set(px, py - 8, pz);
+      targetRef.current.position.set(px, py - 6, pz);
       targetRef.current.updateMatrixWorld();
     }
   });
 
   return (
     <>
+      {/* Tight white bubble — distance halved vs. the old always-on
+          lantern. Intensity is driven per-frame from the airborne ramp
+          above, so this is a "torch that flares while you jump". */}
       <pointLight
         ref={pointRef}
-        intensity={9}
-        distance={16}
+        intensity={GROUND_FLOOR}
+        distance={6}
         decay={1.0}
-        color="#cce0ff"
+        color="#ffffff"
       />
+      {/* Downward white flood — also distance-clamped so the lit pool
+          is a tight circle around the player rather than a level-wide
+          spotlight. */}
       <spotLight
         ref={spotRef}
-        angle={1.0}
-        penumbra={0.55}
-        intensity={6}
-        distance={18}
+        angle={0.85}
+        penumbra={0.5}
+        intensity={GROUND_FLOOR}
+        distance={7}
         decay={1.0}
-        color="#dde6f5"
+        color="#ffffff"
       />
       <object3D ref={targetRef} />
     </>
   );
 }
+
 
 function Level7({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
@@ -174,24 +220,45 @@ function Level7({ deathCount, onDeath, onComplete }) {
           touchAction: 'none',
         }}
       >
-        {/* Fog far range narrows on lower presets to reduce draw distance */}
-        <fog attach="fog" args={['#000000', 4, q.l7FogFar]} />
-        {/* Very faint baseline so platform edges and the player are still
-            barely visible just past the lantern's reach. */}
-        <ambientLight intensity={0.18} color="#1a2440" />
-        <hemisphereLight args={['#2a3a60', '#000008', 0.2]} />
+        {/* Fog is measured CAMERA → fragment, not player → fragment. The
+            camera trails the player at CAM_DIST≈40, so anything in front of
+            the player sits ~38-46 units from the camera. We have to push
+            fog NEAR past the camera-to-player distance, otherwise the
+            lantern's brightly-lit floor gets fog-blended to black BEFORE
+            it reaches your eyes — that was the "lantern only works when
+            the camera is close to a surface" bug. */}
+        <fog attach="fog" args={['#000000', 38, q.l7FogFar]} />
+        {/* Slightly stronger baseline so the white platforms catch a hint
+            of light at the lantern's edge — bright enough to read as
+            "there is a platform there", dim enough to keep the dread. */}
+        <ambientLight intensity={0.28} color="#2a3a60" />
+        <hemisphereLight args={['#3a4870', '#000010', 0.35]} />
 
-        {/* Player-following flashlight (gameplay-essential — never disabled) */}
+        {/* Player-following flashlight (gameplay-essential — never disabled).
+            Bright pure-white pool that reveals the white tiles directly
+            beneath and around the player. */}
         <PlayerFlashlight playerPosRef={playerPosRef} />
 
+        {/* Star field — only mounts at High preset (QualityStars returns null
+            when starsScale=0). drei <Stars> uses its own shader that isn't
+            fog-attenuated, so the stars stay crisp against the pitch-black
+            void even though everything else in L7 fades to fog. */}
+        <QualityStars radius={180} depth={60} count={2200} factor={4} saturation={0} fade speed={0.4} />
+
         <QualitySparkles position={[0, 3, -32]} count={28} scale={[8, 4, 4]} size={2.2} speed={0.3} color="#ffd966" />
+
+        <InfiniteGrid />
 
         {blocksRef.current.map((b, i) => (
           <AnimatedBlock
             key={`${restartKey}-block-${i}`}
             block={b}
             edgeColor={b.isGoal ? JEWEL_HEX : '#5fb8ff'}
-            emissiveBoost={b.isGoal ? 0.3 : 0.28}
+            // No self-emissive on path tiles — they should be VISIBLE because
+            // the torch is lighting them, not because they're glowing on
+            // their own. Goal keeps a small emissive so it's recognisable
+            // from a distance.
+            emissiveBoost={b.isGoal ? 0.12 : 0}
           />
         ))}
 
@@ -224,7 +291,7 @@ function Level7({ deathCount, onDeath, onComplete }) {
 
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
 
-        <ScenePostFX bloomIntensity={1.75} bloomThreshold={0.05} vignette={0.6} hue={0} />
+        <ScenePostFX bloomIntensity={1.25} bloomThreshold={0.55} vignette={0.6} hue={0} />
       </QualityCanvas>
 
       <HUD
@@ -253,12 +320,14 @@ function SlidingWall({ wall }) {
     <group ref={ref}>
       <mesh>
         <boxGeometry args={[wall.w, wall.h, wall.d]} />
+        {/* No self-emissive — the walls are deep red but only become visible
+            once the player's torch radius lands on them. Outside the lantern
+            bubble they should blend into the void. */}
         <meshStandardMaterial
-          color="#552233"
-          emissive="#ff3355"
-          emissiveIntensity={0.6}
-          roughness={0.4}
-          metalness={0.3}
+          color="#882233"
+          emissiveIntensity={0}
+          roughness={0.5}
+          metalness={0.2}
         />
       </mesh>
     </group>

@@ -5,6 +5,10 @@
 
 const STORAGE_KEY = 'die-again-graphics-v1';
 const CHANGE_EVENT = 'die-again-graphics-changed';
+// Independent toggle for the cosmetic ground grid. Lives in localStorage on
+// its own key so it survives preset switches and can be flipped freely.
+const GRID_KEY = 'die-again-grid-v1';
+const GRID_EVENT = 'die-again-grid-changed';
 
 export const QUALITY_ORDER = ['potato', 'high'];
 
@@ -34,7 +38,7 @@ export const PRESETS = {
     minimalEdges: true,          // skip <Edges> outlines on blocks
     // Lighting
     minimalLights: true,         // skip accent point lights per level
-    l7FogFar: 14,
+    l7FogFar: 56,                // ramp from fog NEAR (~38) to pitch black
   },
   high: {
     id: 'high',
@@ -55,7 +59,7 @@ export const PRESETS = {
     roundedBoxSmoothness: 4,
     minimalEdges: false,
     minimalLights: false,
-    l7FogFar: 18,
+    l7FogFar: 68,                // longer ramp for smoother fade on High
   },
 };
 
@@ -102,4 +106,37 @@ export function subscribeQuality(handler) {
   if (typeof window === 'undefined') return () => {};
   window.addEventListener(CHANGE_EVENT, handler);
   return () => window.removeEventListener(CHANGE_EVENT, handler);
+}
+
+// ----- Cosmetic grid toggle (independent of the quality preset) -----
+
+function loadGridVisible() {
+  try {
+    const v = localStorage.getItem(GRID_KEY);
+    if (v === '0') return false;
+    if (v === '1') return true;
+  } catch {}
+  return false;   // default: off (clean void background)
+}
+
+let _gridVisible = loadGridVisible();
+
+export function getGridVisible() {
+  return _gridVisible;
+}
+
+export function setGridVisible(visible) {
+  const next = !!visible;
+  if (next === _gridVisible) return;
+  _gridVisible = next;
+  try { localStorage.setItem(GRID_KEY, next ? '1' : '0'); } catch {}
+  if (typeof window !== 'undefined') {
+    try { window.dispatchEvent(new CustomEvent(GRID_EVENT)); } catch {}
+  }
+}
+
+export function subscribeGridVisible(handler) {
+  if (typeof window === 'undefined') return () => {};
+  window.addEventListener(GRID_EVENT, handler);
+  return () => window.removeEventListener(GRID_EVENT, handler);
 }

@@ -257,3 +257,36 @@
   font-style: italic;
   letter-spacing: 0.2px;
 }
+
+.settings-grid-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(20, 8, 40, 0.55);
+  color: #e8d9ff;
+  border: 1px solid rgba(160, 100, 220, 0.4);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.settings-grid-toggle:hover {
+  background: rgba(160, 100, 220, 0.22);
+  box-shadow: 0 0 10px rgba(255, 100, 220, 0.35);
+}
+
+.settings-grid-toggle.on {
+  background: linear-gradient(135deg, rgba(255, 92, 200, 0.4) 0%, rgba(180, 100, 255, 0.4) 100%);
+  color: #ffffff;
+  border-color: rgba(255, 92, 200, 0.7);
+}
+
+.settings-grid-toggle-box {
+  font-size: 1.05rem;
+  line-height: 1;
+}

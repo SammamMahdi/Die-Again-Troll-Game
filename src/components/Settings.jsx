@@ -6,6 +6,7 @@ import {
 } from '../utils/sounds';
 import {
   PRESETS, QUALITY_ORDER, getQualityId, setQuality, resetQuality,
+  getGridVisible, setGridVisible,
 } from '../utils/graphics';
 import './Settings.css';
 
@@ -20,6 +21,7 @@ function Settings({ onClose }) {
   const [vols, setVols] = useState(getVolumes());
   const [muted, setMutedState] = useState(isMuted());
   const [quality, setQualityState] = useState(getQualityId());
+  const [gridOn, setGridOn] = useState(getGridVisible());
 
   const update = (channel, value) => {
     const v = Number(value);
@@ -37,6 +39,13 @@ function Settings({ onClose }) {
   const pickQuality = (id) => {
     setQuality(id);
     setQualityState(id);
+    playUIClick();
+  };
+
+  const toggleGrid = () => {
+    const next = !gridOn;
+    setGridVisible(next);
+    setGridOn(next);
     playUIClick();
   };
 
@@ -83,6 +92,13 @@ function Settings({ onClose }) {
           <div className="settings-graphics-note">
             Switching presets restarts the current level — the only way to apply MSAA / antialias cleanly.
           </div>
+          <button
+            className={`settings-grid-toggle ${gridOn ? 'on' : ''}`}
+            onClick={toggleGrid}
+          >
+            <span className="settings-grid-toggle-box">{gridOn ? '☑' : '☐'}</span>
+            <span>Show void grid (under platforms)</span>
+          </button>
         </div>
 
         {/* ===== Sound ===== */}
