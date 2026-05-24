@@ -274,7 +274,9 @@ function App() {
   const [mainTeleportRequest, setMainTeleportRequest] = useState(null);
   const [warpPhase, setWarpPhase] = useState(null);
   const warpTimerRef = useRef(null);
-  const WARP_DURATION_MS = 400;
+  // Matches the longest .warp-* keyframe duration in App.css so the
+  // overlay tears down right as the animation finishes.
+  const WARP_DURATION_MS = 1500;
 
   const playWarp = (phase) => {
     setWarpPhase(phase);
@@ -869,9 +871,19 @@ function App() {
         );
       })()}
 
-      {/* Warp transition overlay — rotating violet blur covering the
-          screen swap when entering or leaving an Echo Dimension. */}
-      {warpPhase && <div className={`warp-overlay warp-${warpPhase}`} aria-hidden="true" />}
+      {/* Warp transition overlay — tornado swirl covering the screen swap
+          when entering or leaving an Echo Dimension. Three thin ribbons
+          (purple, blue, white) spin around the center axis at different
+          speeds, twisting around each other like helical strands. */}
+      {warpPhase && (
+        <div className={`warp-overlay warp-${warpPhase}`} aria-hidden="true">
+          <div className="warp-glow" />
+          <div className="warp-ribbon warp-ribbon-1" />
+          <div className="warp-ribbon warp-ribbon-2" />
+          <div className="warp-ribbon warp-ribbon-3" />
+          <div className="warp-sparkles" />
+        </div>
+      )}
       {currentScreen === 'reward' && rewardData && (
         <RewardScreen data={rewardData} onContinue={handleRewardContinue} />
       )}
