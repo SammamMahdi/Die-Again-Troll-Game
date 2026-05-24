@@ -2,20 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import './HUD.css';
 
 function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
-  const [isMobile, setIsMobile] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-                   || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-      setIsMobile(mobile);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // Reset + tick a per-level elapsed timer. Pauses when the level ends.
   useEffect(() => {
@@ -78,7 +66,7 @@ function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
           <h1>GAME OVER</h1>
           <p>{deathReason}</p>
           <button className="restart-button" onClick={onRestart}>
-            {isMobile ? 'Tap to Restart' : 'Press R to Restart'}
+            Press R to Restart
           </button>
         </div>
       )}

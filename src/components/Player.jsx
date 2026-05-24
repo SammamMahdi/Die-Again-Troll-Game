@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { cameraYawRef, pushShake, pushFovPulse } from './CameraController';
 import { playJump } from '../utils/sounds';
+import { useGraphics } from './GraphicsProvider';
 
 // Physics constants
 const GRAVITY = -45.0;
@@ -23,13 +24,6 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
   const lastPlatformRef = useRef(null);
 
   const keysPressed = useRef({});
-  const mobileButtonsPressed = useRef({
-    forward: false,
-    backward: false,
-    left: false,
-    right: false,
-    jump: false
-  });
   // External velocity-override signal (launchers, knockback, etc.)
   const launchRef = useRef(null);
   // External per-frame position delta (rotating platforms, wind, etc.)
@@ -57,16 +51,12 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     };
   }, []);
   
-  // Expose mobile control + level-side control via ref
+  // Expose level-side gameplay hooks via ref (named `mobileControlRef` for
+  // historical reasons; mobile UI is gone but levels still push launches /
+  // external deltas through this same handle).
   useEffect(() => {
     if (mobileControlRef) {
       mobileControlRef.current = {
-        setMove: (direction, pressed) => {
-          mobileButtonsPressed.current[direction] = pressed;
-        },
-        setJump: (pressed) => {
-          mobileButtonsPressed.current.jump = pressed;
-        },
         // Launchers / knockback: overrides player's velocity once.
         setLaunch: (vx, vy, vz) => {
           launchRef.current = [vx, vy, vz];
@@ -82,12 +72,17 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     }
   }, [mobileControlRef]);
 
-  useFrame((state, delta) => {
+  useFrame((state, deltaRaw) => {
     if (gameState !== 'playing') return;
     if (!blocks || blocks.length === 0) return; // Wait for blocks to be ready
 
+    // Clamp delta to ~20 FPS worst-case. Browsers throttle requestAnimationFrame
+    // when the tab is unfocused, so on refocus you get one huge dt that
+    // teleports the player through platforms (gravity carries them past
+    // collision bounds in a single step). Capping it preserves the physics.
+    const delta = Math.min(deltaRaw, 0.05);
+
     const keys = keysPressed.current;
-    const mobileButtons = mobileButtonsPressed.current;
     let [px, py, pz] = position;
     let [vx, vy, vz] = velocity;
 
@@ -99,17 +94,10 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     const rz = fx;
     
     let ax = 0, az = 0;
-    // Keyboard controls
     if (keys['w']) { ax += fx; az += fz; }
     if (keys['s']) { ax -= fx; az -= fz; }
     if (keys['a']) { ax -= rx; az -= rz; }
     if (keys['d']) { ax += rx; az += rz; }
-    
-    // Mobile button controls
-    if (mobileButtons.forward) { ax += fx; az += fz; }
-    if (mobileButtons.backward) { ax -= fx; az -= fz; }
-    if (mobileButtons.left) { ax -= rx; az -= rz; }
-    if (mobileButtons.right) { ax += rx; az += rz; }
 
     const length = Math.sqrt(ax * ax + az * az);
     if (length > 0) {
@@ -131,8 +119,8 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     // Apply gravity
     vy += GRAVITY * delta;
 
-    // Jump (keyboard or mobile button)
-    if ((keys[' '] || mobileButtons.jump) && onGround) {
+    // Jump (keyboard)
+    if (keys[' '] && onGround) {
       vy = JUMP_FORCE;
       setOnGround(false);
       playJump();
@@ -317,7 +305,11 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
 }
 
 // Visual-only pawn with a rotating crown, pulsing head, projected halo + shadow.
+// Quality-aware: Potato (q.minimalPlayer) strips the crown, ground halo and
+// inner head core down to just the base+body+head+shadow.
 function PlayerVisual({ blocksProp, positionRef }) {
+  const q = useGraphics();
+  const minimal = q.minimalPlayer;
   const haloRef = useRef();
   const shadowRef = useRef();
   const headMatRef = useRef();
@@ -329,13 +321,13 @@ function PlayerVisual({ blocksProp, positionRef }) {
     t.current += delta;
     const pulse = 0.6 + 0.4 * Math.sin(t.current * 3.0);
 
-    // Crown rotates constantly
+    // Crown rotates constantly (skipped on Potato)
     if (crownRef.current) {
       crownRef.current.rotation.y += delta * 1.2;
       crownRef.current.rotation.x = Math.sin(t.current * 1.3) * 0.15;
     }
-    // Body breathes (subtle vertical bob)
-    if (bodyRef.current) {
+    // Body breathes (subtle vertical bob, skipped on Potato to stay rock-still)
+    if (bodyRef.current && !minimal) {
       bodyRef.current.position.y = Math.sin(t.current * 2.0) * 0.04;
     }
     if (headMatRef.current) {
@@ -373,25 +365,29 @@ function PlayerVisual({ blocksProp, positionRef }) {
         }
       }
     }
+    // Shadow only shows when an actual landable block is below the player.
+    // Over the void there is no ground to project onto — shadow stays hidden.
     const hasGround = groundY > -Infinity;
     const localY = hasGround ? (groundY + 0.02 - py) : -100;
-    const altitude = hasGround ? Math.max(0, py - groundY - 0.5) : 30;
-    // Much slower altitude falloff + minimum floor: shadow stays visible
-    // even when you're high up.
-    const fade = Math.max(0.18, Math.min(1, 1 - altitude * 0.025));
+    const altitude = hasGround ? Math.max(0, py - groundY - 0.5) : 0;
+    // Slow altitude falloff with a healthy minimum floor so the shadow stays
+    // readable even high up — but only while there's still ground beneath.
+    const fade = Math.max(0.32, Math.min(1, 1 - altitude * 0.02));
     const scale = Math.max(0.55, 1 + altitude * 0.05);
 
     if (shadowRef.current) {
       shadowRef.current.position.y = localY;
+      // Visible in BOTH Potato and High, but ONLY when over a landable block.
       shadowRef.current.visible = hasGround;
       shadowRef.current.scale.set(scale, scale, 1);
       if (shadowRef.current.material) {
-        shadowRef.current.material.opacity = 0.55 * fade;
+        shadowRef.current.material.opacity = 0.6 * fade;
       }
     }
     if (haloRef.current) {
       haloRef.current.position.y = localY + 0.01;
-      haloRef.current.visible = hasGround;
+      // Halo is the High-only neon ring; gated by minimal AND landable ground.
+      haloRef.current.visible = hasGround && !minimal;
       const haloPulse = (1 + 0.08 * Math.sin(t.current * 2.5)) * scale;
       haloRef.current.scale.set(haloPulse, haloPulse, 1);
       if (haloRef.current.material) {
@@ -402,86 +398,95 @@ function PlayerVisual({ blocksProp, positionRef }) {
 
   return (
     <group>
-      {/* Soft neon ground halo */}
-      <mesh ref={haloRef} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.55, 1.4, 48]} />
-        <meshBasicMaterial color="#5cff8a" transparent opacity={0.4} depthWrite={false}
-          side={THREE.DoubleSide} toneMapped={false} />
-      </mesh>
+      {/* Soft neon ground halo (skipped on Potato) */}
+      {!minimal && (
+        <mesh ref={haloRef} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.55, 1.4, 48]} />
+          <meshBasicMaterial color="#5cff8a" transparent opacity={0.4} depthWrite={false}
+            side={THREE.DoubleSide} toneMapped={false} />
+        </mesh>
+      )}
 
-      {/* Ground shadow */}
+      {/* Ground shadow — always rendered, sphere-sub-counts shrink on Potato */}
       <mesh ref={shadowRef} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.55, 32]} />
+        <circleGeometry args={[0.55, minimal ? 12 : 32]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.5} depthWrite={false} />
       </mesh>
 
-      {/* Body group (breathes) */}
+      {/* Body group (breathes — bob disabled on Potato) */}
       <group ref={bodyRef}>
         {/* Base "feet" */}
         <mesh position={[0, -0.55, 0]}>
-          <sphereGeometry args={[0.45, 24, 16]} />
+          <sphereGeometry args={[0.45, minimal ? 10 : 24, minimal ? 8 : 16]} />
           <meshStandardMaterial color="#1f7a39" roughness={0.4} metalness={0.35}
-            emissive="#1a8a33" emissiveIntensity={0.5} />
+            emissive="#1a8a33" emissiveIntensity={minimal ? 0 : 0.5} />
         </mesh>
 
         {/* Capsule body */}
         <mesh position={[0, -0.05, 0]}>
-          <capsuleGeometry args={[0.32, 0.55, 8, 16]} />
+          <capsuleGeometry args={[0.32, 0.55, minimal ? 4 : 8, minimal ? 8 : 16]} />
           <meshStandardMaterial color="#37d164" roughness={0.35} metalness={0.4}
-            emissive="#33cc55" emissiveIntensity={0.7} />
+            emissive="#33cc55" emissiveIntensity={minimal ? 0 : 0.7} />
         </mesh>
 
-        {/* Glowing head */}
+        {/* Head — non-emissive on Potato (no bloom anyway) */}
         <mesh position={[0, 0.6, 0]}>
-          <sphereGeometry args={[0.38, 32, 24]} />
+          <sphereGeometry args={[0.38, minimal ? 12 : 32, minimal ? 10 : 24]} />
           <meshStandardMaterial
             ref={headMatRef}
-            color="#aeffce"
+            color={minimal ? '#7ad9a0' : '#aeffce'}
             emissive="#5cff8a"
-            emissiveIntensity={1.2}
+            emissiveIntensity={minimal ? 0 : 1.2}
             roughness={0.18}
             metalness={0.15}
-            toneMapped={false}
+            toneMapped={!minimal ? false : true}
           />
         </mesh>
 
-        {/* Tiny inner core for extra bloom punch */}
-        <mesh position={[0, 0.6, 0]}>
-          <sphereGeometry args={[0.18, 16, 12]} />
-          <meshBasicMaterial color="#ffffff" toneMapped={false} />
-        </mesh>
+        {/* Tiny inner core for extra bloom punch (skipped on Potato) */}
+        {!minimal && (
+          <mesh position={[0, 0.6, 0]}>
+            <sphereGeometry args={[0.18, 16, 12]} />
+            <meshBasicMaterial color="#ffffff" toneMapped={false} />
+          </mesh>
+        )}
 
-        {/* Rotating crown — bright, gets caught by bloom */}
-        <group ref={crownRef} position={[0, 0.95, 0]}>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.4, 0.04, 12, 36]} />
-            <meshStandardMaterial color="#ffd966" emissive="#ffd966" emissiveIntensity={2.0}
-              roughness={0.2} metalness={0.7} toneMapped={false} />
-          </mesh>
-          {/* Two orbiting dots on the crown */}
-          <mesh position={[0.4, 0, 0]}>
-            <sphereGeometry args={[0.08, 12, 8]} />
-            <meshBasicMaterial color="#fff5b3" toneMapped={false} />
-          </mesh>
-          <mesh position={[-0.4, 0, 0]}>
-            <sphereGeometry args={[0.08, 12, 8]} />
-            <meshBasicMaterial color="#fff5b3" toneMapped={false} />
-          </mesh>
-        </group>
+        {/* Rotating crown (skipped on Potato) */}
+        {!minimal && (
+          <group ref={crownRef} position={[0, 0.95, 0]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.4, 0.04, 12, 36]} />
+              <meshStandardMaterial color="#ffd966" emissive="#ffd966" emissiveIntensity={2.0}
+                roughness={0.2} metalness={0.7} toneMapped={false} />
+            </mesh>
+            <mesh position={[0.4, 0, 0]}>
+              <sphereGeometry args={[0.08, 12, 8]} />
+              <meshBasicMaterial color="#fff5b3" toneMapped={false} />
+            </mesh>
+            <mesh position={[-0.4, 0, 0]}>
+              <sphereGeometry args={[0.08, 12, 8]} />
+              <meshBasicMaterial color="#fff5b3" toneMapped={false} />
+            </mesh>
+          </group>
+        )}
       </group>
     </group>
   );
 }
 
-// Motion trail: ~14 short-lived sphere "ghosts" of recent player positions.
+// Motion trail: up to 14 short-lived sphere "ghosts" of recent player
+// positions. Quality-aware — Potato skips it entirely, Low/Medium render
+// fewer segments than High.
 function PlayerTrail({ trailRef }) {
+  const q = useGraphics();
+  const segments = q.trailSegments;
   const groupRef = useRef();
   const meshRefs = useRef([]);
 
   useFrame(() => {
     const trail = trailRef.current;
     if (!groupRef.current) return;
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < segments; i++) {
       const mesh = meshRefs.current[i];
       if (!mesh) continue;
       const pos = trail[i];
@@ -491,7 +496,7 @@ function PlayerTrail({ trailRef }) {
       }
       mesh.visible = true;
       mesh.position.set(pos[0], pos[1], pos[2]);
-      const f = 1 - i / 14;        // closer-to-current = brighter
+      const f = 1 - i / segments;
       const s = 0.05 + 0.25 * f;
       mesh.scale.set(s, s, s);
       if (mesh.material) {
@@ -500,9 +505,10 @@ function PlayerTrail({ trailRef }) {
     }
   });
 
+  if (segments <= 0) return null;
   return (
     <group ref={groupRef}>
-      {Array.from({ length: 14 }).map((_, i) => (
+      {Array.from({ length: segments }).map((_, i) => (
         <mesh
           key={i}
           ref={(el) => { if (el) meshRefs.current[i] = el; }}
@@ -516,18 +522,21 @@ function PlayerTrail({ trailRef }) {
   );
 }
 
-// Landing dust: 10 small particles spawned once on each ground transition.
+// Landing dust: up to 10 small particles spawned once on each ground
+// transition. Quality-aware — Potato skips, lower tiers use fewer particles.
 function LandingDust({ triggerRef }) {
+  const q = useGraphics();
+  const count = q.dustParticles;
   const meshRefs = useRef([]);
-  const dustState = useRef([]); // [{ origin, vx, vy, vz, born }]
+  const dustState = useRef([]);
   const lastFiredRef = useRef(0);
 
   useFrame((state, delta) => {
+    if (count <= 0) return;
     const trigger = triggerRef.current;
     if (trigger && trigger.at && trigger.at !== lastFiredRef.current) {
       lastFiredRef.current = trigger.at;
-      // Spawn 10 particles
-      dustState.current = Array.from({ length: 10 }, () => {
+      dustState.current = Array.from({ length: count }, () => {
         const a = Math.random() * Math.PI * 2;
         const speed = 1.6 + Math.random() * 1.4;
         return {
@@ -542,7 +551,7 @@ function LandingDust({ triggerRef }) {
         };
       });
     }
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < count; i++) {
       const m = meshRefs.current[i];
       const p = dustState.current[i];
       if (!m) continue;
@@ -568,9 +577,11 @@ function LandingDust({ triggerRef }) {
     }
   });
 
+  if (count <= 0) return null;
+
   return (
     <group>
-      {Array.from({ length: 10 }).map((_, i) => (
+      {Array.from({ length: count }).map((_, i) => (
         <mesh
           key={i}
           ref={(el) => { if (el) meshRefs.current[i] = el; }}

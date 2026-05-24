@@ -1,6 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, Sparkles } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import QualityCanvas from '../components/QualityCanvas';
+import QualityStars from '../components/QualityStars';
+import QualitySparkles from '../components/QualitySparkles';
+import { useGraphics } from '../components/GraphicsProvider';
 import * as THREE from 'three';
 import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
@@ -8,13 +11,14 @@ import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
-import MobileControls from '../components/MobileControls';
 import ScenePostFX from '../components/ScenePostFX';
 import { playWindGust } from '../utils/sounds';
+import { goalPlatformColor } from '../utils/palette';
 import './Level.css';
 
 const COLOR_PATH = [0.7, 0.78, 0.95];
-const COLOR_GOAL = [1.0, 0.84, 0.0];
+const JEWEL_HEX  = '#88ddff';                       // wind-sky theme
+const COLOR_GOAL = goalPlatformColor(JEWEL_HEX);    // pale sky-blue goal platform
 
 function buildLevel9() {
   const blocks = [];
@@ -79,6 +83,7 @@ function WindZoneVisual({ zone }) {
 }
 
 function Level9({ deathCount, onDeath, onComplete }) {
+  const q = useGraphics();
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -90,21 +95,8 @@ function Level9({ deathCount, onDeath, onComplete }) {
   const zonesRef = useRef(buildWindZones());
   const playerPosRef = useRef([0, 5, 25]);
 
-  const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
-        || ('ontouchstart' in window);
-      setShowMobileControls(mobile);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -153,25 +145,28 @@ function Level9({ deathCount, onDeath, onComplete }) {
 
   return (
     <div className="level-container">
-      <Canvas
+      <QualityCanvas
         camera={{ position: [30, 18, 40], fov: 60 }}
         style={{
           background: 'linear-gradient(180deg, #00141a 0%, #023a4a 60%, #0a6080 100%)',
           touchAction: 'none',
         }}
-        gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
         <fog attach="fog" args={['#0a2a3a', 40, 180]} />
         <ambientLight intensity={0.5} color="#aaddff" />
         <hemisphereLight args={['#ccf0ff', '#001830', 0.55]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} color="#e8f8ff" />
-        <pointLight position={[0, 8, 0]} intensity={0.7} color="#88ccff" distance={50} />
-        <pointLight position={[0, 5, -32]} intensity={0.45} color="#ffd055" distance={24} />
+        {!q.minimalLights && (
+          <>
+            <pointLight position={[0, 8, 0]} intensity={0.7} color="#88ccff" distance={50} />
+            <pointLight position={[0, 5, -32]} intensity={0.45} color="#ffd055" distance={24} />
+          </>
+        )}
 
-        <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.7} />
-        <Sparkles position={[0, 3, -32]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.7} />
+        <QualitySparkles position={[0, 3, -32]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
         {/* Whipping wind particles across the level */}
-        <Sparkles position={[0, 4, -5]} count={120} scale={[20, 8, 50]} size={1.5} speed={2.5} color="#cceeff" />
+        <QualitySparkles position={[0, 4, -5]} count={120} scale={[20, 8, 50]} size={1.5} speed={2.5} color="#cceeff" />
 
         <InfiniteGrid />
 
@@ -183,12 +178,12 @@ function Level9({ deathCount, onDeath, onComplete }) {
           <AnimatedBlock
             key={`${restartKey}-block-${i}`}
             block={b}
-            edgeColor={b.isGoal ? '#ffd966' : '#7fdaff'}
+            edgeColor={b.isGoal ? JEWEL_HEX : '#7fdaff'}
             emissiveBoost={b.isGoal ? 0.22 : 0.05}
           />
         ))}
 
-        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor="#88ddff" />
+        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor={JEWEL_HEX} />
 
         <Player
           key={restartKey}
@@ -213,7 +208,7 @@ function Level9({ deathCount, onDeath, onComplete }) {
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
 
         <ScenePostFX bloomIntensity={1.4} hue={-0.05} />
-      </Canvas>
+      </QualityCanvas>
 
       <HUD
         level={9}
@@ -227,14 +222,6 @@ function Level9({ deathCount, onDeath, onComplete }) {
         <div className="level-tagline">Lean into the wind. Watch the gusts.</div>
       )}
 
-      {showMobileControls && (
-        <MobileControls
-          enabled={gameState === 'playing'}
-          onCameraMove={(dx, dy) => cameraControlRef.current?.rotate(dx, dy)}
-          onMove={(dir, p) => playerControlRef.current?.setMove(dir, p)}
-          onJump={(p) => playerControlRef.current?.setJump(p)}
-        />
-      )}
     </div>
   );
 }

@@ -1,19 +1,24 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Sparkles } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import QualityCanvas from '../components/QualityCanvas';
+import QualitySparkles from '../components/QualitySparkles';
+import { useGraphics } from '../components/GraphicsProvider';
 import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
-import MobileControls from '../components/MobileControls';
 import ScenePostFX from '../components/ScenePostFX';
+import { goalPlatformColor } from '../utils/palette';
 import './Level.css';
 
 const PLAYER_HALF = 0.5;
 const COLOR_PATH = [0.68, 0.7, 0.85];
-const COLOR_GOAL = [1.0, 0.84, 0.0];
+// Lantern level: pure-white gate reads as a final beacon at the end of the
+// dark hallway. Platform stays nearly white (goalPlatformColor pastels it).
+const JEWEL_HEX  = '#ffffff';
+const COLOR_GOAL = goalPlatformColor(JEWEL_HEX);
 
 function buildLevel7() {
   const blocks = [];
@@ -101,6 +106,7 @@ function PlayerFlashlight({ playerPosRef }) {
 }
 
 function Level7({ deathCount, onDeath, onComplete }) {
+  const q = useGraphics();
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -112,21 +118,8 @@ function Level7({ deathCount, onDeath, onComplete }) {
   const wallsRef = useRef(buildSlidingWalls());
   const playerPosRef = useRef([0, 5, 30]);
 
-  const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
-        || ('ontouchstart' in window);
-      setShowMobileControls(mobile);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -175,25 +168,24 @@ function Level7({ deathCount, onDeath, onComplete }) {
 
   return (
     <div className="level-container">
-      <Canvas
+      <QualityCanvas
         camera={{ position: [20, 14, 40], fov: 60 }}
         style={{
           background: 'linear-gradient(180deg, #000004 0%, #000010 100%)',
           touchAction: 'none',
         }}
-        gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
-        {/* Tighter fog than before — visibility ~10 units */}
-        <fog attach="fog" args={['#000000', 4, 16]} />
+        {/* Fog far range narrows on lower presets to reduce draw distance */}
+        <fog attach="fog" args={['#000000', 4, q.l7FogFar]} />
         {/* Very faint baseline so platform edges and the player are still
             barely visible just past the lantern's reach. */}
         <ambientLight intensity={0.18} color="#1a2440" />
         <hemisphereLight args={['#2a3a60', '#000008', 0.2]} />
 
-        {/* Player-following flashlight */}
+        {/* Player-following flashlight (gameplay-essential — never disabled) */}
         <PlayerFlashlight playerPosRef={playerPosRef} />
 
-        <Sparkles position={[0, 3, -32]} count={28} scale={[8, 4, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 3, -32]} count={28} scale={[8, 4, 4]} size={2.2} speed={0.3} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -201,12 +193,12 @@ function Level7({ deathCount, onDeath, onComplete }) {
           <AnimatedBlock
             key={`${restartKey}-block-${i}`}
             block={b}
-            edgeColor={b.isGoal ? '#ffd966' : '#5fb8ff'}
+            edgeColor={b.isGoal ? JEWEL_HEX : '#5fb8ff'}
             emissiveBoost={b.isGoal ? 0.3 : 0.28}
           />
         ))}
 
-        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor="#c8e6ff" />
+        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor={JEWEL_HEX} />
 
         {/* Sliding walls — rendered + tracked */}
         {wallsRef.current.map((w, i) => (
@@ -236,7 +228,7 @@ function Level7({ deathCount, onDeath, onComplete }) {
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
 
         <ScenePostFX bloomIntensity={1.75} bloomThreshold={0.05} vignette={0.6} hue={0} />
-      </Canvas>
+      </QualityCanvas>
 
       <HUD
         level={7}
@@ -250,14 +242,6 @@ function Level7({ deathCount, onDeath, onComplete }) {
         <div className="level-tagline">Walk toward the light. Something else is walking too.</div>
       )}
 
-      {showMobileControls && (
-        <MobileControls
-          enabled={gameState === 'playing'}
-          onCameraMove={(dx, dy) => cameraControlRef.current?.rotate(dx, dy)}
-          onMove={(dir, p) => playerControlRef.current?.setMove(dir, p)}
-          onJump={(p) => playerControlRef.current?.setJump(p)}
-        />
-      )}
     </div>
   );
 }

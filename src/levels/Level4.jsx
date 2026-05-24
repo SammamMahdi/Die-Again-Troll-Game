@@ -1,15 +1,18 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, Sparkles } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import QualityCanvas from '../components/QualityCanvas';
+import QualityStars from '../components/QualityStars';
+import QualitySparkles from '../components/QualitySparkles';
+import { useGraphics } from '../components/GraphicsProvider';
 import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
-import MobileControls from '../components/MobileControls';
 import ScenePostFX from '../components/ScenePostFX';
 import { playFall, playLaunch, playWarning } from '../utils/sounds';
+import { goalPlatformColor } from '../utils/palette';
 import './Level.css';
 
 // Block "types" — matches level4.py
@@ -23,7 +26,8 @@ const COLOR_SAFE     = [0.32, 0.42, 0.95];
 const COLOR_TRAPDOOR = [0.85, 0.22, 0.22];
 const COLOR_ILLUSION = [0.55, 0.55, 0.65];
 const COLOR_LAUNCHER = [1.0, 0.55, 0.05];
-const COLOR_GOAL     = [1.0, 0.84, 0.0];
+const JEWEL_HEX      = '#ffaa44';                       // orange theme
+const COLOR_GOAL     = goalPlatformColor(JEWEL_HEX);    // pastel orange platform
 
 const DISGUISED_TRAPDOOR_CHANCE = 0.3;
 
@@ -103,6 +107,7 @@ function buildLevel4() {
 const GATE = { x: 0, y: 0.5, z: -70 };
 
 function Level4({ deathCount, onDeath, onComplete }) {
+  const q = useGraphics();
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -112,22 +117,8 @@ function Level4({ deathCount, onDeath, onComplete }) {
   const playerPosRef = useRef([0, 5, 40]);
   const prevBlockIdxRef = useRef(-1);
 
-  // Mobile + control refs (same pattern as L2/L3)
-  const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
-        || ('ontouchstart' in window);
-      setShowMobileControls(mobile);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -204,23 +195,26 @@ function Level4({ deathCount, onDeath, onComplete }) {
 
   return (
     <div className="level-container">
-      <Canvas
+      <QualityCanvas
         camera={{ position: [30, 20, 50], fov: 60 }}
         style={{
           background: 'linear-gradient(180deg, #050018 0%, #1a0530 55%, #3a0050 100%)',
           touchAction: 'none',
         }}
-        gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
         <fog attach="fog" args={['#150528', 45, 200]} />
         <ambientLight intensity={0.45} />
         <hemisphereLight args={['#a0a0ff', '#2a0030', 0.55]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} />
-        <pointLight position={[0, 8, 40]} intensity={0.5} color="#5577ff" distance={50} />
-        <pointLight position={[0, 8, -70]} intensity={0.5} color="#ffd055" distance={26} />
+        {!q.minimalLights && (
+          <>
+            <pointLight position={[0, 8, 40]} intensity={0.5} color="#5577ff" distance={50} />
+            <pointLight position={[0, 8, -70]} intensity={0.5} color="#ffd055" distance={26} />
+          </>
+        )}
 
-        <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <Sparkles position={[0, 4, -70]} count={30} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
+        <QualitySparkles position={[0, 4, -70]} count={30} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -230,7 +224,7 @@ function Level4({ deathCount, onDeath, onComplete }) {
           if (b.displayType === T_TRAPDOOR) edgeColor = '#ff5555';
           else if (b.displayType === T_ILLUSION) edgeColor = '#aaaaaa';
           else if (b.displayType === T_LAUNCHER) edgeColor = '#ffaa44';
-          else if (b.displayType === T_GOAL) edgeColor = '#ffd966';
+          else if (b.displayType === T_GOAL) edgeColor = JEWEL_HEX;
           return (
             <AnimatedBlock
               key={`${restartKey}-block-${i}`}
@@ -241,7 +235,7 @@ function Level4({ deathCount, onDeath, onComplete }) {
           );
         })}
 
-        <Gate position={[GATE.x, GATE.y, GATE.z]} jewelColor="#ffaa44" />
+        <Gate position={[GATE.x, GATE.y, GATE.z]} jewelColor={JEWEL_HEX} />
 
         <Player
           key={restartKey}
@@ -264,7 +258,7 @@ function Level4({ deathCount, onDeath, onComplete }) {
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
 
         <ScenePostFX bloomIntensity={1.35} hue={0.02} />
-      </Canvas>
+      </QualityCanvas>
 
       <HUD
         level={4}
@@ -278,14 +272,6 @@ function Level4({ deathCount, onDeath, onComplete }) {
         <div className="level-tagline">Trust nothing. Blue might betray.</div>
       )}
 
-      {showMobileControls && (
-        <MobileControls
-          enabled={gameState === 'playing'}
-          onCameraMove={(dx, dy) => cameraControlRef.current?.rotate(dx, dy)}
-          onMove={(dir, p) => playerControlRef.current?.setMove(dir, p)}
-          onJump={(p) => playerControlRef.current?.setJump(p)}
-        />
-      )}
     </div>
   );
 }

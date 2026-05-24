@@ -1,15 +1,18 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, Sparkles } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import QualityCanvas from '../components/QualityCanvas';
+import QualityStars from '../components/QualityStars';
+import QualitySparkles from '../components/QualitySparkles';
+import { useGraphics } from '../components/GraphicsProvider';
 import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
-import MobileControls from '../components/MobileControls';
 import ScenePostFX from '../components/ScenePostFX';
 import { playPillarChime, playOrbSpawn, playGateUnlock } from '../utils/sounds';
+import { goalPlatformColor } from '../utils/palette';
 import './Level.css';
 
 // Composite arena: collect 3 pillars while a boss orb chases you. Once all
@@ -17,7 +20,8 @@ import './Level.css';
 
 const COLOR_PLATFORM = [0.7, 0.7, 0.85];
 const COLOR_ICE = [0.55, 0.85, 1.0];
-const COLOR_GOAL = [1.0, 0.84, 0.0];
+const JEWEL_HEX  = '#ffc233';                       // rich monument-gold (boss-arena finale)
+const COLOR_GOAL = goalPlatformColor(JEWEL_HEX);    // soft gold goal platform
 
 function buildLevel10() {
   const blocks = [];
@@ -90,7 +94,7 @@ function PillarVisual({ pillar }) {
         />
       </mesh>
       {!pillar.touched && (
-        <Sparkles position={[0, 1.5, 0]} count={20} scale={[2, 4, 2]} size={2.5} speed={0.6} color={pillar.color} />
+        <QualitySparkles position={[0, 1.5, 0]} count={20} scale={[2, 4, 2]} size={2.5} speed={0.6} color={pillar.color} />
       )}
     </group>
   );
@@ -135,6 +139,7 @@ function ArchitectOrb({ orb }) {
 }
 
 function Level10({ deathCount, onDeath, onComplete }) {
+  const q = useGraphics();
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -152,21 +157,8 @@ function Level10({ deathCount, onDeath, onComplete }) {
   const extraOrbsRef = useRef([]);
   const playerPosRef = useRef([0, 5, 8]);
 
-  const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
-        || ('ontouchstart' in window);
-      setShowMobileControls(mobile);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -264,25 +256,28 @@ function Level10({ deathCount, onDeath, onComplete }) {
 
   return (
     <div className="level-container">
-      <Canvas
+      <QualityCanvas
         camera={{ position: [25, 22, 25], fov: 60 }}
         style={{
           background: 'radial-gradient(circle at 50% 40%, #1a0040 0%, #050015 70%, #000005 100%)',
           touchAction: 'none',
         }}
-        gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
         <fog attach="fog" args={['#100020', 40, 200]} />
         <ambientLight intensity={0.45} />
         <hemisphereLight args={['#aaaaff', '#1a0033', 0.45]} />
         <directionalLight position={[15, 25, 10]} intensity={0.9} />
-        <pointLight position={[0, 12, 0]} intensity={1.0} color="#ffd066" distance={50} />
-        <pointLight position={[16, 6, -16]} intensity={0.6} color="#ff5577" distance={20} />
-        <pointLight position={[-16, 6, -16]} intensity={0.6} color="#55ddff" distance={20} />
-        <pointLight position={[0, 6, 16]} intensity={0.6} color="#aaff66" distance={20} />
+        {!q.minimalLights && (
+          <>
+            <pointLight position={[0, 12, 0]} intensity={1.0} color="#ffd066" distance={50} />
+            <pointLight position={[16, 6, -16]} intensity={0.6} color="#ff5577" distance={20} />
+            <pointLight position={[-16, 6, -16]} intensity={0.6} color="#55ddff" distance={20} />
+            <pointLight position={[0, 6, 16]} intensity={0.6} color="#aaff66" distance={20} />
+          </>
+        )}
 
-        <Stars radius={250} depth={80} count={3000} factor={5} saturation={0} fade speed={0.4} />
-        <Sparkles position={[0, 5, 0]} count={70} scale={[14, 6, 14]} size={3.5} speed={0.25} color="#ffd966" />
+        <QualityStars radius={250} depth={80} count={3000} factor={5} saturation={0} fade speed={0.4} />
+        <QualitySparkles position={[0, 5, 0]} count={70} scale={[14, 6, 14]} size={3.5} speed={0.25} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -292,7 +287,7 @@ function Level10({ deathCount, onDeath, onComplete }) {
             <AnimatedBlock
               key={`${restartKey}-block-${i}`}
               block={b}
-              edgeColor={b.isGoal ? (gateUnlocked ? '#ffd966' : '#444466') : (isIce ? '#a0f0ff' : '#7fdaff')}
+              edgeColor={b.isGoal ? (gateUnlocked ? JEWEL_HEX : '#444466') : (isIce ? '#a0f0ff' : '#7fdaff')}
               emissiveBoost={b.isGoal ? (gateUnlocked ? 0.3 : 0.1) : (isIce ? 0.2 : 0)}
               metalness={isIce ? 0.4 : 0.1}
               roughness={isIce ? 0.22 : 0.55}
@@ -301,7 +296,7 @@ function Level10({ deathCount, onDeath, onComplete }) {
         })}
 
         {/* Goal gate only renders/unlocks once all pillars touched */}
-        {gateUnlocked && <Gate position={[0, 0.5, 0]} jewelColor="#ffd066" />}
+        {gateUnlocked && <Gate position={[0, 0.5, 0]} jewelColor={JEWEL_HEX} grand />}
 
         {pillarsRef.current.map(p => (
           <PillarVisual key={`${restartKey}-pillar-${p.id}`} pillar={p} />
@@ -338,7 +333,7 @@ function Level10({ deathCount, onDeath, onComplete }) {
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
 
         <ScenePostFX bloomIntensity={1.6} hue={0} />
-      </Canvas>
+      </QualityCanvas>
 
       <HUD
         level={10}
@@ -355,14 +350,6 @@ function Level10({ deathCount, onDeath, onComplete }) {
         </div>
       )}
 
-      {showMobileControls && (
-        <MobileControls
-          enabled={gameState === 'playing'}
-          onCameraMove={(dx, dy) => cameraControlRef.current?.rotate(dx, dy)}
-          onMove={(dir, p) => playerControlRef.current?.setMove(dir, p)}
-          onJump={(p) => playerControlRef.current?.setJump(p)}
-        />
-      )}
     </div>
   );
 }

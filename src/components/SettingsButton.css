@@ -1,0 +1,44 @@
+.settings-button {
+  position: fixed;
+  /* Sits next to the HomeButton in the bottom-left corner */
+  bottom: 14px;
+  left: 154px;
+  z-index: 1500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(15, 5, 30, 0.78);
+  border: 1px solid rgba(200, 140, 255, 0.45);
+  border-radius: 10px;
+  color: #e8d9ff;
+  font-family: var(--font-body, 'Helvetica Neue'), Arial, sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  user-select: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 0 12px rgba(180, 100, 255, 0.4);
+  transition: all 0.2s ease;
+}
+
+.settings-button:hover {
+  background: rgba(60, 40, 90, 0.8);
+  border-color: rgba(255, 120, 220, 0.7);
+  box-shadow: 0 0 18px rgba(255, 100, 220, 0.7);
+  transform: translateY(-1px);
+}
+
+.settings-button:active {
+  transform: translateY(0);
+}
+
+.settings-button-icon {
+  font-size: 16px;
+}
+
+.settings-button-label {
+  font-weight: 600;
+  letter-spacing: 0.8px;
+}

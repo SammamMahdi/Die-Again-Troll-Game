@@ -1,13 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, Sparkles } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import QualityCanvas from '../components/QualityCanvas';
+import QualityStars from '../components/QualityStars';
+import QualitySparkles from '../components/QualitySparkles';
+import { useGraphics } from '../components/GraphicsProvider';
 import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
-import MobileControls from '../components/MobileControls';
 import ScenePostFX from '../components/ScenePostFX';
 import { playSonar } from '../utils/sounds';
 import './Level.css';
@@ -119,6 +121,7 @@ const GATE = { x: 0, y: -0.5, z: -60 };
 const WIN_RADIUS = 3.0;
 
 function Level3({ deathCount, onDeath, onComplete }) {
+  const q = useGraphics();
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [sonarActive, setSonarActive] = useState(false);
@@ -131,29 +134,8 @@ function Level3({ deathCount, onDeath, onComplete }) {
   const sonarTimerRef = useRef(0);
   const sonarPressedRef = useRef(false);
 
-  // Mobile
-  const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
-        || ('ontouchstart' in window);
-      setShowMobileControls(mobile);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    const onKey = (e) => {
-      if (e.key.toLowerCase() === 'm') setShowMobileControls(prev => !prev);
-    };
-    window.addEventListener('keypress', onKey);
-    return () => {
-      window.removeEventListener('resize', checkMobile);
-      window.removeEventListener('keypress', onKey);
-    };
-  }, []);
 
   // Track SPACE press for sonar pulse (in addition to its jump function in Player)
   useEffect(() => {
@@ -217,36 +199,33 @@ function Level3({ deathCount, onDeath, onComplete }) {
     }
   }, [gameState, onComplete]);
 
-  // Mobile jump button should also pulse the sonar
-  const handleMobileJump = (pressed) => {
-    sonarPressedRef.current = pressed;
-    if (playerControlRef.current) playerControlRef.current.setJump(pressed);
-  };
-
   return (
     <div className="level-container">
-      <Canvas
+      <QualityCanvas
         camera={{ position: [30, 18, 35], fov: 60 }}
         style={{
           background: 'linear-gradient(180deg, #06101e 0%, #163455 55%, #4a7ab0 100%)',
           touchAction: 'none',
         }}
-        gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
         <fog attach="fog" args={['#1a3050', 35, 170]} />
         <ambientLight intensity={0.5} color="#c8dbff" />
         <hemisphereLight args={['#dbe9ff', '#0c1830', 0.55]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} color="#e8f2ff" />
-        <pointLight position={[0, 8, -36]} intensity={0.8} color="#9affff" distance={28} />
-        <pointLight position={[0, 5, -60]} intensity={0.45} color="#ffd055" distance={24} />
+        {!q.minimalLights && (
+          <>
+            <pointLight position={[0, 8, -36]} intensity={0.8} color="#9affff" distance={28} />
+            <pointLight position={[0, 5, -60]} intensity={0.45} color="#ffd055" distance={24} />
+          </>
+        )}
 
-        <Stars radius={200} depth={70} count={2200} factor={4} saturation={0} fade speed={0.5} />
+        <QualityStars radius={200} depth={70} count={2200} factor={4} saturation={0} fade speed={0.5} />
 
         {/* Frost flurries above the path */}
-        <Sparkles position={[0, 4, -25]} count={80} scale={[14, 6, 70]} size={2.5} speed={0.25} color="#c8efff" />
+        <QualitySparkles position={[0, 4, -25]} count={80} scale={[14, 6, 70]} size={2.5} speed={0.25} color="#c8efff" />
 
         {/* Goal glow */}
-        <Sparkles position={[0, 3, -60]} count={26} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 3, -60]} count={26} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -310,7 +289,7 @@ function Level3({ deathCount, onDeath, onComplete }) {
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
 
         <ScenePostFX bloomIntensity={1.4} hue={-0.04} />
-      </Canvas>
+      </QualityCanvas>
 
       <HUD
         level={3}
@@ -330,18 +309,6 @@ function Level3({ deathCount, onDeath, onComplete }) {
         </div>
       )}
 
-      {showMobileControls && (
-        <MobileControls
-          enabled={gameState === 'playing'}
-          onCameraMove={(dx, dy) => {
-            if (cameraControlRef.current) cameraControlRef.current.rotate(dx, dy);
-          }}
-          onMove={(dir, pressed) => {
-            if (playerControlRef.current) playerControlRef.current.setMove(dir, pressed);
-          }}
-          onJump={handleMobileJump}
-        />
-      )}
     </div>
   );
 }

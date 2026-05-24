@@ -7,9 +7,11 @@ import AuthModal from './components/AuthModal';
 import Leaderboard from './components/Leaderboard';
 import MyStats from './components/MyStats';
 import HomeButton from './components/HomeButton';
+import SettingsButton from './components/SettingsButton';
 import AbilityHUD from './components/AbilityHUD';
 import Guide from './components/Guide';
 import Settings from './components/Settings';
+import { useGraphics } from './components/GraphicsProvider';
 import {
   playDeath, playWin, playUIClick, playUIOpen,
   isMuted, setMuted,
@@ -66,6 +68,15 @@ function App() {
   const [currentScreen, setCurrentScreen] = useState('start');
   const [deathCount, setDeathCount] = useState(0);
   const [adminMode, setAdminMode] = useState(false);
+
+  // Quality preset id. We append it to each level's React `key` so that
+  // changing graphics presets in Settings cleanly remounts the level —
+  // which is the only reliable way to swap WebGL antialias, MSAA on the
+  // EffectComposer, and the wholesale geometry/PostFX changes that come
+  // with the preset. The level resets to its start state on switch (the
+  // accepted trade-off vs. visual chaos from a partial in-place swap).
+  const q = useGraphics();
+  const qid = q.id;
 
   // Cloud auth
   const [authUser, setAuthUser] = useState(null);
@@ -411,6 +422,7 @@ function App() {
       )}
       {currentScreen === 'level1' && (
         <Level1
+          key={`level1-${qid}`}
           deathCount={deathCount}
           onDeath={handleDeath}
           onComplete={() => handleLevelComplete(1)}
@@ -419,6 +431,7 @@ function App() {
       )}
       {currentScreen === 'level2' && (
         <Level2
+          key={`level2-${qid}`}
           deathCount={deathCount}
           onDeath={handleDeath}
           onComplete={() => handleLevelComplete(2)}
@@ -427,6 +440,7 @@ function App() {
       )}
       {currentScreen === 'level3' && (
         <Level3
+          key={`level3-${qid}`}
           deathCount={deathCount}
           onDeath={handleDeath}
           onComplete={() => handleLevelComplete(3)}
@@ -434,25 +448,25 @@ function App() {
         />
       )}
       {currentScreen === 'level4' && (
-        <Level4 deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(4)} onRestart={handleRestart} />
+        <Level4 key={`level4-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(4)} onRestart={handleRestart} />
       )}
       {currentScreen === 'level5' && (
-        <Level5 deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(5)} onRestart={handleRestart} />
+        <Level5 key={`level5-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(5)} onRestart={handleRestart} />
       )}
       {currentScreen === 'level6' && (
-        <Level6 deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(6)} onRestart={handleRestart} />
+        <Level6 key={`level6-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(6)} onRestart={handleRestart} />
       )}
       {currentScreen === 'level7' && (
-        <Level7 deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(7)} onRestart={handleRestart} />
+        <Level7 key={`level7-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(7)} onRestart={handleRestart} />
       )}
       {currentScreen === 'level8' && (
-        <Level8 deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(8)} onRestart={handleRestart} />
+        <Level8 key={`level8-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(8)} onRestart={handleRestart} />
       )}
       {currentScreen === 'level9' && (
-        <Level9 deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(9)} onRestart={handleRestart} />
+        <Level9 key={`level9-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(9)} onRestart={handleRestart} />
       )}
       {currentScreen === 'level10' && (
-        <Level10 deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(10)} onRestart={handleRestart} />
+        <Level10 key={`level10-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(10)} onRestart={handleRestart} />
       )}
       {currentScreen === 'reward' && rewardData && (
         <RewardScreen data={rewardData} onContinue={handleRewardContinue} />
@@ -497,6 +511,11 @@ function App() {
 
       {currentScreen !== 'start' && currentScreen !== 'leaderboard' && (
         <HomeButton onHome={goToStart} />
+      )}
+
+      {/* In-game settings access — shown on every non-start screen */}
+      {currentScreen !== 'start' && (
+        <SettingsButton onClick={() => { playUIOpen(); setSettingsOpen(true); }} />
       )}
 
       {/* Ability hint shown only while playing a level */}

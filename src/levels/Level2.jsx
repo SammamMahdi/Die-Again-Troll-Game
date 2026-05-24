@@ -1,6 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, Sparkles } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import QualityCanvas from '../components/QualityCanvas';
+import QualityStars from '../components/QualityStars';
+import QualitySparkles from '../components/QualitySparkles';
+import { useGraphics } from '../components/GraphicsProvider';
 import Player from '../components/Player';
 import Globe from '../components/Globe';
 import AnimatedBlock from '../components/AnimatedBlock';
@@ -8,9 +11,9 @@ import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
-import MobileControls from '../components/MobileControls';
 import ScenePostFX from '../components/ScenePostFX';
 import { playLightRed, playLightBlue, playCreak } from '../utils/sounds';
+import { goalPlatformColor } from '../utils/palette';
 import './Level.css';
 
 // Mechanics constants (mirror level2.py)
@@ -28,7 +31,9 @@ const PLAYER_HALF = 0.5;
 const MOVE_EPSILON = 0.015; // per-frame XZ delta that counts as "moving"
 
 const COLOR_FLOOR = [0.78, 0.78, 0.85];
-const COLOR_GOAL = [1.0, 0.84, 0.0];
+// Goal platform tinted to match the jewel for visual cohesion.
+const JEWEL_HEX = '#ff6fb5';
+const COLOR_GOAL = goalPlatformColor(JEWEL_HEX);
 
 function buildLevel2() {
   const blocks = [];
@@ -80,6 +85,7 @@ function buildGlobes() {
 }
 
 function Level2({ deathCount, onDeath, onComplete }) {
+  const q = useGraphics();
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [globeStateLabel, setGlobeStateLabel] = useState('BLUE');
@@ -96,29 +102,8 @@ function Level2({ deathCount, onDeath, onComplete }) {
   const onGroundRef = useRef(false);
   const currentBlockIndexRef = useRef(-1);
 
-  // Mobile detection
-  const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
-        || ('ontouchstart' in window);
-      setShowMobileControls(mobile);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    const onKey = (e) => {
-      if (e.key.toLowerCase() === 'm') setShowMobileControls(prev => !prev);
-    };
-    window.addEventListener('keypress', onKey);
-    return () => {
-      window.removeEventListener('resize', checkMobile);
-      window.removeEventListener('keypress', onKey);
-    };
-  }, []);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -196,24 +181,27 @@ function Level2({ deathCount, onDeath, onComplete }) {
 
   return (
     <div className="level-container">
-      <Canvas
+      <QualityCanvas
         camera={{ position: [30, 20, 40], fov: 60 }}
         style={{
           background: 'linear-gradient(180deg, #190a18 0%, #2a1a3e 100%)',
           touchAction: 'none',
         }}
-        gl={{ preserveDrawingBuffer: true }}
       >
         <fog attach="fog" args={['#1f0f30', 45, 180]} />
         <ambientLight intensity={0.45} />
         <hemisphereLight args={['#9fb8ff', '#5a2050', 0.45]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} />
-        <pointLight position={[0, 14, -10]} intensity={0.6} color="#ff7755" distance={80} />
-        <pointLight position={[0, 4, -38]} intensity={0.45} color="#ffd055" distance={24} />
+        {!q.minimalLights && (
+          <>
+            <pointLight position={[0, 14, -10]} intensity={0.6} color="#ff7755" distance={80} />
+            <pointLight position={[0, 4, -38]} intensity={0.45} color="#ffd055" distance={24} />
+          </>
+        )}
 
-        <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.7} />
+        <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.7} />
 
-        <Sparkles
+        <QualitySparkles
           position={[0, 3, -38]}
           count={45}
           scale={[8, 5, 4]}
@@ -227,7 +215,7 @@ function Level2({ deathCount, onDeath, onComplete }) {
         {/* Blocks */}
         {blocksRef.current.map((b, i) => {
           let edgeColor = '#7fdaff';  // default cool cyan
-          if (b.isGoal) edgeColor = '#ffd966';
+          if (b.isGoal) edgeColor = JEWEL_HEX;                  // goal outline matches the jewel
           else if (b.moveX || b.moveY) edgeColor = '#ff6fb5';   // hot pink for moving platforms
           else if (b.breakable) edgeColor = '#ff8855';          // amber for the breakable
           return (
@@ -242,7 +230,7 @@ function Level2({ deathCount, onDeath, onComplete }) {
 
         {/* Goal gate sitting on top of the goal block */}
         {goalBlock && (
-          <Gate position={[goalBlock.x, goalBlock.y + 0.5, goalBlock.z]} jewelColor="#ff6fb5" />
+          <Gate position={[goalBlock.x, goalBlock.y + 0.5, goalBlock.z]} jewelColor={JEWEL_HEX} />
         )}
 
         {/* Globes */}
@@ -282,7 +270,7 @@ function Level2({ deathCount, onDeath, onComplete }) {
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
 
         <ScenePostFX bloomIntensity={1.5} hue={0.04} />
-      </Canvas>
+      </QualityCanvas>
 
       <HUD
         level={2}
@@ -304,20 +292,6 @@ function Level2({ deathCount, onDeath, onComplete }) {
         </div>
       )}
 
-      {showMobileControls && (
-        <MobileControls
-          enabled={gameState === 'playing'}
-          onCameraMove={(dx, dy) => {
-            if (cameraControlRef.current) cameraControlRef.current.rotate(dx, dy);
-          }}
-          onMove={(dir, pressed) => {
-            if (playerControlRef.current) playerControlRef.current.setMove(dir, pressed);
-          }}
-          onJump={(pressed) => {
-            if (playerControlRef.current) playerControlRef.current.setJump(pressed);
-          }}
-        />
-      )}
     </div>
   );
 }

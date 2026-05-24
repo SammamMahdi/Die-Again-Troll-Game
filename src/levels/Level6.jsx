@@ -1,6 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, Sparkles } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import QualityCanvas from '../components/QualityCanvas';
+import QualityStars from '../components/QualityStars';
+import QualitySparkles from '../components/QualitySparkles';
+import { useGraphics } from '../components/GraphicsProvider';
 import * as THREE from 'three';
 import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
@@ -8,14 +11,15 @@ import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
-import MobileControls from '../components/MobileControls';
 import ScenePostFX from '../components/ScenePostFX';
+import { goalPlatformColor } from '../utils/palette';
 import './Level.css';
 
 const PLAYER_HALF = 0.5;
 const COLOR_DISC  = [0.55, 0.6, 0.95];
 const COLOR_BRIDGE = [0.7, 0.7, 0.85];
-const COLOR_GOAL  = [1.0, 0.84, 0.0];
+const JEWEL_HEX   = '#ff3366';                       // rotating-disc red-pink theme
+const COLOR_GOAL  = goalPlatformColor(JEWEL_HEX);    // pastel-pink goal platform
 
 function buildLevel6() {
   // Pattern: start → small bridge → DISC → bridge → DISC → bridge → DISC → bridge → GOAL
@@ -158,6 +162,7 @@ function DiscVisual({ block }) {
 }
 
 function Level6({ deathCount, onDeath, onComplete }) {
+  const q = useGraphics();
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -169,21 +174,8 @@ function Level6({ deathCount, onDeath, onComplete }) {
   const lasersRef = useRef(buildLasers());
   const playerPosRef = useRef([0, 5, 25]);
 
-  const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
-        || ('ontouchstart' in window);
-      setShowMobileControls(mobile);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -233,23 +225,26 @@ function Level6({ deathCount, onDeath, onComplete }) {
 
   return (
     <div className="level-container">
-      <Canvas
+      <QualityCanvas
         camera={{ position: [30, 18, 40], fov: 60 }}
         style={{
           background: 'linear-gradient(180deg, #0a0010 0%, #1c0420 60%, #310c30 100%)',
           touchAction: 'none',
         }}
-        gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
         <fog attach="fog" args={['#1a0820', 45, 180]} />
         <ambientLight intensity={0.45} />
         <hemisphereLight args={['#ffaaff', '#2a0020', 0.5]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} />
-        <pointLight position={[0, 12, 0]} intensity={0.7} color="#ff3366" distance={50} />
-        <pointLight position={[0, 5, -55]} intensity={0.45} color="#ffd055" distance={24} />
+        {!q.minimalLights && (
+          <>
+            <pointLight position={[0, 12, 0]} intensity={0.7} color="#ff3366" distance={50} />
+            <pointLight position={[0, 5, -55]} intensity={0.45} color="#ffd055" distance={24} />
+          </>
+        )}
 
-        <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <Sparkles position={[0, 3, -55]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
+        <QualitySparkles position={[0, 3, -55]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -262,13 +257,13 @@ function Level6({ deathCount, onDeath, onComplete }) {
             <AnimatedBlock
               key={`${restartKey}-block-${i}`}
               block={b}
-              edgeColor={b.isGoal ? '#ffd966' : '#7fdaff'}
+              edgeColor={b.isGoal ? JEWEL_HEX : '#7fdaff'}
               emissiveBoost={b.isGoal ? 0.22 : 0}
             />
           );
         })}
 
-        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor="#ff3366" />
+        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor={JEWEL_HEX} />
 
         {lasersRef.current.map((l, i) => (
           <LaserBeam key={`${restartKey}-laser-${i}`} laser={l} />
@@ -299,7 +294,7 @@ function Level6({ deathCount, onDeath, onComplete }) {
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
 
         <ScenePostFX bloomIntensity={1.5} hue={0.05} />
-      </Canvas>
+      </QualityCanvas>
 
       <HUD
         level={6}
@@ -313,14 +308,6 @@ function Level6({ deathCount, onDeath, onComplete }) {
         <div className="level-tagline">Walk against the spin. Mind the beams.</div>
       )}
 
-      {showMobileControls && (
-        <MobileControls
-          enabled={gameState === 'playing'}
-          onCameraMove={(dx, dy) => cameraControlRef.current?.rotate(dx, dy)}
-          onMove={(dir, p) => playerControlRef.current?.setMove(dir, p)}
-          onJump={(p) => playerControlRef.current?.setJump(p)}
-        />
-      )}
     </div>
   );
 }

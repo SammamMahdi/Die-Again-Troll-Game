@@ -206,3 +206,54 @@
   opacity: 0.85;
   font-style: italic;
 }
+
+/* ===== Graphics preset picker ===== */
+.settings-graphics-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.settings-graphics-btn {
+  padding: 9px 8px;
+  background: rgba(20, 8, 40, 0.55);
+  color: #e8d9ff;
+  border: 1px solid rgba(160, 100, 220, 0.4);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.settings-graphics-btn:hover {
+  background: rgba(160, 100, 220, 0.22);
+  box-shadow: 0 0 10px rgba(255, 100, 220, 0.35);
+}
+
+.settings-graphics-btn.active {
+  background: linear-gradient(135deg, rgba(255, 92, 200, 0.55) 0%, rgba(180, 100, 255, 0.55) 100%);
+  color: #ffffff;
+  border-color: rgba(255, 92, 200, 0.7);
+  box-shadow: 0 0 14px rgba(255, 92, 200, 0.6);
+}
+
+.settings-graphics-tagline {
+  font-size: 0.78rem;
+  color: #c8b6ff;
+  line-height: 1.5;
+  padding: 8px 12px;
+  background: rgba(20, 8, 40, 0.35);
+  border-left: 3px solid rgba(255, 120, 220, 0.45);
+  border-radius: 0 6px 6px 0;
+}
+
+.settings-graphics-note {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: #9d8ec8;
+  font-style: italic;
+  letter-spacing: 0.2px;
+}

@@ -16,9 +16,9 @@ function SequenceManager({
   gateAtStart,
   reverseVanishActive,
   setReverseVanishActive,
-  reverseVanishTimer,
+  // reverseVanishTimer no longer read — kept on Level1 for back-compat reset.
   setReverseVanishTimer,
-  reverseVanishIndex,
+  // reverseVanishIndex no longer read — kept on Level1 for back-compat reset.
   setReverseVanishIndex,
   setMiddleBlocks,
   setBlocks
@@ -208,7 +208,10 @@ function SequenceManager({
       }
     }
 
-    // Reverse vanish sequence - triggers when player lands on block 4 after gate teleports
+    // Reverse vanish — fires when player lands on block 4 after the gate
+    // has teleported back to start. Step-based: the block the player just
+    // LEFT disappears as they step backward (4→3→2→1→0), so the bridge
+    // truly collapses behind them in sequence.
     if (gateAtStart && currentBlockIndex === 4 && !reverseVanishTriggered.current && prevBlockIndexRef.current !== 4) {
       reverseVanishTriggered.current = true;
       setReverseVanishActive(true);
@@ -217,31 +220,40 @@ function SequenceManager({
     }
 
     if (reverseVanishActive) {
-      setReverseVanishTimer(prev => {
-        const newTimer = prev + delta;
-        if (newTimer > 1.3) {
-          setReverseVanishIndex(prevIdx => {
-            if (prevIdx >= 0) {
-              setMiddleBlocks(prevMiddle => {
-                const updated = [...prevMiddle];
-                if (updated[prevIdx]) updated[prevIdx].visible = false;
-                return updated;
-              });
-              setBlocks(prevBlocks => {
-                const updated = [...prevBlocks];
-                const idx = updated.findIndex(b => b.index === prevIdx);
-                if (idx !== -1) updated[idx].visible = false;
-                return updated;
-              });
-              playDisappear();
-              return prevIdx - 1;
-            }
-            return prevIdx;
-          });
-          return 0;
+      const prev = prevBlockIndexRef.current;
+      const cur = currentBlockIndex;
+      // Player just stepped off block `prev` and is now in the air or on
+      // a different middle block / platform. Hide `prev` if it's one of
+      // 4,3,2,1,0 AND we haven't already hidden it, AND they're moving back
+      // (cur is either -1 / one of the earlier blocks).
+      if (
+        prev >= 0 && prev <= 4 &&
+        cur !== prev &&
+        (cur === -1 || cur < prev)
+      ) {
+        const target = prev;
+        let didHide = false;
+        setMiddleBlocks(prevMiddle => {
+          const updated = [...prevMiddle];
+          if (updated[target] && updated[target].visible) {
+            updated[target] = { ...updated[target], visible: false };
+            didHide = true;
+          }
+          return updated;
+        });
+        setBlocks(prevBlocks => {
+          const updated = [...prevBlocks];
+          const idx = updated.findIndex(b => b.index === target);
+          if (idx !== -1 && updated[idx].visible) {
+            updated[idx] = { ...updated[idx], visible: false };
+          }
+          return updated;
+        });
+        if (didHide) {
+          playDisappear();
+          setReverseVanishIndex(target - 1);
         }
-        return newTimer;
-      });
+      }
     }
 
     prevBlockIndexRef.current = currentBlockIndex;

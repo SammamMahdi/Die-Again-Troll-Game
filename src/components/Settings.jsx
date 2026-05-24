@@ -4,6 +4,9 @@ import {
   isMuted, setMuted,
   playUIClick, playUIClose,
 } from '../utils/sounds';
+import {
+  PRESETS, QUALITY_ORDER, getQualityId, setQuality, resetQuality,
+} from '../utils/graphics';
 import './Settings.css';
 
 const CHANNELS = [
@@ -16,6 +19,7 @@ const CHANNELS = [
 function Settings({ onClose }) {
   const [vols, setVols] = useState(getVolumes());
   const [muted, setMutedState] = useState(isMuted());
+  const [quality, setQualityState] = useState(getQualityId());
 
   const update = (channel, value) => {
     const v = Number(value);
@@ -30,9 +34,17 @@ function Settings({ onClose }) {
     if (!next) playUIClick();
   };
 
+  const pickQuality = (id) => {
+    setQuality(id);
+    setQualityState(id);
+    playUIClick();
+  };
+
   const reset = () => {
     resetVolumes();
+    resetQuality();
     setVols(getVolumes());
+    setQualityState(getQualityId());
     playUIClick();
   };
 
@@ -41,12 +53,39 @@ function Settings({ onClose }) {
     onClose();
   };
 
+  const activePreset = PRESETS[quality];
+
   return (
     <div className="settings-overlay" onClick={handleClose}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
         <button className="settings-close" onClick={handleClose} aria-label="Close">×</button>
         <h2 className="settings-title">SETTINGS</h2>
 
+        {/* ===== Graphics ===== */}
+        <div className="settings-section">
+          <div className="settings-section-title">Graphics</div>
+          <div className="settings-graphics-row">
+            {QUALITY_ORDER.map((id) => {
+              const preset = PRESETS[id];
+              const active = id === quality;
+              return (
+                <button
+                  key={id}
+                  className={`settings-graphics-btn ${active ? 'active' : ''}`}
+                  onClick={() => pickQuality(id)}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="settings-graphics-tagline">{activePreset.tagline}</div>
+          <div className="settings-graphics-note">
+            Switching presets restarts the current level — the only way to apply MSAA / antialias cleanly.
+          </div>
+        </div>
+
+        {/* ===== Sound ===== */}
         <div className="settings-section">
           <div className="settings-section-title">Sound</div>
 

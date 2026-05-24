@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { Stars, Sparkles } from '@react-three/drei';
+import QualityCanvas from '../components/QualityCanvas';
+import QualityStars from '../components/QualityStars';
+import QualitySparkles from '../components/QualitySparkles';
+import { useGraphics } from '../components/GraphicsProvider';
 import Player from '../components/Player';
 import Block from '../components/Block';
 import Gate from '../components/Gate';
@@ -8,12 +10,12 @@ import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import SequenceManager from '../components/SequenceManager';
-import MobileControls from '../components/MobileControls';
 import ScenePostFX from '../components/ScenePostFX';
 import { playTeleport } from '../utils/sounds';
 import './Level.css';
 
 function Level1({ deathCount, onDeath, onComplete, onRestart }) {
+  const q = useGraphics();
   const [gameState, setGameState] = useState('playing'); // 'playing', 'dead', 'won'
   const [deathReason, setDeathReason] = useState('');
   const [blocks, setBlocks] = useState([]);
@@ -35,40 +37,11 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   const [restartKey, setRestartKey] = useState(0);
   const [playerPosition, setPlayerPosition] = useState([0, 3, 20]);
   
-  // Mobile controls refs
-  // eslint-disable-next-line no-unused-vars
-  const [isMobile, setIsMobile] = useState(false);
-  const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
-
-  // Detect mobile device
+  // (mobile detection removed — PC only)
   useEffect(() => {
-    const checkMobile = () => {
-      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
-                   || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
-                   || ('ontouchstart' in window);
-      setIsMobile(mobile);
-      setShowMobileControls(mobile); // Show controls on mobile
-      console.log('Mobile detected:', mobile); // Debug log
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    // Press M to toggle mobile controls for testing on desktop
-    const handleKeyPress = (e) => {
-      if (e.key.toLowerCase() === 'm') {
-        setShowMobileControls(prev => !prev);
-        console.log('Mobile controls toggled');
-      }
-    };
-    window.addEventListener('keypress', handleKeyPress);
-    
-    return () => {
-      window.removeEventListener('resize', checkMobile);
-      window.removeEventListener('keypress', handleKeyPress);
-    };
+    return () => {};
   }, []);
 
   // Level setup
@@ -259,27 +232,25 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
 
   return (
     <div className="level-container">
-      <Canvas
+      <QualityCanvas
         camera={{ position: [30, 20, 40], fov: 60 }}
         style={{ background: 'linear-gradient(180deg, #05051a 0%, #160c3e 55%, #3a1f6a 100%)', touchAction: 'none' }}
-        gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
         <fog attach="fog" args={['#100a26', 45, 200]} />
         <ambientLight intensity={0.4} />
         <hemisphereLight args={['#b8c4ff', '#150b30', 0.55]} />
         <directionalLight position={[12, 22, 8]} intensity={1.1} color="#dde6ff" />
-        {/* Soft moonlight rim from the side for depth */}
-        <pointLight position={[-25, 14, 5]} intensity={0.6} color="#7a90ff" distance={80} />
-        {/* Warm accent at the goal */}
-        <pointLight position={[0, 4, -28]} intensity={0.9} color="#ffc245" distance={32} />
-        {/* Cool accent at the start */}
-        <pointLight position={[0, 6, 20]} intensity={0.45} color="#a0c0ff" distance={28} />
+        {!q.minimalLights && (
+          <>
+            <pointLight position={[-25, 14, 5]} intensity={0.6} color="#7a90ff" distance={80} />
+            <pointLight position={[0, 4, -28]} intensity={0.9} color="#ffc245" distance={32} />
+            <pointLight position={[0, 6, 20]} intensity={0.45} color="#a0c0ff" distance={28} />
+          </>
+        )}
 
-        {/* Parallax starfield in the distance */}
-        <Stars radius={180} depth={60} count={2200} factor={4} saturation={0} fade speed={0.6} />
+        <QualityStars radius={180} depth={60} count={2200} factor={4} saturation={0} fade speed={0.6} />
 
-        {/* Magic sparkles near the gate */}
-        <Sparkles
+        <QualitySparkles
           position={[0, 3, -28]}
           count={45}
           scale={[8, 5, 4]}
@@ -374,7 +345,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
         />
 
         <ScenePostFX bloomIntensity={1.3} hue={0} />
-      </Canvas>
+      </QualityCanvas>
 
       <HUD
         level={1}
@@ -384,30 +355,6 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
         onRestart={handleRestart}
       />
       
-      {/* Mobile Controls */}
-      {showMobileControls && (
-        <MobileControls
-          enabled={gameState === 'playing'}
-          onCameraMove={(deltaX, deltaY) => {
-            console.log('Camera move:', deltaX, deltaY); // Debug
-            if (cameraControlRef.current) {
-              cameraControlRef.current.rotate(deltaX, deltaY);
-            }
-          }}
-          onMove={(direction, pressed) => {
-            console.log('Move:', direction, pressed); // Debug
-            if (playerControlRef.current) {
-              playerControlRef.current.setMove(direction, pressed);
-            }
-          }}
-          onJump={(pressed) => {
-            console.log('Jump:', pressed); // Debug
-            if (playerControlRef.current) {
-              playerControlRef.current.setJump(pressed);
-            }
-          }}
-        />
-      )}
     </div>
   );
 }

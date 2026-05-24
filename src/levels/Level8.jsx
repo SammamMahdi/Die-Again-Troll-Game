@@ -1,14 +1,17 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, Sparkles } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import QualityCanvas from '../components/QualityCanvas';
+import QualityStars from '../components/QualityStars';
+import QualitySparkles from '../components/QualitySparkles';
+import { useGraphics } from '../components/GraphicsProvider';
 import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
-import MobileControls from '../components/MobileControls';
 import ScenePostFX from '../components/ScenePostFX';
+import { goalPlatformColor } from '../utils/palette';
 import './Level.css';
 
 // Mirror mechanic: a "shadow" pawn is rendered at (-px, py, pz). Hazards
@@ -17,7 +20,8 @@ import './Level.css';
 
 const PLAYER_HALF = 0.5;
 const COLOR_PATH = [0.78, 0.78, 0.95];
-const COLOR_GOAL = [1.0, 0.84, 0.0];
+const JEWEL_HEX  = '#ff66cc';                       // mirror-magenta theme
+const COLOR_GOAL = goalPlatformColor(JEWEL_HEX);    // pastel magenta goal platform
 
 function buildLevel8() {
   const blocks = [];
@@ -106,6 +110,7 @@ function ShadowSpike({ hazard }) {
 }
 
 function Level8({ deathCount, onDeath, onComplete }) {
+  const q = useGraphics();
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -117,21 +122,8 @@ function Level8({ deathCount, onDeath, onComplete }) {
   const hazardsRef = useRef(buildShadowHazards());
   const playerPosRef = useRef([0, 5, 25]);
 
-  const [showMobileControls, setShowMobileControls] = useState(false);
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
-        || ('ontouchstart' in window);
-      setShowMobileControls(mobile);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -180,23 +172,26 @@ function Level8({ deathCount, onDeath, onComplete }) {
 
   return (
     <div className="level-container">
-      <Canvas
+      <QualityCanvas
         camera={{ position: [0, 18, 45], fov: 60 }}
         style={{
           background: 'linear-gradient(180deg, #100020 0%, #1c0440 60%, #4a1080 100%)',
           touchAction: 'none',
         }}
-        gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
         <fog attach="fog" args={['#1a0830', 45, 200]} />
         <ambientLight intensity={0.5} />
         <hemisphereLight args={['#aaddff', '#330055', 0.5]} />
         <directionalLight position={[0, 25, 15]} intensity={1.0} color="#ddccff" />
-        <pointLight position={[0, 8, 0]} intensity={0.7} color="#ff66ee" distance={45} />
-        <pointLight position={[0, 5, -22]} intensity={0.45} color="#ffd055" distance={24} />
+        {!q.minimalLights && (
+          <>
+            <pointLight position={[0, 8, 0]} intensity={0.7} color="#ff66ee" distance={45} />
+            <pointLight position={[0, 5, -22]} intensity={0.45} color="#ffd055" distance={24} />
+          </>
+        )}
 
-        <Stars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <Sparkles position={[0, 3, -22]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
+        <QualitySparkles position={[0, 3, -22]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
 
         <InfiniteGrid />
 
@@ -204,12 +199,12 @@ function Level8({ deathCount, onDeath, onComplete }) {
           <AnimatedBlock
             key={`${restartKey}-block-${i}`}
             block={b}
-            edgeColor={b.isGoal ? '#ffd966' : '#aaffff'}
+            edgeColor={b.isGoal ? JEWEL_HEX : '#aaffff'}
             emissiveBoost={b.isGoal ? 0.22 : 0.05}
           />
         ))}
 
-        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor="#ff66cc" />
+        <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor={JEWEL_HEX} />
 
         {hazardsRef.current.map((h, i) => (
           <ShadowSpike key={`${restartKey}-spike-${i}`} hazard={h} />
@@ -240,7 +235,7 @@ function Level8({ deathCount, onDeath, onComplete }) {
         <CameraController target={playerPosition} cameraControlRef={cameraControlRef} />
 
         <ScenePostFX bloomIntensity={1.55} hue={0.05} />
-      </Canvas>
+      </QualityCanvas>
 
       <HUD
         level={8}
@@ -254,14 +249,6 @@ function Level8({ deathCount, onDeath, onComplete }) {
         <div className="level-tagline">Your shadow mirrors you. Don't stab it.</div>
       )}
 
-      {showMobileControls && (
-        <MobileControls
-          enabled={gameState === 'playing'}
-          onCameraMove={(dx, dy) => cameraControlRef.current?.rotate(dx, dy)}
-          onMove={(dir, p) => playerControlRef.current?.setMove(dir, p)}
-          onJump={(p) => playerControlRef.current?.setJump(p)}
-        />
-      )}
     </div>
   );
 }
