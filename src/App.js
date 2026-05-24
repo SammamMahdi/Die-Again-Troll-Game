@@ -17,6 +17,7 @@ import {
   isMuted, setMuted,
   startAmbient, stopAmbient,
 } from './utils/sounds';
+import Level0 from './levels/Level0';
 import Level1 from './levels/Level1';
 import Level2 from './levels/Level2';
 import Level3 from './levels/Level3';
@@ -27,11 +28,15 @@ import Level7 from './levels/Level7';
 import Level8 from './levels/Level8';
 import Level9 from './levels/Level9';
 import Level10 from './levels/Level10';
+import ModeSelectScreen from './components/ModeSelectScreen';
+import PracticeLevelSelect from './components/PracticeLevelSelect';
+import RunFailedScreen from './components/RunFailedScreen';
 import {
   getMedal,
   evaluateLevelComplete,
   recordLevelComplete,
   recordRunComplete,
+  recordTutorialComplete,
   loadProgress,
   saveProgress,
   computeScore,
@@ -50,9 +55,14 @@ import {
 } from './firebase';
 
 const LEVEL_SCREENS = {
+  0: 'level0',
   1: 'level1', 2: 'level2', 3: 'level3', 4: 'level4', 5: 'level5',
   6: 'level6', 7: 'level7', 8: 'level8', 9: 'level9', 10: 'level10',
 };
+
+// How many tries (deaths) a player gets per level in Hardcore mode before
+// the whole run ends. Practice + Tutorial = unlimited.
+const HARDCORE_TRIES = 3;
 // Keyboard shortcuts: 1-9 = levels 1-9, 0 = level 10
 const ADMIN_KEY_TO_LEVEL = { '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '0': 10 };
 const TOTAL_LEVELS = 10;
@@ -172,6 +182,11 @@ function App() {
         setRunStats({});
         setUsedAdmin(false);
         setRunScore(0);
+        setMode(null);
+        setTriesLeft(HARDCORE_TRIES);
+        setStreak(0);
+        setMaxStreak(0);
+        setRunFailedSummary(null);
         runStartTimeRef.current = null;
         setCurrentScreen('start');
       }
@@ -194,6 +209,18 @@ function App() {
   // handleLevelJump. Surfaced in the HUD so the player feels each medal +
   // achievement land in real time, not just on the CompleteScreen.
   const [runScore, setRunScore] = useState(0);
+
+  // Mode + Hardcore state.
+  // mode: null (start screen), 'tutorial', 'hardcore', 'practice'
+  const [mode, setMode] = useState(null);
+  const [triesLeft, setTriesLeft] = useState(HARDCORE_TRIES);
+  // Streak in Hardcore = consecutive levels cleared without using a try.
+  // Resets to 0 on death; bumps on level clear with deathsUsed === 0.
+  const [streak, setStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+  // Snapshot of stats when a Hardcore run ended (for the RunFailed screen).
+  const [runFailedSummary, setRunFailedSummary] = useState(null);
+
   const [persistedProgress, setPersistedProgress] = useState(() => loadProgress());
 
   // Whenever the screen changes into a level, mark start time + start deaths.
@@ -203,6 +230,9 @@ function App() {
       levelStartDeathsRef.current = deathCount;
       setLevelStartDeaths(deathCount);     // mirror for the HUD context
       if (runStartTimeRef.current == null) runStartTimeRef.current = Date.now();
+      // Reset the per-level tries counter on every Hardcore level entry.
+      // Practice + Tutorial don't use it.
+      if (mode === 'hardcore') setTriesLeft(HARDCORE_TRIES);
       // Start per-level ambient
       const n = parseInt(currentScreen.replace('level', ''), 10);
       if (Number.isInteger(n)) startAmbient(n);
@@ -259,12 +289,45 @@ function App() {
     setRunStats({});
     setUsedAdmin(false);
     setRunScore(0);
+    setTriesLeft(HARDCORE_TRIES);
+    setStreak(0);
+    setMaxStreak(0);
+    setRunFailedSummary(null);
     runStartTimeRef.current = null;
   };
 
+  // Old direct-start behavior removed. The Start button now takes the player
+  // to the mode-select screen instead of dumping them into L1.
   const handleStartGame = () => {
+    setCurrentScreen('modeSelect');
+  };
+
+  const handleModeChoose = (chosen) => {
+    setMode(chosen);
     resetRun();
-    setCurrentScreen('level1');
+    if (chosen === 'tutorial') {
+      setCurrentScreen('level0');
+    } else if (chosen === 'hardcore') {
+      setCurrentScreen('level1');
+    } else if (chosen === 'practice') {
+      setCurrentScreen('practiceSelect');
+    }
+  };
+
+  const handlePracticeChoose = (levelNumber) => {
+    // Practice = single-level. Reset run book-keeping but keep mode=practice
+    // so per-level reward screens know to return to practiceSelect on continue.
+    setDeathCount(0);
+    setRunStats({});
+    setRunScore(0);
+    setStreak(0);
+    setRunFailedSummary(null);
+    runStartTimeRef.current = null;
+    // usedAdmin stays true in practice — it prevents the run-spanning
+    // achievements (iron_will / flawless) from accidentally firing on L10.
+    setUsedAdmin(true);
+    const screen = LEVEL_SCREENS[levelNumber];
+    if (screen) setCurrentScreen(screen);
   };
 
   const handleAdminJump = (levelNumber) => {
@@ -302,10 +365,77 @@ function App() {
   const handleDeath = () => {
     playDeath();
     setDeathCount(prev => prev + 1);
+    // Hardcore: drain a try; on the transition to 0, bail to RunFailed.
+    // Guard against repeated deaths after the run is already over (e.g. the
+    // player presses R during the 200ms tear-down) so the screen swap only
+    // fires once.
+    if (mode === 'hardcore' && runFailedSummary == null) {
+      // Death also breaks any active streak.
+      setStreak(0);
+      setTriesLeft(prev => {
+        const next = prev - 1;
+        if (prev > 0 && next <= 0) {
+          // Snapshot everything for the RunFailed screen + bail. setTimeout
+          // so the death sound + state update lands before the screen swap.
+          setTimeout(() => {
+            const failedAt = parseInt((currentScreen || '').replace('level', ''), 10) || 0;
+            const totalDeaths = Object.values(runStats).reduce((s, r) => s + (r?.deaths ?? 0), 0) + HARDCORE_TRIES;
+            const totalMs = runStartTimeRef.current ? Date.now() - runStartTimeRef.current : 0;
+            const levelsCleared = Object.keys(runStats).length;
+            setRunFailedSummary({
+              failedAtLevel: failedAt,
+              levelsCleared,
+              totalDeaths,
+              totalMs,
+              pointsEarned: runScore,
+              jewelsEarned: 0,            // wired in Phase 2
+              maxStreak,
+              runStats,
+            });
+            setCurrentScreen('runFailed');
+          }, 200);
+        }
+        return next;
+      });
+    }
   };
 
   const handleLevelComplete = (levelNumber) => {
     playWin();
+    // Tutorial: no medal / time / runStats — just flag completion + show a
+    // simple reward screen with the tutorial_complete achievement (if new).
+    if (levelNumber === 0) {
+      const { progress: tutorialProg, newlyUnlocked: tutorialNewly } = recordTutorialComplete();
+      setPersistedProgress(tutorialProg);
+      const tutorialPoints = pointsForLevelResult({ medal: 'none', newlyUnlocked: tutorialNewly });
+      if (tutorialNewly.length > 0) setRunScore(prev => prev + tutorialPoints);
+      if (authUser && isCloudEnabled()) {
+        submitScore({
+          uid: authUser.uid,
+          username: authUser.displayName || authUser.email?.split('@')[0] || 'anon',
+          scoreData: {
+            totalScore: computeScore(tutorialProg),
+            achievements: tutorialProg.achievements || [],
+            tutorialComplete: true,
+          },
+        }).catch(() => {});
+      }
+      setRewardData({
+        level: 0,
+        deaths: 0,
+        time: 0,
+        medal: 'none',
+        newlyUnlocked: tutorialNewly,
+        pointsEarned: tutorialPoints,
+        runScoreAfter: runScore + tutorialPoints,
+        isFinal: false,
+        isTutorial: true,
+        runStats: {},
+      });
+      setCurrentScreen('reward');
+      return;
+    }
+
     const deathsUsed = Math.max(0, deathCount - levelStartDeathsRef.current);
     // Defensive: if the level start time ref is null (unlikely but possible
     // around the screen-change useEffect), prefer `0` here AND downstream the
@@ -316,6 +446,18 @@ function App() {
       ? Date.now() - levelStartTimeRef.current
       : 0;
     const medal = getMedal(levelNumber, deathsUsed);
+
+    // Hardcore: clearing a level without losing a try grows the streak.
+    if (mode === 'hardcore' && deathsUsed === 0) {
+      setStreak(prev => {
+        const next = prev + 1;
+        if (next > maxStreak) setMaxStreak(next);
+        return next;
+      });
+    } else if (mode === 'hardcore') {
+      // Lost at least one try on this level → streak breaks.
+      setStreak(0);
+    }
     const result = { deaths: deathsUsed, time: elapsedMs, medal };
     const nextRunStats = { ...runStats, [levelNumber]: result };
     setRunStats(nextRunStats);
@@ -374,7 +516,10 @@ function App() {
       newlyUnlocked,
       pointsEarned,
       runScoreAfter: runScore + pointsEarned,
-      isFinal: levelNumber === TOTAL_LEVELS,
+      // Run is "final" only if we're in Hardcore AND we just cleared L10.
+      // In Practice, every level is treated as standalone.
+      isFinal: mode === 'hardcore' && levelNumber === TOTAL_LEVELS,
+      mode,
       runStats: nextRunStats,
     });
     setCurrentScreen('reward');
@@ -382,15 +527,21 @@ function App() {
 
   const handleRewardContinue = () => {
     if (!rewardData) return;
+
+    // Tutorial → bounce back to mode select.
+    if (rewardData.isTutorial) {
+      setCurrentScreen('modeSelect');
+      return;
+    }
+
+    // Hardcore final → final summary CompleteScreen (existing path).
     if (rewardData.isFinal) {
-      // Finalize the run record
       const totalDeaths = Object.values(rewardData.runStats).reduce(
         (sum, r) => sum + (r?.deaths ?? 0), 0,
       );
       const totalMs = runStartTimeRef.current ? Date.now() - runStartTimeRef.current : 0;
       const updated = recordRunComplete({ runStats: rewardData.runStats, totalDeaths, totalMs });
       setPersistedProgress(updated);
-      // Also push final totalRuns / totalCompletes to cloud
       if (authUser && isCloudEnabled()) {
         submitScore({
           uid: authUser.uid,
@@ -406,10 +557,18 @@ function App() {
         }).catch(() => {});
       }
       setCurrentScreen('complete');
-    } else {
-      const next = rewardData.level + 1;
-      setCurrentScreen(`level${next}`);
+      return;
     }
+
+    // Practice → return to the Practice level-select grid (single-level loop).
+    if (rewardData.mode === 'practice') {
+      setCurrentScreen('practiceSelect');
+      return;
+    }
+
+    // Hardcore (non-final) → next sequential level.
+    const next = rewardData.level + 1;
+    setCurrentScreen(`level${next}`);
   };
 
   const handleRestart = () => {
@@ -445,8 +604,28 @@ function App() {
           isAdmin={isAdmin}
         />
       )}
+      {currentScreen === 'modeSelect' && (
+        <ModeSelectScreen onChoose={handleModeChoose} onBack={goToStart} />
+      )}
+      {currentScreen === 'practiceSelect' && (
+        <PracticeLevelSelect onChooseLevel={handlePracticeChoose} onBack={() => setCurrentScreen('modeSelect')} />
+      )}
+      {currentScreen === 'runFailed' && runFailedSummary && (
+        <RunFailedScreen summary={runFailedSummary} onBack={goToStart} />
+      )}
+      {currentScreen === 'level0' && (
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
+          <Level0
+            key={`level0-${qid}`}
+            deathCount={deathCount}
+            onDeath={handleDeath}
+            onComplete={() => handleLevelComplete(0)}
+            onRestart={handleRestart}
+          />
+        </RunStatsProvider>
+      )}
       {currentScreen === 'level1' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
           <Level1
             key={`level1-${qid}`}
             deathCount={deathCount}
@@ -457,7 +636,7 @@ function App() {
         </RunStatsProvider>
       )}
       {currentScreen === 'level2' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
           <Level2
             key={`level2-${qid}`}
             deathCount={deathCount}
@@ -468,7 +647,7 @@ function App() {
         </RunStatsProvider>
       )}
       {currentScreen === 'level3' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
           <Level3
             key={`level3-${qid}`}
             deathCount={deathCount}
@@ -479,37 +658,37 @@ function App() {
         </RunStatsProvider>
       )}
       {currentScreen === 'level4' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
           <Level4 key={`level4-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(4)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level5' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
           <Level5 key={`level5-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(5)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level6' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
           <Level6 key={`level6-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(6)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level7' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
           <Level7 key={`level7-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(7)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level8' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
           <Level8 key={`level8-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(8)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level9' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
           <Level9 key={`level9-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(9)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level10' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
           <Level10 key={`level10-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(10)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}

@@ -122,6 +122,34 @@
   opacity: 0.85;
 }
 
+/* Hardcore tries badge — red-pink, pulses when down to last try. */
+.hud-stat-tries .hud-stat-icon {
+  color: #ff7a98;
+  filter: drop-shadow(0 0 5px rgba(255, 100, 130, 0.6));
+}
+.hud-stat-tries .hud-stat-value {
+  color: #ff7a98;
+}
+.hud-stat-tries.critical .hud-stat-icon,
+.hud-stat-tries.critical .hud-stat-value {
+  color: #ff3a55;
+  text-shadow: 0 0 9px rgba(255, 70, 100, 0.7);
+  animation: hud-tries-pulse 0.9s ease-in-out infinite;
+}
+@keyframes hud-tries-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.6; }
+}
+
+/* Hardcore streak badge — orange flame. */
+.hud-stat-streak .hud-stat-icon {
+  filter: drop-shadow(0 0 6px rgba(255, 140, 60, 0.7));
+}
+.hud-stat-streak .hud-stat-value {
+  color: #ffb255;
+  text-shadow: 0 0 8px rgba(255, 160, 60, 0.5);
+}
+
 /* Run-score readout: gold tint to read distinctly from deaths/time. */
 .hud-stat-score .hud-stat-icon {
   color: #ffd966;

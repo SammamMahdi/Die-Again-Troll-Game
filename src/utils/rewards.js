@@ -53,6 +53,8 @@ export const ACHIEVEMENTS = [
   { id: 'speed_demon_1',     name: 'Speed Demon I',       desc: 'Complete Level 1 in under 30s.',                score: 50 },
   { id: 'speed_demon_2',     name: 'Speed Demon II',      desc: 'Complete Level 2 in under 45s.',                score: 50 },
   { id: 'speed_demon_3',     name: 'Speed Demon III',     desc: 'Complete Level 3 in under 60s.',                score: 50 },
+  // Phase 1 (Tutorial)
+  { id: 'tutorial_complete', name: 'First Footing',       desc: 'Clear the Tutorial.',                           score: 10 },
 ];
 
 // Medal point values (per level). Exported so the HUD + RewardScreen can show
@@ -163,6 +165,7 @@ const EMPTY = {
   totalRuns: 0,
   totalCompletes: 0,
   lastRun: null,    // { date, totals, perLevel }
+  tutorialComplete: false,   // Phase 1: set once Level 0 is cleared.
 };
 
 export function loadProgress() {
@@ -203,6 +206,24 @@ export function recordLevelComplete({ level, deathsUsed, timeMs, medal, newlyUnl
   }
   saveProgress(prog);
   return prog;
+}
+
+// Mark the tutorial complete (idempotent). Awards the `tutorial_complete`
+// achievement if it isn't already owned. Returns the updated progress object
+// + the array of newly-unlocked achievements (so the caller can show the
+// reward screen). Does NOT touch medals / bestTimes / bestDeaths.
+export function recordTutorialComplete() {
+  const prog = loadProgress();
+  const newly = [];
+  if (!prog.tutorialComplete) {
+    prog.tutorialComplete = true;
+    if (!prog.achievements.includes('tutorial_complete')) {
+      prog.achievements.push('tutorial_complete');
+      newly.push('tutorial_complete');
+    }
+    saveProgress(prog);
+  }
+  return { progress: prog, newlyUnlocked: newly };
 }
 
 // Sum the points a player earned from one level completion. Used by the HUD

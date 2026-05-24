@@ -6,11 +6,21 @@ import React, { createContext, useContext } from 'react';
 const RunStatsContext = createContext({
   runScore: 0,
   levelStartDeaths: 0,
+  mode: null,
+  triesLeft: Infinity,
+  streak: 0,
 });
 
-export function RunStatsProvider({ runScore, levelStartDeaths, children }) {
+export function RunStatsProvider({
+  runScore,
+  levelStartDeaths,
+  mode = null,
+  triesLeft = Infinity,
+  streak = 0,
+  children,
+}) {
   return (
-    <RunStatsContext.Provider value={{ runScore, levelStartDeaths }}>
+    <RunStatsContext.Provider value={{ runScore, levelStartDeaths, mode, triesLeft, streak }}>
       {children}
     </RunStatsContext.Provider>
   );

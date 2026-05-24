@@ -4,9 +4,11 @@ import { useRunStats } from './RunStatsContext';
 import { MEDAL_THRESHOLDS } from '../utils/rewards';
 
 function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
-  const { runScore, levelStartDeaths } = useRunStats();
+  const { runScore, levelStartDeaths, mode, triesLeft, streak } = useRunStats();
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
+  const isTutorial = level === 0;
+  const isHardcore = mode === 'hardcore';
 
   // Reset + tick a per-level elapsed timer. Pauses when the level ends.
   useEffect(() => {
@@ -46,29 +48,49 @@ function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
     <div className="hud">
       {/* TOP LEFT — level info card */}
       <div className="hud-card hud-card-tl">
-        <div className="hud-level-row">
-          <span className="hud-level-label">Level</span>
-          <span className="hud-level-num">{level}</span>
-          <span className="hud-level-of">/ 10</span>
-        </div>
-        <div className="hud-progress">
-          {Array.from({ length: 10 }).map((_, i) => {
-            const cls = i < level - 1 ? 'hud-pip hud-pip-cleared'
-              : i === level - 1 ? 'hud-pip hud-pip-current'
-              : 'hud-pip';
-            return <span key={i} className={cls} />;
-          })}
-        </div>
-        {medalHint && (
-          <div className={`hud-medal-hint hud-medal-${medalHint.tier.toLowerCase()}`}>
-            <span className="hud-medal-tier">{medalHint.tier}</span>
-            <span className="hud-medal-text">{medalHint.text}</span>
+        {isTutorial ? (
+          <div className="hud-level-row">
+            <span className="hud-level-label">Tutorial</span>
           </div>
+        ) : (
+          <>
+            <div className="hud-level-row">
+              <span className="hud-level-label">Level</span>
+              <span className="hud-level-num">{level}</span>
+              <span className="hud-level-of">/ 10</span>
+            </div>
+            <div className="hud-progress">
+              {Array.from({ length: 10 }).map((_, i) => {
+                const cls = i < level - 1 ? 'hud-pip hud-pip-cleared'
+                  : i === level - 1 ? 'hud-pip hud-pip-current'
+                  : 'hud-pip';
+                return <span key={i} className={cls} />;
+              })}
+            </div>
+            {medalHint && (
+              <div className={`hud-medal-hint hud-medal-${medalHint.tier.toLowerCase()}`}>
+                <span className="hud-medal-tier">{medalHint.tier}</span>
+                <span className="hud-medal-text">{medalHint.text}</span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* TOP RIGHT — stats card */}
       <div className="hud-card hud-card-tr">
+        {isHardcore && Number.isFinite(triesLeft) && (
+          <div className={`hud-stat hud-stat-tries ${triesLeft <= 1 ? 'critical' : ''}`}>
+            <span className="hud-stat-icon">❤</span>
+            <span className="hud-stat-value">{triesLeft}/3</span>
+          </div>
+        )}
+        {isHardcore && streak >= 2 && (
+          <div className="hud-stat hud-stat-streak">
+            <span className="hud-stat-icon">🔥</span>
+            <span className="hud-stat-value">×{streak}</span>
+          </div>
+        )}
         <div className="hud-stat">
           <span className="hud-stat-icon">💀</span>
           <span className="hud-stat-value">{deathCount}</span>
@@ -77,11 +99,13 @@ function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
           <span className="hud-stat-icon">⏱</span>
           <span className="hud-stat-value">{timeStr}</span>
         </div>
-        <div className="hud-stat hud-stat-score">
-          <span className="hud-stat-icon">★</span>
-          <span className="hud-stat-value">{runScore}</span>
-          <span className="hud-stat-unit">pts</span>
-        </div>
+        {!isTutorial && (
+          <div className="hud-stat hud-stat-score">
+            <span className="hud-stat-icon">★</span>
+            <span className="hud-stat-value">{runScore}</span>
+            <span className="hud-stat-unit">pts</span>
+          </div>
+        )}
       </div>
 
       {/* GAME STATE OVERLAYS */}
