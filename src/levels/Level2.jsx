@@ -8,7 +8,6 @@ import Player from '../components/Player';
 import Globe from '../components/Globe';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
-import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
@@ -209,8 +208,6 @@ function Level2({ deathCount, onDeath, onComplete }) {
           speed={0.4}
           color="#ffd966"
         />
-
-        <InfiniteGrid />
 
         {/* Blocks */}
         {blocksRef.current.map((b, i) => {

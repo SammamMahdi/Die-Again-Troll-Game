@@ -8,7 +8,6 @@ import * as THREE from 'three';
 import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
-import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
@@ -167,8 +166,6 @@ function Level9({ deathCount, onDeath, onComplete }) {
         <QualitySparkles position={[0, 3, -32]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
         {/* Whipping wind particles across the level */}
         <QualitySparkles position={[0, 4, -5]} count={120} scale={[20, 8, 50]} size={1.5} speed={2.5} color="#cceeff" />
-
-        <InfiniteGrid />
 
         {zonesRef.current.map((z, i) => (
           <WindZoneVisual key={`${restartKey}-zone-${i}`} zone={z} />

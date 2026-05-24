@@ -6,7 +6,6 @@ import { useGraphics } from '../components/GraphicsProvider';
 import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
-import InfiniteGrid from '../components/InfiniteGrid';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
@@ -186,8 +185,6 @@ function Level7({ deathCount, onDeath, onComplete }) {
         <PlayerFlashlight playerPosRef={playerPosRef} />
 
         <QualitySparkles position={[0, 3, -32]} count={28} scale={[8, 4, 4]} size={2.2} speed={0.3} color="#ffd966" />
-
-        <InfiniteGrid />
 
         {blocksRef.current.map((b, i) => (
           <AnimatedBlock
