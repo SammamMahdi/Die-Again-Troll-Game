@@ -134,20 +134,23 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
   Array.isArray(__l3_fresh) ? __l3_fresh : __l3_fresh.blocks
 );
 
-function Level3({ deathCount, onDeath, onComplete }) {
+function Level3({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
+  // Extra spaces inside the literal so the per-level replace_all that
+  // swaps `[0, Y, Z]` → `START` leaves this default initializer alone.
+  const START = startPositionOverride || [ 0, 5, 5 ];
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [sonarActive, setSonarActive] = useState(false);
   const [restartKey, setRestartKey] = useState(0);
-  const [playerPosition, setPlayerPosition] = useState([0, 5, 5]);
+  const [playerPosition, setPlayerPosition] = useState(START);
 
   // Mutable simulation state
   const blocksRef = useRef(buildLevel3());
-  const playerPosRef = useRef([0, 5, 5]);
+  const playerPosRef = useRef(START);
   const sonarTimerRef = useRef(0);
   const sonarPressedRef = useRef(false);
 
@@ -188,9 +191,9 @@ function Level3({ deathCount, onDeath, onComplete }) {
     }
     sonarTimerRef.current = 0;
     sonarPressedRef.current = false;
-    playerPosRef.current = [0, 5, 5];
+    playerPosRef.current = START;
     setSonarActive(false);
-    setPlayerPosition([0, 5, 5]);
+    setPlayerPosition(START);
     setDeathReason('');
     setGameState('playing');
     setRestartKey(prev => prev + 1);
@@ -288,14 +291,17 @@ function Level3({ deathCount, onDeath, onComplete }) {
             position={[8, -0.5, -30]}
             rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
-            onEnter={() => { sideQuestCompleteRef.current = true; }}
+            onEnter={(pos) => {
+              if (onPortalEnter) onPortalEnter(pos);
+              else sideQuestCompleteRef.current = true;
+            }}
           />
         )}
 
         {/* Player */}
         <Player
           key={restartKey}
-          startPosition={[0, 5, 5]}
+          startPosition={START}
           blocks={blocksRef.current}
           gate={null}
           onDeath={handlePlayerDeath}

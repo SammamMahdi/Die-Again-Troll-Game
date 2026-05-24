@@ -122,7 +122,7 @@ function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
         )}
         <div className="hud-stat hud-stat-jewels">
           <span className="hud-stat-icon">💎</span>
-          <span className="hud-stat-value">{jewels}</span>
+          <span className="hud-stat-value">{jewels >= 999000000 ? '∞' : jewels}</span>
         </div>
       </div>
 

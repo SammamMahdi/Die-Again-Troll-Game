@@ -303,6 +303,63 @@ function applyAmbientGain() {
   _ambient.gain.gain.setTargetAtTime(target, now, 0.08);
 }
 
+// ===== Echo Dimension ambient =====
+// A separate slot from `_ambient` so the per-level ambient keeps running
+// underneath the echo glitch tone — and so re-entering an echo doesn't
+// rebuild the per-level bed.
+let _echoAmbient = null;
+
+export function startEchoAmbient() {
+  if (_echoAmbient) return;
+  withRunningCtx((c) => {
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.connect(c.destination);
+
+    // Detuned beating drone (the "wrong dimension" sound) + a high
+    // shimmer that occasionally drifts. Heavy low-pass + reverbless on
+    // purpose — should feel airless, not cinematic.
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1200;
+    lp.Q.value = 0.6;
+
+    const bus = c.createGain();
+    bus.gain.value = 1.0;
+    bus.connect(lp).connect(gain);
+
+    const nodes = [lp, bus];
+    nodes.push(...startOsc(c, bus, { freq: 61.74, type: 'sawtooth', volume: 0.04 }));        // B1 (off-key vs E)
+    nodes.push(...startOsc(c, bus, { freq: 62.40, type: 'sawtooth', volume: 0.035 }));       // ~0.7 Hz beat
+    nodes.push(...startOsc(c, bus, { freq: 932.33, type: 'sine', volume: 0.012, lfoFreq: 0.21, lfoDepth: 18 })); // shimmer with wide LFO
+    nodes.push(...startNoiseBed(c, bus, { duration: 6.0, volume: 0.02, lowpass: 220 }));    // sub-rumble
+
+    _echoAmbient = { gain, nodes };
+
+    // Fade in to a constant volume — quieter than per-level ambient so
+    // the underlying level bed still reads.
+    const target = channelVolume('ambient') * 0.7;
+    const now = c.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setTargetAtTime(target, now, 0.25);
+  });
+}
+
+export function stopEchoAmbient() {
+  if (!_echoAmbient) return;
+  const c = ctx();
+  const now = c ? c.currentTime : 0;
+  try { _echoAmbient.gain.gain.setTargetAtTime(0, now, 0.2); } catch {}
+  const nodes = _echoAmbient.nodes;
+  setTimeout(() => {
+    for (const n of nodes) {
+      try { n.stop && n.stop(); } catch {}
+      try { n.disconnect && n.disconnect(); } catch {}
+    }
+  }, 350);
+  _echoAmbient = null;
+}
+
 export function stopAmbient() {
   if (!_ambient) return;
   const c = ctx();

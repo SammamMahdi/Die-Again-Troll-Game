@@ -21,7 +21,34 @@ function load() {
 
 let _balance = load();
 
+// Admin override — when an admin toggles adminMode on, jewels are treated
+// as unlimited. `getJewels()` reports a huge ceiling so HUD/Shop reads
+// always show "you can afford this", and `spendJewels()` is a no-op so
+// the persistent purse isn't drained while testing shop flows.
+// The persisted local balance is untouched; toggling admin off reverts
+// the player to whatever they actually had.
+let _adminUnlimited = false;
+const ADMIN_CEILING = 999999999;
+
+export function setAdminUnlimited(on) {
+  const next = !!on;
+  if (next === _adminUnlimited) return;
+  _adminUnlimited = next;
+  dispatchChange();
+}
+
+export function isAdminUnlimited() {
+  return _adminUnlimited;
+}
+
 export function getJewels() {
+  return _adminUnlimited ? ADMIN_CEILING : _balance;
+}
+
+// Returns the actual persisted balance regardless of admin mode. Use this
+// when syncing to the cloud so the dev's admin-unlimited override never
+// corrupts the real purse stored against their account.
+export function getRealJewels() {
   return _balance;
 }
 
@@ -46,7 +73,10 @@ export function addJewels(amount) {
 
 // Spend `amount` jewels — refuses if the player can't afford it.
 // Returns true on success, false if balance was insufficient.
+// In admin-unlimited mode the spend is a no-op (always succeeds, balance
+// unchanged) so testing the shop doesn't drain the dev's real purse.
 export function spendJewels(amount) {
+  if (_adminUnlimited) return true;
   const n = Math.max(0, Math.floor(amount));
   if (n > _balance) return false;
   _balance -= n;

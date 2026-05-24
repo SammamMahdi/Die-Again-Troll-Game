@@ -18,13 +18,18 @@ import ScenePostFX from '../components/ScenePostFX';
 import { playTeleport } from '../utils/sounds';
 import './Level.css';
 
-function Level1({ deathCount, onDeath, onComplete, onRestart }) {
+function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, startPositionOverride }) {
   const q = useGraphics();
   // Phase 3 portal — only spawns if player has Gold on this level + is in
   // Hardcore mode (gated upstream). Random ~35% chance per attempt.
   const { portalEligible, portalAlwaysSpawn } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
+  // Phase 3b: kept around for the legacy "portal touch = sideQuestComplete"
+  // fallback when no onPortalEnter handler is supplied (i.e. dev contexts).
   const sideQuestCompleteRef = useRef(false);
+  // Start position can be overridden by App.js so the player respawns at
+  // the portal location after returning from an Echo Dimension clear.
+  const START = startPositionOverride || [0, 3, 20];
   const [gameState, setGameState] = useState('playing'); // 'playing', 'dead', 'won'
   const [deathReason, setDeathReason] = useState('');
   const [blocks, setBlocks] = useState([]);
@@ -44,9 +49,9 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   const [reverseVanishIndex, setReverseVanishIndex] = useState(4);
   const [currentBlockIndex, setCurrentBlockIndex] = useState(-1);
   const [restartKey, setRestartKey] = useState(0);
-  const [playerPosition, setPlayerPosition] = useState([0, 3, 20]);
+  const [playerPosition, setPlayerPosition] = useState(START);
   // Mirror as ref so jewel pickups can poll without forcing a re-render.
-  const playerPosRef = useRef([0, 3, 20]);
+  const playerPosRef = useRef(START);
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
@@ -356,14 +361,21 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
             position={[5, 0.5, -12]}
             rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
-            onEnter={() => { sideQuestCompleteRef.current = true; }}
+            onEnter={(pos) => {
+              if (onPortalEnter) {
+                onPortalEnter(pos);
+              } else {
+                // Legacy fallback: dev/standalone contexts without App routing
+                sideQuestCompleteRef.current = true;
+              }
+            }}
           />
         )}
 
         {/* Player */}
         <Player
           key={restartKey}
-          startPosition={[0, 3, 20]}
+          startPosition={START}
           blocks={blocks}
           gate={gate}
           onDeath={handlePlayerDeath}

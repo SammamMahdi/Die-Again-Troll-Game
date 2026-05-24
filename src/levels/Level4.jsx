@@ -144,18 +144,19 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
   Array.isArray(__l4_fresh) ? __l4_fresh : __l4_fresh.blocks
 );
 
-function Level4({ deathCount, onDeath, onComplete }) {
+function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
+  const START = startPositionOverride || [ 0, 5, 40 ];
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
-  const [playerPosition, setPlayerPosition] = useState([0, 5, 40]);
+  const [playerPosition, setPlayerPosition] = useState(START);
 
   const blocksRef = useRef(buildLevel4());
-  const playerPosRef = useRef([0, 5, 40]);
+  const playerPosRef = useRef(START);
   const prevBlockIdxRef = useRef(-1);
 
   const cameraControlRef = useRef(null);
@@ -177,8 +178,8 @@ function Level4({ deathCount, onDeath, onComplete }) {
       blocksRef.current = fresh;
     }
     prevBlockIdxRef.current = -1;
-    playerPosRef.current = [0, 5, 40];
-    setPlayerPosition([0, 5, 40]);
+    playerPosRef.current = START;
+    setPlayerPosition(START);
     setDeathReason('');
     setGameState('playing');
     setRestartKey(prev => prev + 1);
@@ -291,13 +292,16 @@ function Level4({ deathCount, onDeath, onComplete }) {
             position={[-14, 0.5, -12]}
             rotationY={-Math.PI / 2}
             playerPosRef={playerPosRef}
-            onEnter={() => { sideQuestCompleteRef.current = true; }}
+            onEnter={(pos) => {
+              if (onPortalEnter) onPortalEnter(pos);
+              else sideQuestCompleteRef.current = true;
+            }}
           />
         )}
 
         <Player
           key={restartKey}
-          startPosition={[0, 5, 40]}
+          startPosition={START}
           blocks={blocksRef.current}
           gate={null}
           onDeath={handlePlayerDeath}

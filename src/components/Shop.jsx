@@ -59,7 +59,7 @@ function Shop({ onClose }) {
         <h1 className="shop-title">SHOP</h1>
         <div className="shop-balance">
           <span className="shop-balance-icon">💎</span>
-          <span className="shop-balance-value">{jewels}</span>
+          <span className="shop-balance-value">{jewels >= 999000000 ? '∞' : jewels}</span>
           <span className="shop-balance-label">jewels</span>
         </div>
 

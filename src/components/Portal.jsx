@@ -63,7 +63,10 @@ function Portal({ position, rotationY = 0, playerPosRef, onEnter, hidden }) {
     if (inFootprint) {
       setEntered(true);
       playJewelPickup('bonus');
-      if (onEnter) onEnter();
+      // Pass the portal's world position so callers (App.js via the
+      // level's onPortalEnter forwarding) can use it as the respawn
+      // anchor when the player returns from the echo.
+      if (onEnter) onEnter([position[0], position[1], position[2]]);
     }
   });
 

@@ -32,6 +32,7 @@ import ModeSelectScreen from './components/ModeSelectScreen';
 import PracticeLevelSelect from './components/PracticeLevelSelect';
 import RunFailedScreen from './components/RunFailedScreen';
 import Shop from './components/Shop';
+import EchoLevel from './components/EchoLevel';
 import {
   getMedal,
   evaluateLevelComplete,
@@ -45,7 +46,7 @@ import {
   pointsForLevelResult,
 } from './utils/rewards';
 import { RunStatsProvider } from './components/RunStatsContext';
-import { getJewels, setJewelsFromCloud } from './utils/jewels';
+import { getRealJewels, setJewelsFromCloud, setAdminUnlimited } from './utils/jewels';
 import { getCosmetics, applyCloudCosmetics } from './utils/cosmetics';
 import { getInventory, consumeOne, applyCloudInventory } from './utils/consumables';
 import {
@@ -60,6 +61,15 @@ const LEVEL_SCREENS = {
   0: 'level0',
   1: 'level1', 2: 'level2', 3: 'level3', 4: 'level4', 5: 'level5',
   6: 'level6', 7: 'level7', 8: 'level8', 9: 'level9', 10: 'level10',
+};
+
+// Echo Dimension screen names per level (Phase 3b). Entering a portal in
+// Hardcore swaps the player to the matching echo screen, which renders
+// the same level component wrapped in <EchoLevel> for the universal
+// "wrong dimension" framing.
+const ECHO_SCREENS = {
+  1: 'level1Echo', 2: 'level2Echo', 3: 'level3Echo', 4: 'level4Echo', 5: 'level5Echo',
+  6: 'level6Echo', 7: 'level7Echo', 8: 'level8Echo', 9: 'level9Echo', 10: 'level10Echo',
 };
 
 // How many tries (deaths) a player gets per level in Hardcore mode before
@@ -180,6 +190,13 @@ function App() {
     if (!isAdmin && adminMode) setAdminMode(false);
   }, [isAdmin, adminMode]);
 
+  // Admin perks: while adminMode is on, the jewel purse is treated as
+  // unlimited (shop reads "you can afford this" and purchases are no-ops
+  // so the real persisted purse isn't drained while testing).
+  useEffect(() => {
+    setAdminUnlimited(adminMode);
+  }, [adminMode]);
+
   // Global Escape handler: close auth modal first, else return to start screen
   // from any non-start screen. Ignores Escape while typing in inputs.
   useEffect(() => {
@@ -240,6 +257,16 @@ function App() {
   // Snapshot of stats when a Hardcore run ended (for the RunFailed screen).
   const [runFailedSummary, setRunFailedSummary] = useState(null);
 
+  // Phase 3b — Echo Dimension state.
+  //   pendingSideQuestComplete: set by handleEchoComplete; OR'd into the
+  //     next handleLevelComplete's sideQuest result so finishing the main
+  //     level after an echo clear awards Platinum (or Diamond on 0 deaths).
+  //   returnPortalPos: portal world position captured at entry; passed to
+  //     the main level as startPositionOverride on return so the player
+  //     respawns next to the portal instead of at the level's spawn.
+  const [pendingSideQuestComplete, setPendingSideQuestComplete] = useState(false);
+  const returnPortalPosRef = useRef(null);
+
   const [persistedProgress, setPersistedProgress] = useState(() => loadProgress());
 
   // Whenever the screen changes into a level, mark start time + start deaths.
@@ -252,7 +279,7 @@ function App() {
         runStartTimeRef.current = Date.now();
         // Snapshot jewel balance so the RunFailed/Complete screens can
         // show "+N jewels earned this run".
-        runStartJewelsRef.current = getJewels();
+        runStartJewelsRef.current = getRealJewels();
       }
       // Reset the per-level tries counter on every Hardcore level entry.
       // Practice + Tutorial don't use it.
@@ -378,6 +405,38 @@ function App() {
     setCurrentScreen(screen);
   };
 
+  // Phase 3b — Echo Dimension routing.
+  //
+  // handlePortalEnter: fired by a Level when the player walks through
+  //   its portal. Stores the portal's world position for the return
+  //   respawn anchor and swaps the screen to that level's echo variant.
+  // handleEchoComplete: fired by the inner Level (running inside
+  //   EchoLevel) when the player clears the echo. Sets pendingSideQuest
+  //   so the next main-level complete awards Platinum/Diamond; swaps
+  //   back to the main level which remounts at the portal position.
+  // handleEchoDeath: a death inside the echo just drops the player back
+  //   to the main level — no Hardcore tries consumed, no side-quest
+  //   credit. Entering the portal was a one-shot attempt.
+  const handlePortalEnter = (levelNumber, pos) => {
+    const echoScreen = ECHO_SCREENS[levelNumber];
+    if (!echoScreen) return;
+    returnPortalPosRef.current = pos || null;
+    setPendingSideQuestComplete(false);
+    setCurrentScreen(echoScreen);
+  };
+
+  const handleEchoComplete = (levelNumber) => {
+    setPendingSideQuestComplete(true);
+    const main = LEVEL_SCREENS[levelNumber];
+    if (main) setCurrentScreen(main);
+  };
+
+  const handleEchoDeath = (levelNumber) => {
+    setPendingSideQuestComplete(false);
+    const main = LEVEL_SCREENS[levelNumber];
+    if (main) setCurrentScreen(main);
+  };
+
   const handleToggleAdmin = (next) => {
     if (!isAdmin) {
       setAdminMode(false);
@@ -418,7 +477,7 @@ function App() {
               totalDeaths,
               totalMs,
               pointsEarned: runScore,
-              jewelsEarned: Math.max(0, getJewels() - runStartJewelsRef.current),
+              jewelsEarned: Math.max(0, getRealJewels() - runStartJewelsRef.current),
               maxStreak,
               runStats,
             });
@@ -479,10 +538,15 @@ function App() {
     const elapsedMs = levelStartTimeRef.current
       ? Date.now() - levelStartTimeRef.current
       : 0;
-    // Portal side-quest: trivially read from the level's report. Practice
-    // mode levels never set this. Hardcore levels set it when the player
-    // walked through the spawned portal and cleared the side-level.
-    const sideQuestComplete = !!(sideQuest && sideQuest.complete && mode === 'hardcore');
+    // Portal side-quest: prefer the App-tracked pendingSideQuestComplete
+    // (set by handleEchoComplete after the player clears the echo) OR
+    // the level's own legacy fallback flag in `sideQuest.complete`.
+    // Practice mode never qualifies — Echo is Hardcore-only.
+    const sideQuestComplete = !!(
+      mode === 'hardcore' &&
+      (pendingSideQuestComplete || (sideQuest && sideQuest.complete))
+    );
+    if (pendingSideQuestComplete) setPendingSideQuestComplete(false);
     const medal = getMedal(levelNumber, deathsUsed, sideQuestComplete);
 
     // Hardcore: clearing a level without losing a try grows the streak.
@@ -539,7 +603,7 @@ function App() {
           bestDeaths: updated.bestDeaths || {},
           totalRuns: updated.totalRuns || 0,
           totalCompletes: updated.totalCompletes || 0,
-          jewels: getJewels(),
+          jewels: getRealJewels(),
           cosmetics: getCosmetics(),
           consumables: getInventory(),
         },
@@ -599,7 +663,7 @@ function App() {
             achievements: updated.achievements || [],
             totalRuns: updated.totalRuns || 0,
             totalCompletes: updated.totalCompletes || 0,
-            jewels: getJewels(),
+            jewels: getRealJewels(),
           },
         }).catch(() => {});
       }
@@ -693,73 +757,71 @@ function App() {
           />
         </RunStatsProvider>
       )}
-      {currentScreen === 'level1' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(1)} portalAlwaysSpawn={portalAlwaysSpawn}>
-          <Level1
-            key={`level1-${qid}`}
-            deathCount={deathCount}
-            onDeath={handleDeath}
-            onComplete={(arg) => handleLevelComplete(1, arg)}
-            onRestart={handleRestart}
-          />
-        </RunStatsProvider>
+      {/* Main-level renderers (Hardcore + Practice). Phase 3b additions:
+            - onPortalEnter forwards the portal world position up so the
+              return-from-echo respawn anchors there.
+            - startPositionOverride is non-null only when we just returned
+              from an echo — fresh main-level mounts pick it up so the
+              player drops back next to the portal. */}
+      {[
+        { n: 1, C: Level1 }, { n: 2, C: Level2 }, { n: 3, C: Level3 },
+        { n: 4, C: Level4 }, { n: 5, C: Level5 }, { n: 6, C: Level6 },
+        { n: 7, C: Level7 }, { n: 8, C: Level8 }, { n: 9, C: Level9 },
+        { n: 10, C: Level10 },
+      ].map(({ n, C }) =>
+        currentScreen === `level${n}` ? (
+          <RunStatsProvider
+            key={`main-prov-${n}`}
+            runScore={runScore} levelStartDeaths={levelStartDeaths}
+            mode={mode} triesLeft={triesLeft} streak={streak}
+            portalEligible={portalEligibleFor(n)} portalAlwaysSpawn={portalAlwaysSpawn}
+          >
+            <C
+              key={`level${n}-${qid}`}
+              deathCount={deathCount}
+              onDeath={handleDeath}
+              onComplete={(arg) => handleLevelComplete(n, arg)}
+              onRestart={handleRestart}
+              onPortalEnter={(pos) => handlePortalEnter(n, pos)}
+              startPositionOverride={returnPortalPosRef.current}
+            />
+          </RunStatsProvider>
+        ) : null
       )}
-      {currentScreen === 'level2' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(2)} portalAlwaysSpawn={portalAlwaysSpawn}>
-          <Level2
-            key={`level2-${qid}`}
-            deathCount={deathCount}
-            onDeath={handleDeath}
-            onComplete={(arg) => handleLevelComplete(2, arg)}
-            onRestart={handleRestart}
-          />
-        </RunStatsProvider>
-      )}
-      {currentScreen === 'level3' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(3)} portalAlwaysSpawn={portalAlwaysSpawn}>
-          <Level3
-            key={`level3-${qid}`}
-            deathCount={deathCount}
-            onDeath={handleDeath}
-            onComplete={(arg) => handleLevelComplete(3, arg)}
-            onRestart={handleRestart}
-          />
-        </RunStatsProvider>
-      )}
-      {currentScreen === 'level4' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(4)} portalAlwaysSpawn={portalAlwaysSpawn}>
-          <Level4 key={`level4-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(4, arg)} onRestart={handleRestart} />
-        </RunStatsProvider>
-      )}
-      {currentScreen === 'level5' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(5)} portalAlwaysSpawn={portalAlwaysSpawn}>
-          <Level5 key={`level5-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(5, arg)} onRestart={handleRestart} />
-        </RunStatsProvider>
-      )}
-      {currentScreen === 'level6' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(6)} portalAlwaysSpawn={portalAlwaysSpawn}>
-          <Level6 key={`level6-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(6, arg)} onRestart={handleRestart} />
-        </RunStatsProvider>
-      )}
-      {currentScreen === 'level7' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(7)} portalAlwaysSpawn={portalAlwaysSpawn}>
-          <Level7 key={`level7-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(7, arg)} onRestart={handleRestart} />
-        </RunStatsProvider>
-      )}
-      {currentScreen === 'level8' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(8)} portalAlwaysSpawn={portalAlwaysSpawn}>
-          <Level8 key={`level8-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(8, arg)} onRestart={handleRestart} />
-        </RunStatsProvider>
-      )}
-      {currentScreen === 'level9' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(9)} portalAlwaysSpawn={portalAlwaysSpawn}>
-          <Level9 key={`level9-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(9, arg)} onRestart={handleRestart} />
-        </RunStatsProvider>
-      )}
-      {currentScreen === 'level10' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(10)} portalAlwaysSpawn={portalAlwaysSpawn}>
-          <Level10 key={`level10-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(10, arg)} onRestart={handleRestart} />
-        </RunStatsProvider>
+
+      {/* Echo-Dimension renderers — same Level components wrapped in the
+          EchoLevel framing (warped-prism sky, glitch ambient, vignette).
+          Portal is gated OFF (portalEligible=false) so the player can't
+          recurse into a nested echo. onDeath and onComplete are rerouted
+          to handleEchoDeath / handleEchoComplete, so deaths inside an
+          echo just bail to the main level without spending Hardcore
+          tries. */}
+      {[
+        { n: 1, C: Level1 }, { n: 2, C: Level2 }, { n: 3, C: Level3 },
+        { n: 4, C: Level4 }, { n: 5, C: Level5 }, { n: 6, C: Level6 },
+        { n: 7, C: Level7 }, { n: 8, C: Level8 }, { n: 9, C: Level9 },
+        { n: 10, C: Level10 },
+      ].map(({ n, C }) =>
+        currentScreen === `level${n}Echo` ? (
+          <RunStatsProvider
+            key={`echo-prov-${n}`}
+            runScore={runScore} levelStartDeaths={levelStartDeaths}
+            mode={mode} triesLeft={triesLeft} streak={streak}
+            portalEligible={false} portalAlwaysSpawn={false}
+          >
+            <EchoLevel level={n}>
+              <C
+                key={`level${n}Echo-${qid}`}
+                deathCount={0}
+                onDeath={() => handleEchoDeath(n)}
+                onComplete={() => handleEchoComplete(n)}
+                onRestart={handleRestart}
+                onPortalEnter={() => {}}
+                startPositionOverride={null}
+              />
+            </EchoLevel>
+          </RunStatsProvider>
+        ) : null
       )}
       {currentScreen === 'reward' && rewardData && (
         <RewardScreen data={rewardData} onContinue={handleRewardContinue} />

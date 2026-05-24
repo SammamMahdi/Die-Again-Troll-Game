@@ -177,21 +177,22 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
   Array.isArray(__l6_fresh) ? __l6_fresh : __l6_fresh.blocks
 );
 
-function Level6({ deathCount, onDeath, onComplete }) {
+function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
+  const START = startPositionOverride || [ 0, 5, 25 ];
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
-  const [playerPosition, setPlayerPosition] = useState([0, 5, 25]);
+  const [playerPosition, setPlayerPosition] = useState(START);
 
   const initial = useRef(buildLevel6());
   const blocksRef = useRef(initial.current.blocks);
   const goalRef = useRef(initial.current.goal);
   const lasersRef = useRef(buildLasers());
-  const playerPosRef = useRef([0, 5, 25]);
+  const playerPosRef = useRef(START);
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
@@ -208,8 +209,8 @@ function Level6({ deathCount, onDeath, onComplete }) {
     blocksRef.current.forEach((b, i) => Object.assign(b, fresh.blocks[i]));
     goalRef.current = fresh.goal;
     lasersRef.current = buildLasers();
-    playerPosRef.current = [0, 5, 25];
-    setPlayerPosition([0, 5, 25]);
+    playerPosRef.current = START;
+    setPlayerPosition(START);
     setDeathReason('');
     setGameState('playing');
     setRestartKey(prev => prev + 1);
@@ -296,7 +297,10 @@ function Level6({ deathCount, onDeath, onComplete }) {
             position={[8, 0.5, -5]}
             rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
-            onEnter={() => { sideQuestCompleteRef.current = true; }}
+            onEnter={(pos) => {
+              if (onPortalEnter) onPortalEnter(pos);
+              else sideQuestCompleteRef.current = true;
+            }}
           />
         )}
 
@@ -306,7 +310,7 @@ function Level6({ deathCount, onDeath, onComplete }) {
 
         <Player
           key={restartKey}
-          startPosition={[0, 5, 25]}
+          startPosition={START}
           blocks={blocksRef.current}
           gate={null}
           onDeath={handlePlayerDeath}

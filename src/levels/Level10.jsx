@@ -155,15 +155,16 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
   Array.isArray(__l10_fresh) ? __l10_fresh : __l10_fresh.blocks
 );
 
-function Level10({ deathCount, onDeath, onComplete }) {
+function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
+  const START = startPositionOverride || [ 0, 5, 8 ];
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
-  const [playerPosition, setPlayerPosition] = useState([0, 5, 8]);
+  const [playerPosition, setPlayerPosition] = useState(START);
   const [pillarsTouched, setPillarsTouched] = useState(0);
   const [gateUnlocked, setGateUnlocked] = useState(false);
 
@@ -175,7 +176,7 @@ function Level10({ deathCount, onDeath, onComplete }) {
   // orb spawns at the centre — the final sprint is the most dangerous.
   const orbRef = useRef({ x: 0, y: 5, z: -10, radius: 1.75, speed: 5.0 });
   const extraOrbsRef = useRef([]);
-  const playerPosRef = useRef([0, 5, 8]);
+  const playerPosRef = useRef(START);
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
@@ -193,8 +194,8 @@ function Level10({ deathCount, onDeath, onComplete }) {
     pillarsRef.current = buildPillars();
     orbRef.current = { x: 0, y: 5, z: -10, radius: 1.75, speed: 5.0 };
     extraOrbsRef.current = [];
-    playerPosRef.current = [0, 5, 8];
-    setPlayerPosition([0, 5, 8]);
+    playerPosRef.current = START;
+    setPlayerPosition(START);
     setPillarsTouched(0);
     setGateUnlocked(false);
     setDeathReason('');
@@ -331,7 +332,10 @@ function Level10({ deathCount, onDeath, onComplete }) {
             position={[22, 0.5, 13]}
             rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
-            onEnter={() => { sideQuestCompleteRef.current = true; }}
+            onEnter={(pos) => {
+              if (onPortalEnter) onPortalEnter(pos);
+              else sideQuestCompleteRef.current = true;
+            }}
           />
         )}
 
@@ -346,7 +350,7 @@ function Level10({ deathCount, onDeath, onComplete }) {
 
         <Player
           key={restartKey}
-          startPosition={[0, 5, 8]}
+          startPosition={START}
           blocks={blocksRef.current}
           gate={null}
           onDeath={handlePlayerDeath}

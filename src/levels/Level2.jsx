@@ -113,23 +113,24 @@ function buildGlobes() {
 // on each level entry.
 const JEWEL_CANDIDATES = candidatesFromBlocks(buildLevel2());
 
-function Level2({ deathCount, onDeath, onComplete }) {
+function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
+  const START = startPositionOverride || [0, 3, 25];
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [globeStateLabel, setGlobeStateLabel] = useState('BLUE');
   const [restartKey, setRestartKey] = useState(0);
-  const [playerPosition, setPlayerPosition] = useState([0, 3, 25]);
+  const [playerPosition, setPlayerPosition] = useState(START);
 
   // Mutable simulation state — never put in React state to avoid re-render storms
   const blocksRef = useRef(buildLevel2());
   const globesRef = useRef(buildGlobes());
   const cycleTimerRef = useRef(0);
-  const playerPosRef = useRef([0, 3, 25]);
-  const lastPlayerPosRef = useRef([0, 3, 25]);
+  const playerPosRef = useRef(START);
+  const lastPlayerPosRef = useRef(START);
   const isMovingRef = useRef(false);
   const onGroundRef = useRef(false);
   const currentBlockIndexRef = useRef(-1);
@@ -156,11 +157,11 @@ function Level2({ deathCount, onDeath, onComplete }) {
     isMovingRef.current = false;
     onGroundRef.current = false;
     currentBlockIndexRef.current = -1;
-    lastPlayerPosRef.current = [0, 3, 25];
-    playerPosRef.current = [0, 3, 25];
+    lastPlayerPosRef.current = START;
+    playerPosRef.current = START;
 
     setGlobeStateLabel('BLUE');
-    setPlayerPosition([0, 3, 25]);
+    setPlayerPosition(START);
     setDeathReason('');
     setGameState('playing');
     setRestartKey(prev => prev + 1);
@@ -291,7 +292,7 @@ function Level2({ deathCount, onDeath, onComplete }) {
         {/* Player — gate is null so Player's win-by-gate check is inert */}
         <Player
           key={restartKey}
-          startPosition={[0, 3, 25]}
+          startPosition={START}
           blocks={blocksRef.current}
           gate={null}
           onDeath={handlePlayerDeath}
