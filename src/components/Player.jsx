@@ -12,6 +12,26 @@ const PLAYER_SPEED = 40.0;
 const FRICTION = 0.90;
 const AIR_RESISTANCE = 0.98;
 
+// Roll move — press C to roll. Behavior depends on grounded state:
+//   - On ground: immediate forward roll. Hitbox top drops so the player
+//     passes under low obstacles. Visual: body crouches (scale.y shrinks).
+//   - Mid-air: SLAM straight down (vy = -SLAM_SPEED, vx/vz = 0). When the
+//     player lands, the slam auto-transitions into the forward roll. This
+//     is the "jump → C → drop and roll" combo.
+// SPACE cancels either phase and jumps — instant. So roll-jump-roll-jump
+// chains flow naturally.
+const ROLL_DURATION = 0.35;
+// Cooldowns are zero — phase recovery (roll→jump, jump→roll) is INSTANT so
+// chains flow without any "you can't act yet" lockout. The only gate is
+// "you can't start a new roll while one is already in progress" (handled
+// by the phase check, not the cooldown).
+const ROLL_COOLDOWN = 0;
+const ROLL_JUMP_CANCEL_COOLDOWN = 0;
+const ROLL_SPEED = 15.0;            // ~5.25 units of travel per roll
+const ROLL_UPPER_OFFSET = -0.25;    // top of hitbox relative to py during roll
+const SLAM_SPEED = 25.0;            // downward velocity during the slam dive
+                                    // (a touch faster than natural fall, not snap)
+
 function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateTrigger, gameState, mobileControlRef }) {
   const meshRef = useRef();
   const [position, setPosition] = useState(startPosition);
@@ -33,10 +53,25 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
   const trailTickRef = useRef(0);
   const wasOnGroundRef = useRef(false);
   const dustTriggerRef = useRef({ at: 0, pos: [0, 0, 0] });
+  // Roll state. Edge-triggered: rollRequestRef goes true on Shift-keydown
+  // and the physics loop consumes it (so a held Shift doesn't auto-rebuy
+  // a roll the instant cooldown ticks down).
+  const rollRequestRef = useRef(false);
+  // phase: 'idle' | 'slam' | 'rolling'
+  const rollStateRef = useRef({
+    phase: 'idle',
+    timer: 0,
+    cooldown: 0,
+    dirX: 0,
+    dirZ: 0,
+  });
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       keysPressed.current[e.key.toLowerCase()] = true;
+      // C requests a roll. Edge-triggered here (not via keysPressed in
+      // useFrame) so that holding C doesn't auto-chain rolls.
+      if (e.key.toLowerCase() === 'c') rollRequestRef.current = true;
     };
     const handleKeyUp = (e) => {
       keysPressed.current[e.key.toLowerCase()] = false;
@@ -107,6 +142,48 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
       vz += az * PLAYER_SPEED * delta;
     }
 
+    // ---------------- Roll / Slam handling ----------------
+    // C requests a roll. Ground → immediate forward roll. Air → slam dive,
+    // which auto-transitions to a forward roll on landing (the air-roll
+    // combo). SPACE in either phase cancels and triggers a jump.
+    const roll = rollStateRef.current;
+    if (rollRequestRef.current) {
+      rollRequestRef.current = false;
+      if (roll.phase === 'idle' && roll.cooldown <= 0) {
+        if (onGround) {
+          roll.phase = 'rolling';
+          roll.timer = ROLL_DURATION;
+          roll.dirX = length > 0 ? ax : fx;
+          roll.dirZ = length > 0 ? az : fz;
+        } else {
+          // Mid-air: enter the slam dive. Direction is captured now so we
+          // can auto-roll forward on landing using either input or facing.
+          roll.phase = 'slam';
+          roll.dirX = length > 0 ? ax : fx;
+          roll.dirZ = length > 0 ? az : fz;
+        }
+      }
+    }
+    if (roll.phase === 'slam') {
+      // Slam dive: vertical only, very fast. Horizontal motion is killed
+      // so the player drops in place exactly under where they pressed C.
+      vy = -SLAM_SPEED;
+      vx = 0;
+      vz = 0;
+    } else if (roll.phase === 'rolling') {
+      vx = roll.dirX * ROLL_SPEED;
+      vz = roll.dirZ * ROLL_SPEED;
+      roll.timer -= delta;
+      if (roll.timer <= 0) {
+        roll.phase = 'idle';
+        roll.cooldown = ROLL_COOLDOWN;
+      }
+    } else if (roll.cooldown > 0) {
+      roll.cooldown = Math.max(0, roll.cooldown - delta);
+    }
+    const rolling = roll.phase === 'rolling';
+    const slamming = roll.phase === 'slam';
+
     // Apply friction — use per-block friction if the last-stood-on platform
     // declares one (e.g. ice = 0.98). Defaults to the global FRICTION constant.
     let groundFriction = FRICTION;
@@ -119,12 +196,20 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     // Apply gravity
     vy += GRAVITY * delta;
 
-    // Jump (keyboard)
-    if (keys[' '] && onGround) {
+    // Jump (keyboard) — instant cancellation of any active roll or slam.
+    // Grounded → normal jump. Mid-slam → abort the dive and jump back up
+    // (lets you tap C then immediately SPACE to bounce out of a slam).
+    // Mid-roll → carry horizontal momentum into the leap (roll-jump combo).
+    if (keys[' '] && (onGround || slamming)) {
       vy = JUMP_FORCE;
       setOnGround(false);
       playJump();
-      pushFovPulse(2.5);   // tiny zoom-in on jump
+      pushFovPulse(2.5);
+      if (rolling || slamming) {
+        roll.phase = 'idle';
+        roll.timer = 0;
+        roll.cooldown = ROLL_JUMP_CANCEL_COOLDOWN;
+      }
     }
 
     // External velocity override (launchers/knockback)
@@ -154,12 +239,16 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
       externalDeltaRef.current[2] = 0;
     }
 
-    // Collision detection
+    // Collision detection. Asymmetric Y while rolling: bottom stays at
+    // py-0.5 (so the player still rests on platforms / takes ground hits),
+    // but the top drops to py+ROLL_UPPER_OFFSET so low obstacles (arches,
+    // partial walls) clear over the head.
     let newOnGround = false;
     let currentBlockIndex = -1;
+    const upperY = rolling ? (py + ROLL_UPPER_OFFSET) : (py + 0.5);
     const playerBox = {
       minX: px - 0.5, maxX: px + 0.5,
-      minY: py - 0.5, maxY: py + 0.5,
+      minY: py - 0.5, maxY: upperY,
       minZ: pz - 0.5, maxZ: pz + 0.5
     };
 
@@ -230,7 +319,16 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     });
 
     setOnGround(newOnGround);
-    
+
+    // Slam landed this frame → flip into the forward roll automatically.
+    // This is the "C in air drops you down and rolls" handoff.
+    if (roll.phase === 'slam' && newOnGround) {
+      roll.phase = 'rolling';
+      roll.timer = ROLL_DURATION;
+      // dir was captured at slam-start; keep it so the roll goes the way
+      // the player was facing when they tapped C.
+    }
+
     // Call update callback with player position and current block index
     if (onUpdate) {
       onUpdate([px, py, pz], currentBlockIndex);
@@ -290,13 +388,16 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
 
     if (meshRef.current) {
       meshRef.current.position.set(px, py, pz);
+      // Outer mesh stays upright — the body inside PlayerVisual reads from
+      // rollStateRef and rotates itself, so the projected shadow and ground
+      // halo (siblings of the body) keep their world-flat orientation.
     }
   });
 
   return (
     <>
       <group ref={meshRef} position={position}>
-        <PlayerVisual blocksProp={blocks} positionRef={positionRef} />
+        <PlayerVisual blocksProp={blocks} positionRef={positionRef} rollStateRef={rollStateRef} />
       </group>
       <PlayerTrail trailRef={trailRef} />
       <LandingDust triggerRef={dustTriggerRef} />
@@ -307,7 +408,7 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
 // Visual-only pawn with a rotating crown, pulsing head, projected halo + shadow.
 // Quality-aware: Potato (q.minimalPlayer) strips the crown, ground halo and
 // inner head core down to just the base+body+head+shadow.
-function PlayerVisual({ blocksProp, positionRef }) {
+function PlayerVisual({ blocksProp, positionRef, rollStateRef }) {
   const q = useGraphics();
   const minimal = q.minimalPlayer;
   const haloRef = useRef();
@@ -326,9 +427,39 @@ function PlayerVisual({ blocksProp, positionRef }) {
       crownRef.current.rotation.y += delta * 1.2;
       crownRef.current.rotation.x = Math.sin(t.current * 1.3) * 0.15;
     }
-    // Body breathes (subtle vertical bob, skipped on Potato to stay rock-still)
-    if (bodyRef.current && !minimal) {
-      bodyRef.current.position.y = Math.sin(t.current * 2.0) * 0.04;
+    // Body breathes + crouches. While rolling or slamming the body shrinks
+    // vertically (squash) and faces the roll direction. Shadow + halo are
+    // SIBLINGS of bodyRef so they stay flat on the ground at all times.
+    if (bodyRef.current) {
+      const roll = rollStateRef && rollStateRef.current;
+      const phase = roll ? roll.phase : 'idle';
+      // Target body scale + y-offset per phase. We lerp toward these so the
+      // crouch + uncrouch transitions are smooth, not snappy.
+      let targetScaleY, targetOffsetY, targetYaw;
+      if (phase === 'rolling') {
+        targetScaleY = 0.45;     // crouched flat
+        targetOffsetY = -0.3;    // body lowered so feet stay near the ground
+        targetYaw = Math.atan2(-roll.dirZ, roll.dirX);
+      } else if (phase === 'slam') {
+        targetScaleY = 0.65;     // half-crouched tucked dive
+        targetOffsetY = -0.15;
+        targetYaw = Math.atan2(-roll.dirZ, roll.dirX);
+      } else {
+        targetScaleY = 1.0;
+        targetOffsetY = !minimal ? Math.sin(t.current * 2.0) * 0.04 : 0;
+        targetYaw = 0;
+      }
+      const k = 1 - Math.exp(-18 * delta);   // ~5x faster than visible
+      bodyRef.current.scale.y += (targetScaleY - bodyRef.current.scale.y) * k;
+      // Subtle widening to preserve volume when squashed.
+      const sxz = 1 + (1 - bodyRef.current.scale.y) * 0.15;
+      bodyRef.current.scale.x = sxz;
+      bodyRef.current.scale.z = sxz;
+      bodyRef.current.position.y += (targetOffsetY - bodyRef.current.position.y) * k;
+      // Yaw lerps shortest-path. For first ship a snap on phase entry is fine.
+      bodyRef.current.rotation.y = targetYaw;
+      // No X tumble — the crouch IS the visual cue.
+      bodyRef.current.rotation.x = 0;
     }
     if (headMatRef.current) {
       headMatRef.current.emissiveIntensity = 1.0 + 0.6 * pulse;

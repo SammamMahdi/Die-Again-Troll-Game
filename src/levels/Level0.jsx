@@ -23,15 +23,22 @@ const PLATFORMS = [
   { x: 0, y: 0, z: 2,   w: 4, h: 1, d: 4,
     label: 'SPACE to jump',
     sub: 'The gap is small — hop across' },
-  { x: 0, y: 0, z: -8,  w: 4, h: 1, d: 4,
+  // Long corridor that hosts the roll-wall in its middle.
+  { x: 0, y: 0, z: -8,  w: 6, h: 1, d: 12,
     label: 'Arrow keys or mouse to rotate',
     sub: 'Look around the world' },
-  { x: 0, y: 0, z: -18, w: 8, h: 1, d: 8,
+  { x: 0, y: 0, z: -22, w: 8, h: 1, d: 8,
     label: 'Reach the gate to finish',
     sub: 'Fall off? Press R to retry' },
 ];
 
-const GATE = { x: 0, y: 0.5, z: -18 };
+// Tall wall with a roll-height gap underneath. Standing player (top y=1.5)
+// can't fit under the wall's bottom y=1.25; rolling player (top y=0.75)
+// slides through. Wall is tall (y up to 9.25) so jumping over it isn't an
+// option — the only way forward is the roll.
+const ROLL_WALL = { x: 0, y: 5.25, z: -8, w: 6, h: 8, d: 1.5 };
+
+const GATE = { x: 0, y: 0.5, z: -22 };
 
 function Level0({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
@@ -40,12 +47,22 @@ function Level0({ deathCount, onDeath, onComplete }) {
   const [restartKey, setRestartKey] = useState(0);
   const [playerPosition, setPlayerPosition] = useState([0, 3, 12]);
 
-  const blocks = PLATFORMS.map((p, i) => ({
-    x: p.x, y: p.y, z: p.z,
-    w: p.w, h: p.h, d: p.d,
-    visible: true, index: i,
-    color: [0.78, 0.82, 0.95],
-  }));
+  const blocks = [
+    ...PLATFORMS.map((p, i) => ({
+      x: p.x, y: p.y, z: p.z,
+      w: p.w, h: p.h, d: p.d,
+      visible: true, index: i,
+      color: [0.78, 0.82, 0.95],
+    })),
+    // Roll-wall: collidable, but visually distinct (rendered separately below).
+    // Included in `blocks` so Player.jsx's AABB collision sees it.
+    {
+      x: ROLL_WALL.x, y: ROLL_WALL.y, z: ROLL_WALL.z,
+      w: ROLL_WALL.w, h: ROLL_WALL.h, d: ROLL_WALL.d,
+      visible: true, index: -1,
+      color: [0.18, 0.12, 0.32],
+    },
+  ];
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
@@ -123,6 +140,34 @@ function Level0({ deathCount, onDeath, onComplete }) {
             emissiveIntensity={0.05}
           />
         ))}
+
+        {/* Roll-wall label — sits above the wall (which already towers up
+            to y=9.25) so it reads from the approach. */}
+        <group position={[ROLL_WALL.x, ROLL_WALL.y + ROLL_WALL.h / 2 + 1.6, ROLL_WALL.z]}>
+          <Text
+            fontSize={0.6}
+            color="#ffd966"
+            anchorX="center"
+            anchorY="middle"
+            outlineWidth={0.04}
+            outlineColor="#06061a"
+            fillOpacity={1}
+          >
+            C to roll under
+          </Text>
+          <Text
+            position={[0, -0.6, 0]}
+            fontSize={0.32}
+            color="#ffe28b"
+            anchorX="center"
+            anchorY="middle"
+            outlineWidth={0.025}
+            outlineColor="#06061a"
+            fillOpacity={0.9}
+          >
+            Slide through the gap at the bottom
+          </Text>
+        </group>
 
         {/* Floating teaching labels above each platform. drei <Text> uses
             an SDF font so it stays crisp at every camera distance. */}
