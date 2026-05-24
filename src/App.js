@@ -432,7 +432,11 @@ function App() {
     }
   };
 
-  const handleLevelComplete = (levelNumber) => {
+  const handleLevelComplete = (levelNumber, sideQuest = null) => {
+    // sideQuest: { complete: boolean } | null — Hardcore-only. The level
+    // sets `complete: true` when the player entered + cleared the portal's
+    // side-level (Phase 3 portal mechanic). Used by getMedal to award
+    // Platinum (sideQuest cleared) or Diamond (sideQuest cleared + 0 deaths).
     playWin();
     // Tutorial: no medal / time / runStats — just flag completion + show a
     // simple reward screen with the tutorial_complete achievement (if new).
@@ -477,7 +481,11 @@ function App() {
     const elapsedMs = levelStartTimeRef.current
       ? Date.now() - levelStartTimeRef.current
       : 0;
-    const medal = getMedal(levelNumber, deathsUsed);
+    // Portal side-quest: trivially read from the level's report. Practice
+    // mode levels never set this. Hardcore levels set it when the player
+    // walked through the spawned portal and cleared the side-level.
+    const sideQuestComplete = !!(sideQuest && sideQuest.complete && mode === 'hardcore');
+    const medal = getMedal(levelNumber, deathsUsed, sideQuestComplete);
 
     // Hardcore: clearing a level without losing a try grows the streak.
     if (mode === 'hardcore' && deathsUsed === 0) {
@@ -551,6 +559,7 @@ function App() {
       newlyUnlocked,
       pointsEarned,
       runScoreAfter: runScore + pointsEarned,
+      sideQuestComplete,
       // Run is "final" only if we're in Hardcore AND we just cleared L10.
       // In Practice, every level is treated as standalone.
       isFinal: mode === 'hardcore' && levelNumber === TOTAL_LEVELS,
@@ -616,6 +625,15 @@ function App() {
     setCurrentScreen('start');
   };
 
+  // Phase 3 portal gating: portals only spawn in Hardcore on levels the
+  // player has already Gold'd (i.e. shown they can clear cleanly). Used
+  // as a prop on each RunStatsProvider so the level can decide whether
+  // to attempt a spawn roll.
+  const PORTAL_MEDALS = ['gold', 'platinum', 'diamond'];
+  const portalEligibleFor = (lvl) =>
+    mode === 'hardcore'
+    && PORTAL_MEDALS.includes(persistedProgress.medals?.[lvl]);
+
   return (
     <div className="App">
       {currentScreen === 'start' && (
@@ -665,71 +683,71 @@ function App() {
         </RunStatsProvider>
       )}
       {currentScreen === 'level1' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(1)}>
           <Level1
             key={`level1-${qid}`}
             deathCount={deathCount}
             onDeath={handleDeath}
-            onComplete={() => handleLevelComplete(1)}
+            onComplete={(arg) => handleLevelComplete(1, arg)}
             onRestart={handleRestart}
           />
         </RunStatsProvider>
       )}
       {currentScreen === 'level2' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(2)}>
           <Level2
             key={`level2-${qid}`}
             deathCount={deathCount}
             onDeath={handleDeath}
-            onComplete={() => handleLevelComplete(2)}
+            onComplete={(arg) => handleLevelComplete(2, arg)}
             onRestart={handleRestart}
           />
         </RunStatsProvider>
       )}
       {currentScreen === 'level3' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(3)}>
           <Level3
             key={`level3-${qid}`}
             deathCount={deathCount}
             onDeath={handleDeath}
-            onComplete={() => handleLevelComplete(3)}
+            onComplete={(arg) => handleLevelComplete(3, arg)}
             onRestart={handleRestart}
           />
         </RunStatsProvider>
       )}
       {currentScreen === 'level4' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
-          <Level4 key={`level4-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(4)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(4)}>
+          <Level4 key={`level4-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(4, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level5' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
-          <Level5 key={`level5-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(5)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(5)}>
+          <Level5 key={`level5-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(5, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level6' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
-          <Level6 key={`level6-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(6)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(6)}>
+          <Level6 key={`level6-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(6, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level7' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
-          <Level7 key={`level7-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(7)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(7)}>
+          <Level7 key={`level7-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(7, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level8' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
-          <Level8 key={`level8-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(8)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(8)}>
+          <Level8 key={`level8-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(8, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level9' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
-          <Level9 key={`level9-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(9)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(9)}>
+          <Level9 key={`level9-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(9, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level10' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak}>
-          <Level10 key={`level10-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={() => handleLevelComplete(10)} onRestart={handleRestart} />
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(10)}>
+          <Level10 key={`level10-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(10, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'reward' && rewardData && (

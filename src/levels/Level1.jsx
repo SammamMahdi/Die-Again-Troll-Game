@@ -8,6 +8,8 @@ import Block from '../components/Block';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import Portal from '../components/Portal';
+import { useRunStats } from '../components/RunStatsContext';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
@@ -18,6 +20,11 @@ import './Level.css';
 
 function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   const q = useGraphics();
+  // Phase 3 portal — only spawns if player has Gold on this level + is in
+  // Hardcore mode (gated upstream). Random ~35% chance per attempt.
+  const { portalEligible } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && Math.random() < 0.35);
+  const sideQuestCompleteRef = useRef(false);
   const [gameState, setGameState] = useState('playing'); // 'playing', 'dead', 'won'
   const [deathReason, setDeathReason] = useState('');
   const [blocks, setBlocks] = useState([]);
@@ -233,7 +240,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   useEffect(() => {
     if (gameState === 'won') {
       const timer = setTimeout(() => {
-        onComplete();
+        onComplete({ complete: sideQuestCompleteRef.current });
       }, 1500);
       return () => clearTimeout(timer);
     }
@@ -317,6 +324,17 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
           candidates={JEWEL_CANDIDATES}
           playerPosRef={playerPosRef}
         />
+
+        {/* L1: middle-stones sit at x=0 along z=14..-10. Portal lands on
+            the 3rd stone (z=-4) so the player has to clear the sequence
+            up to mid-route to reach it. */}
+        {portalSpawned && (
+          <Portal
+            position={[0, 0.5, -4]}
+            playerPosRef={playerPosRef}
+            onEnter={() => { sideQuestCompleteRef.current = true; }}
+          />
+        )}
 
         {/* Player */}
         <Player

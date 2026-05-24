@@ -9,6 +9,8 @@ import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import Portal from '../components/Portal';
+import { useRunStats } from '../components/RunStatsContext';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
@@ -130,6 +132,9 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
 
 function Level3({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
+  const { portalEligible } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && Math.random() < 0.35);
+  const sideQuestCompleteRef = useRef(false);
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [sonarActive, setSonarActive] = useState(false);
@@ -202,7 +207,7 @@ function Level3({ deathCount, onDeath, onComplete }) {
 
   useEffect(() => {
     if (gameState === 'won') {
-      const t = setTimeout(() => onComplete(), 1500);
+      const t = setTimeout(() => onComplete({ complete: sideQuestCompleteRef.current }), 1500);
       return () => clearTimeout(t);
     }
   }, [gameState, onComplete]);
@@ -271,6 +276,14 @@ function Level3({ deathCount, onDeath, onComplete }) {
           candidates={JEWEL_CANDIDATES}
           playerPosRef={playerPosRef}
         />
+
+        {portalSpawned && (
+          <Portal
+            position={[0, 0.5, -30]}
+            playerPosRef={playerPosRef}
+            onEnter={() => { sideQuestCompleteRef.current = true; }}
+          />
+        )}
 
         {/* Player */}
         <Player

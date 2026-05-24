@@ -9,6 +9,7 @@ const RunStatsContext = createContext({
   mode: null,
   triesLeft: Infinity,
   streak: 0,
+  portalEligible: false,
 });
 
 export function RunStatsProvider({
@@ -17,10 +18,11 @@ export function RunStatsProvider({
   mode = null,
   triesLeft = Infinity,
   streak = 0,
+  portalEligible = false,
   children,
 }) {
   return (
-    <RunStatsContext.Provider value={{ runScore, levelStartDeaths, mode, triesLeft, streak }}>
+    <RunStatsContext.Provider value={{ runScore, levelStartDeaths, mode, triesLeft, streak, portalEligible }}>
       {children}
     </RunStatsContext.Provider>
   );

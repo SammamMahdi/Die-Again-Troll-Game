@@ -38,9 +38,20 @@ export function ConsumablesProvider({ children }) {
     if (!def || !def.duration) return false;
     if ((getInventory()[id] || 0) <= 0) return false;
     if (!consumeOne(id)) return false;
-    const until = Date.now() + def.duration * 1000;
-    if (id === 'speed_potion') activeRef.current.speedBoostUntil = until;
-    if (id === 'jewel_magnet') activeRef.current.magnetUntil = until;
+    // Duration stacking — re-activating while an effect is still live ADDS
+    // the new duration to the remaining timer instead of resetting it. So
+    // chaining two Speed Potions back-to-back gives ~30 s of boost (one
+    // catalogue duration on top of the existing remainder), not 15.
+    const now = Date.now();
+    const addMs = def.duration * 1000;
+    if (id === 'speed_potion') {
+      const prev = activeRef.current.speedBoostUntil;
+      activeRef.current.speedBoostUntil = (prev > now ? prev : now) + addMs;
+    }
+    if (id === 'jewel_magnet') {
+      const prev = activeRef.current.magnetUntil;
+      activeRef.current.magnetUntil = (prev > now ? prev : now) + addMs;
+    }
     setTick(t => t + 1);
     return true;
   }, []);

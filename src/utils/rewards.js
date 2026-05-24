@@ -6,11 +6,13 @@ const STORAGE_KEY = 'die-again-rewards-v1';
 
 // ----- Medals -----
 // "Best medal achieved" per level. The thresholds tell us, at completion
-// time, which medal the run earned based on deaths used.
+// time, which medal the run earned based on deaths used + Phase 3 side-quest.
 //
-// gold:   deaths <= gold threshold
-// silver: deaths <= silver threshold
-// bronze: any completion (you have to die a lot to be human about it)
+// diamond:  deaths == 0 AND side-quest cleared (Hardcore portal route)
+// platinum: side-quest cleared (any death count)
+// gold:     deaths <= gold threshold
+// silver:   deaths <= silver threshold
+// bronze:   any completion (you have to die a lot to be human about it)
 export const MEDAL_THRESHOLDS = {
   1:  { gold: 0, silver: 2 },
   2:  { gold: 0, silver: 2 },
@@ -24,11 +26,16 @@ export const MEDAL_THRESHOLDS = {
   10: { gold: 0, silver: 5 },
 };
 
-export const MEDAL_RANK = { none: 0, bronze: 1, silver: 2, gold: 3 };
+export const MEDAL_RANK = { none: 0, bronze: 1, silver: 2, gold: 3, platinum: 4, diamond: 5 };
 
-export function getMedal(levelNumber, deathsUsed) {
+export function getMedal(levelNumber, deathsUsed, sideQuestComplete = false) {
   const t = MEDAL_THRESHOLDS[levelNumber];
   if (!t) return 'bronze';
+  // Diamond: side-quest cleared AND clean main-level run (0 deaths).
+  if (deathsUsed <= t.gold && sideQuestComplete) return 'diamond';
+  // Platinum: side-quest cleared, regardless of deaths in the main level.
+  if (sideQuestComplete) return 'platinum';
+  // Gold/Silver/Bronze: existing death-based ladder for clean runs.
   if (deathsUsed <= t.gold) return 'gold';
   if (deathsUsed <= t.silver) return 'silver';
   return 'bronze';
@@ -59,17 +66,22 @@ export const ACHIEVEMENTS = [
 
 // Medal point values (per level). Exported so the HUD + RewardScreen can show
 // "+100 (Gold medal)" lines without re-deriving the table.
-export const MEDAL_POINTS = { gold: 100, silver: 50, bronze: 20, none: 0 };
+// Platinum: side-quest cleared, partial credit for finding + clearing the
+//           Hardcore portal even if the main level had deaths.
+// Diamond:  side-quest AND a clean main level — perfection bar.
+export const MEDAL_POINTS = { diamond: 300, platinum: 200, gold: 100, silver: 50, bronze: 20, none: 0 };
 
 /**
  * Compute total score for a progress object.
- *   Sum of medal points (10 levels × up to 100 = 1000) + achievement points.
+ *   Sum of medal points (10 levels × up to 300 = 3000) + achievement points.
  *
  * Achievement maximum = 25 (first_steps) + 9×25 (per-level no-deaths L1–L9)
  *                     + 50 (architect_slayer / L10 no-deaths) + 250 (iron_will)
  *                     + 500 (flawless) + 3×50 (speed_demon_1..3) = 1200.
  *
- * Theoretical max ≈ 1000 (medals) + 1200 (achievements) = 2200.
+ * Theoretical max (after Diamond tier in Phase 3) ≈ 3000 (medals) +
+ * 1200 (achievements baseline) = 4200, plus whatever the Phase 4
+ * achievement expansion adds.
  */
 export function computeScore(progress) {
   if (!progress) return 0;
