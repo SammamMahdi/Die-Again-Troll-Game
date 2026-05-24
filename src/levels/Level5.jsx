@@ -44,6 +44,16 @@ function buildLevel5Blocks() {
       color: [...COLOR_NORMAL],
     });
   }
+  // Phase 3 side-branch: a violet stone way off the main pendulum lane at
+  // (12, 0, -7) — safely outside the ±7 pendulum sweep. Reachable from the
+  // mid-route platform at (0, 0, -10). Portal sits here.
+  blocks.push({
+    x: 12, y: 0, z: -7,
+    startX: 12, startY: 0, startZ: -7,
+    w: 3, h: 1, d: 3,
+    visible: true,
+    color: [0.45, 0.32, 0.6],
+  });
   // Goal
   const goalZ = 25 - 9 * STEP;
   blocks.push({
@@ -124,8 +134,8 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
 
 function Level5({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
-  const { portalEligible } = useRunStats();
-  const [portalSpawned] = useState(() => portalEligible && Math.random() < 0.35);
+  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
@@ -235,9 +245,12 @@ function Level5({ deathCount, onDeath, onComplete }) {
           playerPosRef={playerPosRef}
         />
 
+        {/* L5 side branch: violet stone at (12, 0, -7), safely outside the
+            pendulum sweep. Portal opening faces -X back to the main lane. */}
         {portalSpawned && (
           <Portal
-            position={[0, 0.5, -10]}
+            position={[12, 0.5, -7]}
+            rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
             onEnter={() => { sideQuestCompleteRef.current = true; }}
           />

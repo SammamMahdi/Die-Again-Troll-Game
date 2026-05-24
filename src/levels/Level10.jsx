@@ -59,6 +59,14 @@ function buildLevel10() {
     color: [...COLOR_GOAL], isGoal: true,
   });
 
+  // Phase 3 side-branch: a violet stone detached from the arena, reachable
+  // only by a precise jump off the (13, 0, 13) corner platform. The portal
+  // sits here — the player must momentarily leave the arena chase to find it.
+  blocks.push({
+    x: 22, y: 0, z: 13, w: 3, h: 1, d: 3, visible: true,
+    color: [0.45, 0.32, 0.6],
+  });
+
   return { blocks };
 }
 
@@ -149,8 +157,8 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
 
 function Level10({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
-  const { portalEligible } = useRunStats();
-  const [portalSpawned] = useState(() => portalEligible && Math.random() < 0.35);
+  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
@@ -316,9 +324,12 @@ function Level10({ deathCount, onDeath, onComplete }) {
           playerPosRef={playerPosRef}
         />
 
+        {/* L10 side branch: violet stone detached from the arena at
+            (22, 0, 13). Portal opening faces -X back toward the arena. */}
         {portalSpawned && (
           <Portal
-            position={[8, 0.5, 0]}
+            position={[22, 0.5, 13]}
+            rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
             onEnter={() => { sideQuestCompleteRef.current = true; }}
           />

@@ -105,6 +105,10 @@ function buildLevel3() {
     // 4. Safe haven
     makeBlock({ type: T_NORMAL, x: 0, y: -1, z: -30, w: 6, h: 1, d: 4 }),
 
+    // Phase 3 side-branch: violet stone off the safe haven, sideways jump
+    // off the +X edge. Portal sits here.
+    makeBlock({ type: T_NORMAL, x: 8, y: -1, z: -30, w: 3, h: 1, d: 3 }),
+
     // 5. Timing trap: two blinking bridges out of phase + a moving kill cube
     makeBlock({ type: T_BLINK,       x: 0, y: -1,   z: -36, w: 2, h: 1, d: 4, phaseOffset: 0.0 }),
     makeBlock({ type: T_MOVING_KILL, x: 0, y: 0.5,  z: -36, w: 1, h: 1, d: 1, moveRange: 2.5, moveSpeed: 2.0 }),
@@ -132,8 +136,8 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
 
 function Level3({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
-  const { portalEligible } = useRunStats();
-  const [portalSpawned] = useState(() => portalEligible && Math.random() < 0.35);
+  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
@@ -277,9 +281,12 @@ function Level3({ deathCount, onDeath, onComplete }) {
           playerPosRef={playerPosRef}
         />
 
+        {/* L3 side branch: violet stone at (8, -1, -30) off the safe haven.
+            Portal faces -X back toward the main safe-haven block. */}
         {portalSpawned && (
           <Portal
-            position={[0, 0.5, -30]}
+            position={[8, -0.5, -30]}
+            rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
             onEnter={() => { sideQuestCompleteRef.current = true; }}
           />

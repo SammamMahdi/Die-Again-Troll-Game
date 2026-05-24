@@ -13,7 +13,7 @@ import { playJewelPickup } from '../utils/sounds';
 //
 // Spawns only in Hardcore on Gold'd levels (gated upstream). AABB pickup
 // is generous — anywhere within the gate opening counts as "entered".
-function Portal({ position, playerPosRef, onEnter, hidden }) {
+function Portal({ position, rotationY = 0, playerPosRef, onEnter, hidden }) {
   const groupRef = useRef();
   const ringRef = useRef();
   const innerRef = useRef();
@@ -24,9 +24,9 @@ function Portal({ position, playerPosRef, onEnter, hidden }) {
   useFrame((_, delta) => {
     if (entered || hidden) return;
     t.current += delta;
-    if (groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.25;
-    }
+    // Outer group rotation is now driven by the `rotationY` prop so each
+    // level can face the portal toward its approach direction. The inner
+    // swirl rings (innerRef, swirlRef) carry the spin animation instead.
     if (ringRef.current) {
       const pulse = 1 + 0.04 * Math.sin(t.current * 2.0);
       ringRef.current.scale.set(pulse, pulse, 1);
@@ -48,10 +48,18 @@ function Portal({ position, playerPosRef, onEnter, hidden }) {
     const p = playerPosRef && playerPosRef.current;
     if (!p) return;
     const baseY = position[1];
+    // Rotate the player offset into the portal's local frame so the wide
+    // (2.1) and narrow (1.3) AABB axes track the portal's facing direction.
+    const cos = Math.cos(rotationY);
+    const sin = Math.sin(rotationY);
+    const ox = p[0] - position[0];
+    const oz = p[2] - position[2];
+    const localX = ox * cos + oz * sin;
+    const localZ = -ox * sin + oz * cos;
     const inFootprint =
-      Math.abs(p[0] - position[0]) < 2.1 &&     // gate width (x)
-      Math.abs(p[2] - position[2]) < 1.3 &&     // gate depth (z)
-      p[1] > baseY + 0.3 && p[1] < baseY + 5.2; // anywhere inside the pillar height
+      Math.abs(localX) < 2.1 &&
+      Math.abs(localZ) < 1.3 &&
+      p[1] > baseY + 0.3 && p[1] < baseY + 5.2;
     if (inFootprint) {
       setEntered(true);
       playJewelPickup('bonus');
@@ -62,7 +70,7 @@ function Portal({ position, playerPosRef, onEnter, hidden }) {
   if (entered || hidden) return null;
 
   return (
-    <group ref={groupRef} position={position}>
+    <group ref={groupRef} position={position} rotation={[0, rotationY, 0]}>
       {/* Ground halo at base — marks the spawn footprint */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[1.6, 3.2, 64]} />

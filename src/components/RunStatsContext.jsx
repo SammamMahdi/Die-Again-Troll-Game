@@ -10,6 +10,7 @@ const RunStatsContext = createContext({
   triesLeft: Infinity,
   streak: 0,
   portalEligible: false,
+  portalAlwaysSpawn: false,
 });
 
 export function RunStatsProvider({
@@ -19,10 +20,16 @@ export function RunStatsProvider({
   triesLeft = Infinity,
   streak = 0,
   portalEligible = false,
+  // Admin / dev override: skip the 35% spawn roll so portals always
+  // appear when eligible. App.js flips this true when adminMode is on.
+  portalAlwaysSpawn = false,
   children,
 }) {
   return (
-    <RunStatsContext.Provider value={{ runScore, levelStartDeaths, mode, triesLeft, streak, portalEligible }}>
+    <RunStatsContext.Provider value={{
+      runScore, levelStartDeaths, mode, triesLeft, streak,
+      portalEligible, portalAlwaysSpawn,
+    }}>
       {children}
     </RunStatsContext.Provider>
   );

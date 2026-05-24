@@ -38,6 +38,14 @@ function buildLevel8() {
       visible: true, color: [...COLOR_PATH],
     });
   }
+  // Phase 3 side-branch: violet stone at (9, 0, -3), 5 units off the +X
+  // edge of the mid-route platform. Mirror shadow lands at (-9, …) —
+  // safely past the hazard cluster (max x=±3), so the detour itself isn't
+  // shadow-lethal.
+  blocks.push({
+    x: 9, y: 0, z: -3, w: 3, h: 1, d: 3,
+    visible: true, color: [0.45, 0.32, 0.6],
+  });
   blocks.push({ x: 0, y: 0, z: -22, w: 8, h: 1, d: 6, visible: true, color: [...COLOR_GOAL], isGoal: true });
   return { blocks, goal: { x: 0, y: 0.5, z: -22 } };
 }
@@ -120,8 +128,8 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
 
 function Level8({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
-  const { portalEligible } = useRunStats();
-  const [portalSpawned] = useState(() => portalEligible && Math.random() < 0.35);
+  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
@@ -224,9 +232,11 @@ function Level8({ deathCount, onDeath, onComplete }) {
           playerPosRef={playerPosRef}
         />
 
+        {/* L8 side branch: violet stone at (9, 0, -3). Portal faces -X. */}
         {portalSpawned && (
           <Portal
-            position={[0, 0.5, -5]}
+            position={[9, 0.5, -3]}
+            rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
             onEnter={() => { sideQuestCompleteRef.current = true; }}
           />

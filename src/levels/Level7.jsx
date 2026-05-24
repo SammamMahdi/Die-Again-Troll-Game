@@ -43,6 +43,13 @@ function buildLevel7() {
     z -= 5;
   }
 
+  // Phase 3 side-branch: violet stone at (6, 0, -8), inside the safe z gap
+  // between wall sweeps z=-12 and z=-4. Jump sideways off the stepping
+  // stone at (0, 0, -6) to reach it. Portal sits here.
+  blocks.push({
+    x: 6, y: 0, z: -8, w: 3, h: 1, d: 3,
+    visible: true, color: [0.45, 0.32, 0.6],
+  });
   // Goal
   blocks.push({ x: 0, y: 0, z: -32, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_GOAL], isGoal: true });
   return { blocks, goal: { x: 0, y: 0.5, z: -32 } };
@@ -161,8 +168,8 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
 
 function Level7({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
-  const { portalEligible } = useRunStats();
-  const [portalSpawned] = useState(() => portalEligible && Math.random() < 0.35);
+  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
@@ -282,9 +289,12 @@ function Level7({ deathCount, onDeath, onComplete }) {
           playerPosRef={playerPosRef}
         />
 
+        {/* L7 side branch: violet stone at (6, 0, -8), in the wall-free z gap.
+            Portal faces -X back toward the main lantern path. */}
         {portalSpawned && (
           <Portal
-            position={[0, 0.5, 4]}
+            position={[6, 0.5, -8]}
+            rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
             onEnter={() => { sideQuestCompleteRef.current = true; }}
           />

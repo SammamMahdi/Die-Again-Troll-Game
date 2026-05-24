@@ -66,6 +66,26 @@ function buildLevel2() {
       moveTimer: 0,
     });
   }
+  // Phase 3 side-branch: a violet stone offset to +X next to block index 4
+  // (z = startZ - 4*STEP_SIZE = -3). The portal sits on this — player must
+  // jump sideways off the main path mid-route to reach it.
+  blocks.push({
+    index: -1,
+    x: 5, y: 0, z: startZ - 4 * STEP_SIZE,
+    startX: 5, startY: 0, startZ: startZ - 4 * STEP_SIZE,
+    w: 3, h: 1, d: 3,
+    visible: true,
+    color: [0.45, 0.32, 0.6],
+    isGoal: false,
+    moveX: false,
+    moveY: false,
+    breakable: false,
+    stepped: false,
+    breakTimer: 0,
+    falling: false,
+    fallSpeed: 0,
+    moveTimer: 0,
+  });
   return blocks;
 }
 
@@ -95,8 +115,8 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(buildLevel2());
 
 function Level2({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
-  const { portalEligible } = useRunStats();
-  const [portalSpawned] = useState(() => portalEligible && Math.random() < 0.35);
+  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
@@ -251,9 +271,13 @@ function Level2({ deathCount, onDeath, onComplete }) {
           playerPosRef={playerPosRef}
         />
 
+        {/* L2: side branch — violet stone at (5, 0, -3), reachable via
+            sideways hop off the 5th main stone. Portal faces -X toward the
+            main path so player walks into it from the branch block. */}
         {portalSpawned && (
           <Portal
-            position={[0, 0.5, -10]}
+            position={[5, 0.5, -3]}
+            rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
             onEnter={() => { sideQuestCompleteRef.current = true; }}
           />

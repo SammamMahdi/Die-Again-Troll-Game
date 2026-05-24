@@ -44,6 +44,13 @@ function buildLevel6() {
 
   blocks.push({ x: 0, y: 0, z: -5, w: 3.5, h: 1, d: 3.5, visible: true, color: [...COLOR_BRIDGE] });
 
+  // Phase 3 side-branch: violet stone at (8, 0, -5), sideways jump off the
+  // mid-route bridge. Safely outside the disc and laser sweep zones.
+  blocks.push({
+    x: 8, y: 0, z: -5, w: 3, h: 1, d: 3,
+    visible: true, color: [0.45, 0.32, 0.6],
+  });
+
   // Disc 2 — counter-clockwise, moderate
   blocks.push({
     x: 0, y: 0, z: -15, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_DISC],
@@ -172,8 +179,8 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
 
 function Level6({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
-  const { portalEligible } = useRunStats();
-  const [portalSpawned] = useState(() => portalEligible && Math.random() < 0.35);
+  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
@@ -283,9 +290,11 @@ function Level6({ deathCount, onDeath, onComplete }) {
           playerPosRef={playerPosRef}
         />
 
+        {/* L6 side branch: violet stone at (8, 0, -5), off the mid bridge. */}
         {portalSpawned && (
           <Portal
-            position={[0, 0.5, -20]}
+            position={[8, 0.5, -5]}
+            rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
             onEnter={() => { sideQuestCompleteRef.current = true; }}
           />

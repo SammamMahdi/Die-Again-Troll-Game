@@ -22,8 +22,8 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   const q = useGraphics();
   // Phase 3 portal — only spawns if player has Gold on this level + is in
   // Hardcore mode (gated upstream). Random ~35% chance per attempt.
-  const { portalEligible } = useRunStats();
-  const [portalSpawned] = useState(() => portalEligible && Math.random() < 0.35);
+  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const [gameState, setGameState] = useState('playing'); // 'playing', 'dead', 'won'
   const [deathReason, setDeathReason] = useState('');
@@ -87,10 +87,22 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
         x: 0, y: 0, z: currentZ,
         w: BLOCK_SIZE, h: 1, d: BLOCK_SIZE,
         visible: true, // Start visible, will vanish when player triggers
-        index: i, 
+        index: i,
         color: [0.5, 0.5, 0.5]
       };
       blockList.push(block);
+      // Phase 3 side-branch: a stone offset to +X next to the 3rd middle
+      // stone (z=-12). Player jumps SIDEWAYS off the main sequence path
+      // to reach it — that's where the portal sits. Always rendered (so
+      // the player sees the option even without portal eligibility).
+      if (i === 2) {
+        blockList.push({
+          x: 5, y: 0, z: currentZ,
+          w: 3, h: 1, d: 3,
+          visible: true, index: -1,
+          color: [0.45, 0.32, 0.6],   // distinct violet tone hints "different path"
+        });
+      }
       middleList.push(block);
       currentZ -= STEP_SIZE;
     }
@@ -179,21 +191,29 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
         visible: true, index: i, color: [0.5, 0.5, 0.5]
       };
       blockList.push(block);
+      if (i === 2) {
+        blockList.push({
+          x: 5, y: 0, z: currentZ,
+          w: 3, h: 1, d: 3,
+          visible: true, index: -1,
+          color: [0.45, 0.32, 0.6],
+        });
+      }
       middleList.push(block);
       currentZ -= STEP_SIZE;
     }
-    
+
     const endPlaneZ = currentZ - (GAP_SIZE + PLANE_SIZE / 2 - BLOCK_SIZE / 2);
     blockList.push({
       x: 0, y: 0, z: endPlaneZ,
       w: PLANE_SIZE, h: 1, d: PLANE_SIZE,
       visible: true, index: -1, color: [0.8, 0.8, 0.8]
     });
-    
+
     setBlocks(blockList);
     setMiddleBlocks(middleList);
     setGate({ x: 0, y: 1, z: endPlaneZ, visible: true, floatingAtStart: false });
-    
+
     // Increment restart key to force Player component remount
     setRestartKey(prev => prev + 1);
   };
@@ -325,12 +345,16 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
           playerPosRef={playerPosRef}
         />
 
-        {/* L1: middle-stones sit at x=0 along z=14..-10. Portal lands on
-            the 3rd stone (z=-4) so the player has to clear the sequence
-            up to mid-route to reach it. */}
+        {/* L1: side-branch detour. The portal sits on the violet stone at
+            (5, 0, -12) — a sideways hop off the 3rd middle stone (also at
+            z=-12). The player must leave the main sequence path mid-route
+            to reach it. rotationY faces the opening toward -X (back toward
+            the main stones), so the player walks INTO the portal from the
+            side block's edge. */}
         {portalSpawned && (
           <Portal
-            position={[0, 0.5, -4]}
+            position={[5, 0.5, -12]}
+            rotationY={Math.PI / 2}
             playerPosRef={playerPosRef}
             onEnter={() => { sideQuestCompleteRef.current = true; }}
           />

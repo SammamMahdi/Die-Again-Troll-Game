@@ -105,7 +105,36 @@ function buildLevel4() {
     [0, -70, T_GOAL, 10, 1, 10],  // end goal platform
   ];
 
-  return layout.map(([x, z, type, w, h, d]) => makeBlock({ x, z, type, w, h, d }));
+  const out = layout.map(([x, z, type, w, h, d]) => makeBlock({ x, z, type, w, h, d }));
+  // Phase 3 side-branch: a violet stepping stone way off the main weave at
+  // x=-14, z=-12. Reachable by jumping sideways from the (-6, -12) SAFE
+  // block. Portal sits here. Built manually so it doesn't roll the disguised-
+  // trapdoor RNG and so its color stays violet.
+  out.push({
+    type: T_SAFE,
+    displayType: T_SAFE,
+    isDisguised: false,
+    x: -14, y: 0, z: -12,
+    startX: -14, startY: 0, startZ: -12,
+    w: 3, h: 1, d: 3,
+    visible: true,
+    solid: true,
+    isLauncher: false,
+    isTrapdoor: false,
+    isIllusion: false,
+    isGoal: false,
+    color: [0.45, 0.32, 0.6],
+    stepped: false,
+    fallTimer: 999,
+    warning: false,
+    falling: false,
+    fallSpeed: 0,
+    launchVx: 0,
+    launchVy: 0,
+    launchVz: 0,
+    blinkTimer: 0,
+  });
+  return out;
 }
 
 const GATE = { x: 0, y: 0.5, z: -70 };
@@ -117,8 +146,8 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
 
 function Level4({ deathCount, onDeath, onComplete }) {
   const q = useGraphics();
-  const { portalEligible } = useRunStats();
-  const [portalSpawned] = useState(() => portalEligible && Math.random() < 0.35);
+  const { portalEligible, portalAlwaysSpawn } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < 0.35));
   const sideQuestCompleteRef = useRef(false);
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
@@ -255,9 +284,12 @@ function Level4({ deathCount, onDeath, onComplete }) {
           playerPosRef={playerPosRef}
         />
 
+        {/* L4 side branch: violet stone at (-14, 0, -12), far off the main
+            weave. Portal faces +X back toward the main path. */}
         {portalSpawned && (
           <Portal
-            position={[12, 0.5, 0]}
+            position={[-14, 0.5, -12]}
+            rotationY={-Math.PI / 2}
             playerPosRef={playerPosRef}
             onEnter={() => { sideQuestCompleteRef.current = true; }}
           />

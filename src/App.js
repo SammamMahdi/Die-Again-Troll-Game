@@ -42,8 +42,6 @@ import {
   saveProgress,
   computeScore,
   medalCounts,
-  formatTime,
-  getAchievementById,
   pointsForLevelResult,
 } from './utils/rewards';
 import { RunStatsProvider } from './components/RunStatsContext';
@@ -578,7 +576,11 @@ function App() {
       return;
     }
 
-    // Hardcore final → final summary CompleteScreen (existing path).
+    // Hardcore final (cleared L10) → bank the run-complete record + cloud
+    // sync, then bounce straight back to the Start menu. The previous flow
+    // showed an intermediate CompleteScreen, but the per-level RewardScreen
+    // already surfaces the L10 medal, points, and achievements — a second
+    // summary felt redundant, so end-of-game just returns the player home.
     if (rewardData.isFinal) {
       const totalDeaths = Object.values(rewardData.runStats).reduce(
         (sum, r) => sum + (r?.deaths ?? 0), 0,
@@ -601,7 +603,7 @@ function App() {
           },
         }).catch(() => {});
       }
-      setCurrentScreen('complete');
+      goToStart();
       return;
     }
 
@@ -629,10 +631,19 @@ function App() {
   // player has already Gold'd (i.e. shown they can clear cleanly). Used
   // as a prop on each RunStatsProvider so the level can decide whether
   // to attempt a spawn roll.
+  //
+  // Dev override: when adminMode is ON, portals spawn in EVERY mode +
+  // EVERY level + bypass the 35% random roll (see portalAlwaysSpawn).
+  // Lets developers test the portal mechanic without first Gold-clearing
+  // the level in Hardcore.
   const PORTAL_MEDALS = ['gold', 'platinum', 'diamond'];
-  const portalEligibleFor = (lvl) =>
-    mode === 'hardcore'
-    && PORTAL_MEDALS.includes(persistedProgress.medals?.[lvl]);
+  const portalEligibleFor = (lvl) => {
+    if (adminMode) return true;
+    return mode === 'hardcore'
+      && PORTAL_MEDALS.includes(persistedProgress.medals?.[lvl]);
+  };
+  // Force every gated portal to spawn (skip 35% roll) when in admin mode.
+  const portalAlwaysSpawn = adminMode;
 
   return (
     <div className="App">
@@ -683,7 +694,7 @@ function App() {
         </RunStatsProvider>
       )}
       {currentScreen === 'level1' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(1)}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(1)} portalAlwaysSpawn={portalAlwaysSpawn}>
           <Level1
             key={`level1-${qid}`}
             deathCount={deathCount}
@@ -694,7 +705,7 @@ function App() {
         </RunStatsProvider>
       )}
       {currentScreen === 'level2' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(2)}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(2)} portalAlwaysSpawn={portalAlwaysSpawn}>
           <Level2
             key={`level2-${qid}`}
             deathCount={deathCount}
@@ -705,7 +716,7 @@ function App() {
         </RunStatsProvider>
       )}
       {currentScreen === 'level3' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(3)}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(3)} portalAlwaysSpawn={portalAlwaysSpawn}>
           <Level3
             key={`level3-${qid}`}
             deathCount={deathCount}
@@ -716,50 +727,42 @@ function App() {
         </RunStatsProvider>
       )}
       {currentScreen === 'level4' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(4)}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(4)} portalAlwaysSpawn={portalAlwaysSpawn}>
           <Level4 key={`level4-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(4, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level5' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(5)}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(5)} portalAlwaysSpawn={portalAlwaysSpawn}>
           <Level5 key={`level5-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(5, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level6' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(6)}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(6)} portalAlwaysSpawn={portalAlwaysSpawn}>
           <Level6 key={`level6-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(6, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level7' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(7)}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(7)} portalAlwaysSpawn={portalAlwaysSpawn}>
           <Level7 key={`level7-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(7, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level8' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(8)}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(8)} portalAlwaysSpawn={portalAlwaysSpawn}>
           <Level8 key={`level8-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(8, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level9' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(9)}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(9)} portalAlwaysSpawn={portalAlwaysSpawn}>
           <Level9 key={`level9-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(9, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'level10' && (
-        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(10)}>
+        <RunStatsProvider runScore={runScore} levelStartDeaths={levelStartDeaths} mode={mode} triesLeft={triesLeft} streak={streak} portalEligible={portalEligibleFor(10)} portalAlwaysSpawn={portalAlwaysSpawn}>
           <Level10 key={`level10-${qid}`} deathCount={deathCount} onDeath={handleDeath} onComplete={(arg) => handleLevelComplete(10, arg)} onRestart={handleRestart} />
         </RunStatsProvider>
       )}
       {currentScreen === 'reward' && rewardData && (
         <RewardScreen data={rewardData} onContinue={handleRewardContinue} />
-      )}
-      {currentScreen === 'complete' && (
-        <CompleteScreen
-          runStats={rewardData?.runStats || runStats}
-          totalDeaths={deathCount}
-          onPlayAgain={goToStart}
-          newlyUnlocked={rewardData?.newlyUnlocked || []}
-        />
       )}
 
       {currentScreen === 'leaderboard' && (
@@ -811,95 +814,6 @@ function App() {
           onDisable={() => setAdminMode(false)}
         />
       )}
-    </div>
-  );
-}
-
-function CompleteScreen({ runStats, totalDeaths, onPlayAgain, newlyUnlocked }) {
-  const levels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-  const allCompleted = levels.every(n => runStats[n]);
-  const totalMs = levels.reduce((sum, n) => sum + (runStats[n]?.time || 0), 0);
-
-  return (
-    <div className="reward-screen">
-      <div className="reward-bg" />
-      <div className="reward-card" style={{ maxWidth: 620 }}>
-        <div className="reward-level" style={{ marginBottom: 14 }}>RUN COMPLETE</div>
-        <h1 style={{
-          margin: 0,
-          fontSize: '2.2rem',
-          letterSpacing: 3,
-          color: '#ff7ad0',
-          textShadow: '0 0 12px #ff5cc7, 0 0 28px #c47aff',
-        }}>
-          DIE AGAIN — CLEARED
-        </h1>
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: 10,
-          justifyItems: 'center',
-          margin: '20px 0 4px',
-        }}>
-          {levels.map(n => {
-            const r = runStats[n];
-            const medal = r?.medal;
-            return (
-              <div key={n} className={`medal medal-${medal || 'bronze'}`} style={{
-                width: 68, height: 86, opacity: r ? 1 : 0.32,
-              }}>
-                <div className="medal-ring" style={{ width: 54, height: 54 }} />
-                <div className="medal-core" style={{ width: 42, height: 42, marginTop: 4 }}>
-                  <span className="medal-letter" style={{ fontSize: '1.0rem' }}>L{n}</span>
-                </div>
-                <div className="medal-tier" style={{ fontSize: '0.6rem' }}>
-                  {medal ? medal.toUpperCase() : 'SKIP'}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="reward-stats" style={{ marginTop: 24 }}>
-          <div className="stat">
-            <div className="stat-label">Total Deaths</div>
-            <div className="stat-value">{totalDeaths}</div>
-          </div>
-          <div className="stat">
-            <div className="stat-label">Total Time</div>
-            <div className="stat-value">{formatTime(totalMs)}</div>
-          </div>
-        </div>
-
-        {newlyUnlocked && newlyUnlocked.length > 0 && (
-          <div className="achievements revealed" style={{ marginTop: 16 }}>
-            <div className="achievements-title">★ Earned This Run ★</div>
-            {newlyUnlocked.map(id => {
-              const a = getAchievementById(id);
-              if (!a) return null;
-              return (
-                <div key={id} className="achievement-badge" style={{ opacity: 1, transform: 'none' }}>
-                  <div className="achievement-name">{a.name}</div>
-                  <div className="achievement-desc">{a.desc}</div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {!allCompleted && (
-          <div style={{
-            marginTop: 14, fontSize: '0.85rem', color: '#ffaaaa', opacity: 0.85,
-          }}>
-            Note: admin jumps were used in this run — some achievements are gated.
-          </div>
-        )}
-
-        <button className="reward-continue" onClick={onPlayAgain}>
-          Play Again
-        </button>
-      </div>
     </div>
   );
 }
