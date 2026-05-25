@@ -653,3 +653,29 @@
     left: 12px;
   }
 }
+
+/* ===== Hero logo (above the title) ===== */
+.start-hero-logo {
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+  margin: 0 auto 12px;
+  display: block;
+  filter: drop-shadow(0 0 22px rgba(255, 100, 220, 0.55)) drop-shadow(0 0 36px rgba(140, 100, 255, 0.35));
+  pointer-events: none;
+  user-select: none;
+  animation: hero-logo-float 4.5s ease-in-out infinite;
+}
+
+@keyframes hero-logo-float {
+  0%, 100% { transform: translateY(0px); }
+  50%      { transform: translateY(-6px); }
+}
+
+@media (max-width: 720px) {
+  .start-hero-logo {
+    width: 150px;
+    height: 150px;
+    margin-bottom: 8px;
+  }
+}
