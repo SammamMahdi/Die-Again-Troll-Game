@@ -39,7 +39,7 @@ Single-file installer (~15 MB). Adds a Start Menu shortcut, Add/Remove Programs 
 
 The .exe needs internet for:
 - **Firebase auth & Firestore** (sign-in, leaderboard, cloud progress sync)
-- **Google OAuth relay page** (only when clicking "Continue with Google" — opens `https://die-again-troll-game.web.app/desktop-oauth.html` in the system browser)
+- **Google OAuth relay page** (only when clicking "Continue with Google" — opens `https://die-again-troll-game.vercel.app/desktop-oauth.html` in the system browser)
 
 Without internet, the game still runs offline: local progress, jewels, cosmetics, and consumables all save to the app's localStorage. Only the leaderboard and account sync are unavailable.
 
@@ -48,20 +48,19 @@ Without internet, the game still runs offline: local progress, jewels, cosmetics
 Desktop Google sign-in works via a system-browser callback:
 
 1. User clicks "Continue with Google" in the desktop app.
-2. Default browser opens `https://die-again-troll-game.web.app/desktop-oauth.html`.
+2. Default browser opens `https://die-again-troll-game.vercel.app/desktop-oauth.html`.
 3. User signs in with Google in their real browser.
 4. The relay page redirects to `dieagain://auth?id_token=...`.
 5. Windows hands the URL back to the desktop app.
 6. App calls `signInWithCredential` — same auth state as a normal sign-in.
 
-**For this to work end-to-end, the relay page must be deployed:**
+**For this to work end-to-end, the relay page must be live on Vercel.** Vercel auto-deploys on git push, so just pushing the branch that contains `public/desktop-oauth.html` is enough. Locally:
 
 ```
-npm run build              # rebuilds the web bundle into build/
-firebase deploy --only hosting    # publishes build/ (incl. desktop-oauth.html)
+npm run build    # CRA copies public/desktop-oauth.html into build/desktop-oauth.html
 ```
 
-The relay only needs to be re-deployed when `public/desktop-oauth.html` changes.
+…then push to GitHub. Vercel picks up the new `desktop-oauth.html` automatically. Verify it's live by visiting the URL in step 2 in your browser — you should see the "DIE AGAIN" relay card, not a 404.
 
 **Note:** in dev mode (`npm run tauri:dev`), the `dieagain://` scheme is registered at runtime via `app.deep_link().register_all()`. In the released NSIS build, the installer registers it persistently. The portable .exe registers it on first launch via the same runtime call.
 

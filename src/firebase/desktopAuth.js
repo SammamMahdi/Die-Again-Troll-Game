@@ -19,11 +19,12 @@ import { signInWithGoogleIdToken } from './index';
 
 const isDesktop = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
-// Where the relay page is hosted. Firebase Hosting maps the project ID
-// `die-again-troll-game` to this domain by default — see firebase.json
-// in the repo root. If you point the desktop build at a different host,
-// change this string.
-const RELAY_URL = 'https://die-again-troll-game.web.app/desktop-oauth.html';
+// Where the relay page is hosted. The web build deploys to Vercel; the
+// desktop-oauth.html page lives in public/ and gets copied into the build
+// output on every `npm run build`, so a Vercel auto-deploy from the same
+// branch publishes both the game and the relay page together. If you
+// move the web build to a different host, change this string.
+const RELAY_URL = 'https://die-again-troll-game.vercel.app/desktop-oauth.html';
 
 let _initialized = false;
 let _pendingResolvers = [];   // resolved when a deep-link signin completes
