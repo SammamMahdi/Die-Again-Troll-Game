@@ -226,7 +226,6 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
       roll.cooldown = Math.max(0, roll.cooldown - delta);
     }
     const rolling = roll.phase === 'rolling';
-    const slamming = roll.phase === 'slam';
 
     // Apply friction — use per-block friction if the last-stood-on platform
     // declares one (e.g. ice = 0.98). Defaults to the global FRICTION constant.
@@ -240,16 +239,16 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     // Apply gravity
     vy += GRAVITY * delta;
 
-    // Jump (keyboard) — instant cancellation of any active roll or slam.
-    // Grounded → normal jump. Mid-slam → abort the dive and jump back up
-    // (lets you tap C then immediately SPACE to bounce out of a slam).
-    // Mid-roll → carry horizontal momentum into the leap (roll-jump combo).
-    if (keys[getKey('jump')] && (onGround || slamming)) {
+    // Jump (keyboard) — strictly ground-only. The slam dive must complete
+    // and the player must land on a platform before SPACE can fire again.
+    // Mid-roll on the ground can still jump (carries horizontal momentum
+    // into the leap — the roll-jump combo) since the player is grounded.
+    if (keys[getKey('jump')] && onGround) {
       vy = JUMP_FORCE;
       setOnGround(false);
       playJump();
       pushFovPulse(2.5);
-      if (rolling || slamming) {
+      if (rolling) {
         roll.phase = 'idle';
         roll.timer = 0;
         roll.cooldown = ROLL_JUMP_CANCEL_COOLDOWN;
