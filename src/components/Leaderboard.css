@@ -193,16 +193,20 @@
 
 .lb-medals {
   display: flex;
-  gap: 6px;
+  gap: 10px;
+  flex-wrap: wrap;
   justify-content: center;
+  align-items: center;
   font-weight: 700;
   font-family: 'JetBrains Mono', Consolas, monospace;
   font-size: 0.85rem;
 }
 
-.lb-medals .lb-gold   { color: #ffd966; text-shadow: 0 0 6px #ffae3b; }
-.lb-medals .lb-silver { color: #dfe7f5; text-shadow: 0 0 6px #aab3ce; }
-.lb-medals .lb-bronze { color: #ffc99a; text-shadow: 0 0 6px #b8744d; }
+.lb-leg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 
 .lb-score {
   text-align: right;

@@ -42,6 +42,15 @@ export const CONSUMABLES_CATALOG = [
     hotkey: '2',
     duration: 12,
   },
+  {
+    id: 'invisibility_potion',
+    name: 'Invisibility Potion',
+    cost: 900,
+    icon: '👻',
+    desc: 'Hazards can\'t hit you for 8 seconds — globes, pendulums, lasers, walls, spikes, orbs all pass through. Activate with key 3.',
+    hotkey: '3',
+    duration: 8,
+  },
 ];
 
 function defaultState() {

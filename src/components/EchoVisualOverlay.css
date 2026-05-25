@@ -1,0 +1,272 @@
+/* Per-level Echo Dimension atmospheric CSS layer — HELL aesthetic,
+   tuned to be VIVID + CLEAN rather than dark and muddy. Overlays sit
+   above the canvas as accent layers; the underlying 3D scene reads
+   through clearly. */
+
+.echo-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ===== L1: Cracked Earth — bright magma seams across the screen ===== */
+.echo-fx-crackedearth {
+  background:
+    radial-gradient(circle at 22% 25%, rgba(255, 130, 50, 0.14) 0%, transparent 12%),
+    radial-gradient(circle at 78% 32%, rgba(255, 150, 70, 0.12) 0%, transparent 11%),
+    radial-gradient(circle at 40% 78%, rgba(255, 110, 40, 0.16) 0%, transparent 13%),
+    radial-gradient(circle at 65% 62%, rgba(255, 140, 60, 0.12) 0%, transparent 11%);
+  mix-blend-mode: screen;
+  animation: crack-flicker 3.5s ease-in-out infinite;
+}
+.echo-fx-crackedearth::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(115deg, transparent 38%, rgba(255, 130, 50, 0.35) 40%, transparent 42%),
+    linear-gradient(20deg,  transparent 60%, rgba(255, 110, 40, 0.32) 62%, transparent 64%),
+    linear-gradient(75deg,  transparent 20%, rgba(255, 150, 70, 0.28) 22%, transparent 24%);
+  filter: blur(1.5px);
+  opacity: 0.65;
+  animation: crack-pulse 4.5s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+@keyframes crack-flicker {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 0.95; }
+}
+@keyframes crack-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 0.85; }
+}
+
+/* ===== L2: Blood Lamps — pulsing crimson shrine orbs ===== */
+.echo-fx-bloodlamps {
+  background:
+    radial-gradient(circle at 18% 28%, rgba(255, 60, 80, 0.55) 0%, transparent 5%),
+    radial-gradient(circle at 78% 22%, rgba(255, 60, 80, 0.55) 0%, transparent 5%),
+    radial-gradient(circle at 32% 72%, rgba(255, 60, 80, 0.55) 0%, transparent 5%),
+    radial-gradient(circle at 70% 58%, rgba(255, 60, 80, 0.55) 0%, transparent 5%),
+    radial-gradient(circle at 50% 12%, rgba(255, 60, 80, 0.50) 0%, transparent 4.5%),
+    radial-gradient(circle at 12% 88%, rgba(255, 60, 80, 0.50) 0%, transparent 4.5%),
+    radial-gradient(circle at 88% 88%, rgba(255, 60, 80, 0.45) 0%, transparent 4%);
+  filter: blur(2px);
+  animation: bloodlamp-pulse 3.2s ease-in-out infinite;
+}
+@keyframes bloodlamp-pulse {
+  0%, 100% { opacity: 0.8;  transform: translateY(0);     filter: blur(2px) brightness(1); }
+  50%      { opacity: 1.0;  transform: translateY(-0.8vh); filter: blur(2px) brightness(1.3); }
+}
+
+/* ===== L3: Infernal Wireframe — light scanlines + ember tint ===== */
+.echo-fx-infernalwire {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.10) 0px,
+      rgba(0, 0, 0, 0.10) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  mix-blend-mode: multiply;
+  animation: scanlines-flicker 0.18s steps(2) infinite;
+}
+.echo-fx-infernalwire::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(255, 130, 50, 0.0) 0%, rgba(255, 130, 50, 0.10) 50%, rgba(255, 130, 50, 0.0) 100%);
+  background-size: 100% 220%;
+  animation: scanlines-roll 6s linear infinite;
+  mix-blend-mode: screen;
+}
+@keyframes scanlines-flicker {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.95; }
+  100% { opacity: 1; }
+}
+@keyframes scanlines-roll {
+  0%   { background-position: 0 -110%; }
+  100% { background-position: 0 110%; }
+}
+
+/* ===== L4: Magma Slick — flowing lava sheen ===== */
+.echo-fx-magmaslick {
+  background:
+    conic-gradient(
+      from 0deg at 50% 50%,
+      rgba(255, 130, 50, 0.0)  0deg,
+      rgba(255, 130, 50, 0.10) 40deg,
+      rgba(255, 180, 70, 0.0)  90deg,
+      rgba(255, 110, 40, 0.12) 140deg,
+      rgba(255, 150, 60, 0.0)  200deg,
+      rgba(255, 200, 80, 0.11) 250deg,
+      rgba(255, 130, 50, 0.0)  320deg,
+      rgba(255, 110, 40, 0.10) 360deg
+    );
+  mix-blend-mode: screen;
+  filter: blur(40px);
+  animation: magma-rotate 26s linear infinite;
+}
+@keyframes magma-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== L5: Hellstorm — orange-red lightning ===== */
+.echo-fx-hellstorm {
+  background: radial-gradient(ellipse at 50% 20%, rgba(255, 150, 60, 0.0) 0%, rgba(255, 80, 40, 0.10) 100%);
+}
+.echo-fx-hellstorm::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 200, 130, 0.0) 0%, rgba(255, 200, 130, 0.55) 12%, rgba(255, 200, 130, 0.0) 30%);
+  opacity: 0;
+  animation: hellstorm-flash 4s steps(1) infinite;
+  mix-blend-mode: screen;
+}
+@keyframes hellstorm-flash {
+  0%, 100%  { opacity: 0; }
+  88%       { opacity: 0; }
+  89%       { opacity: 1; }
+  90.5%     { opacity: 0.3; }
+  91.5%     { opacity: 1; }
+  93%       { opacity: 0; }
+}
+
+/* ===== L6: Ifrit's Eye — burning accretion ring (clean, no heavy vignette) ===== */
+.echo-fx-ifritseye {
+  background: transparent;
+}
+.echo-fx-ifritseye::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 38vmin;
+  height: 38vmin;
+  margin-left: -19vmin;
+  margin-top: -19vmin;
+  border-radius: 50%;
+  border: 4px solid transparent;
+  border-image: conic-gradient(from 0deg, rgba(255, 230, 130, 0.95), rgba(255, 110, 40, 0.55), rgba(255, 230, 130, 0.95)) 1;
+  filter: blur(2px) drop-shadow(0 0 36px rgba(255, 150, 50, 0.85));
+  animation: ifrit-ring 10s linear infinite;
+}
+@keyframes ifrit-ring {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== L7: Void Throat — soft inward darkness + warm red breath ===== */
+.echo-fx-voidthroat {
+  background:
+    radial-gradient(ellipse at center,
+      rgba(0, 0, 0, 0.0) 0%,
+      rgba(40, 5, 0, 0.20) 35%,
+      rgba(15, 0, 0, 0.55) 75%,
+      rgba(0, 0, 0, 0.85) 100%);
+}
+.echo-fx-voidthroat::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at center, rgba(255, 80, 40, 0.10) 0%, transparent 30%);
+  animation: voidthroat-throb 4s ease-in-out infinite;
+}
+@keyframes voidthroat-throb {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 0.85; }
+}
+
+/* ===== L8: Obsidian Mirrors — crimson prismatic shards ===== */
+.echo-fx-obsidianmirrors {
+  background:
+    radial-gradient(circle at 25% 30%, rgba(255, 100, 130, 0.28) 0%, transparent 16%),
+    radial-gradient(circle at 75% 25%, rgba(220, 80, 130, 0.28) 0%, transparent 16%),
+    radial-gradient(circle at 50% 70%, rgba(255, 110, 150, 0.28) 0%, transparent 16%),
+    radial-gradient(circle at 15% 80%, rgba(180, 60, 110, 0.24) 0%, transparent 14%),
+    radial-gradient(circle at 85% 75%, rgba(220, 80, 130, 0.24) 0%, transparent 14%);
+  mix-blend-mode: screen;
+  filter: blur(24px);
+  animation: obsidian-shift 12s ease-in-out infinite;
+}
+.echo-fx-obsidianmirrors::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(35deg, transparent 38%, rgba(255, 80, 110, 0.18) 40%, transparent 42%),
+    linear-gradient(110deg, transparent 58%, rgba(220, 60, 100, 0.16) 60%, transparent 62%),
+    linear-gradient(160deg, transparent 25%, rgba(255, 100, 130, 0.14) 27%, transparent 29%);
+  mix-blend-mode: screen;
+}
+@keyframes obsidian-shift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50%      { transform: translate(-1vw, 0.6vh) rotate(6deg); }
+}
+
+/* ===== L9: Ash Storm — bright embers + warm glow ===== */
+.echo-fx-ashstorm {
+  background:
+    radial-gradient(circle at 12% 100%, rgba(255, 140, 50, 0.40) 0%, transparent 18%),
+    radial-gradient(circle at 88% 100%, rgba(255, 110, 40, 0.36) 0%, transparent 16%),
+    radial-gradient(circle at 50% 100%, rgba(255, 170, 60, 0.32) 0%, transparent 22%);
+  filter: blur(2px);
+}
+.echo-fx-ashstorm::after {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background:
+    radial-gradient(circle at 20% 90%, rgba(255, 200, 100, 1) 0%, transparent 0.4%),
+    radial-gradient(circle at 35% 70%, rgba(255, 140, 50, 1) 0%, transparent 0.3%),
+    radial-gradient(circle at 55% 85%, rgba(255, 170, 60, 1) 0%, transparent 0.35%),
+    radial-gradient(circle at 75% 60%, rgba(255, 110, 40, 1) 0%, transparent 0.3%),
+    radial-gradient(circle at 85% 80%, rgba(255, 200, 100, 1) 0%, transparent 0.4%),
+    radial-gradient(circle at 15% 50%, rgba(255, 150, 50, 1) 0%, transparent 0.3%),
+    radial-gradient(circle at 65% 40%, rgba(255, 200, 100, 1) 0%, transparent 0.3%);
+  animation: ash-rise 9s linear infinite;
+  mix-blend-mode: screen;
+  filter: brightness(1.5) blur(0.6px);
+}
+@keyframes ash-rise {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-50vh); }
+}
+
+/* ===== L10: Inferno Filigree — gold corner ornaments, no heavy vignette ===== */
+.echo-fx-infernofiligree {
+  background: transparent;
+}
+.echo-fx-infernofiligree::before,
+.echo-fx-infernofiligree::after {
+  content: '';
+  position: absolute;
+  width: 34vmin;
+  height: 34vmin;
+  border: 2px solid transparent;
+  border-image: linear-gradient(135deg, rgba(255, 180, 60, 0.95), rgba(255, 110, 40, 0.4), rgba(255, 220, 100, 0.95)) 1;
+  box-shadow:
+    0 0 26px rgba(255, 140, 40, 0.55),
+    inset 0 0 36px rgba(255, 120, 40, 0.4);
+  pointer-events: none;
+}
+.echo-fx-infernofiligree::before {
+  top: 14px;
+  left: 14px;
+  border-bottom: none;
+  border-right: none;
+}
+.echo-fx-infernofiligree::after {
+  bottom: 14px;
+  right: 14px;
+  border-top: none;
+  border-left: none;
+}

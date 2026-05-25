@@ -7,6 +7,7 @@ import { useGraphics } from './GraphicsProvider';
 import { useCosmetics } from './CosmeticsProvider';
 import { useConsumables } from './ConsumablesProvider';
 import { useRunStats } from './RunStatsContext';
+import { getKey, matches } from '../utils/controls';
 
 // Physics constants
 const GRAVITY = -45.0;
@@ -78,13 +79,19 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      keysPressed.current[e.key.toLowerCase()] = true;
-      // C requests a roll. Edge-triggered here (not via keysPressed in
-      // useFrame) so that holding C doesn't auto-chain rolls.
-      if (e.key.toLowerCase() === 'c') rollRequestRef.current = true;
+      // Store keys by normalized form so the lookup table works whether
+      // the key is a letter, space, or arrow. Letters are lower-cased;
+      // everything else is stored verbatim.
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      keysPressed.current[k] = true;
+      // Roll is edge-triggered so holding the bound key doesn't auto-
+      // chain rolls. Read the latest binding live so a rebind in Settings
+      // takes effect without remounting Player.
+      if (matches(e.key, 'roll')) rollRequestRef.current = true;
     };
     const handleKeyUp = (e) => {
-      keysPressed.current[e.key.toLowerCase()] = false;
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      keysPressed.current[k] = false;
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -153,11 +160,13 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     const rx = -fz;
     const rz = fx;
     
+    // Read movement keys via the rebindable bindings. getKey returns the
+    // currently-bound key for each action; keys[k] is true while held.
     let ax = 0, az = 0;
-    if (keys['w']) { ax += fx; az += fz; }
-    if (keys['s']) { ax -= fx; az -= fz; }
-    if (keys['a']) { ax -= rx; az -= rz; }
-    if (keys['d']) { ax += rx; az += rz; }
+    if (keys[getKey('moveForward')]) { ax += fx; az += fz; }
+    if (keys[getKey('moveBack')])    { ax -= fx; az -= fz; }
+    if (keys[getKey('moveLeft')])    { ax -= rx; az -= rz; }
+    if (keys[getKey('moveRight')])   { ax += rx; az += rz; }
 
     const length = Math.sqrt(ax * ax + az * az);
     // Speed Potion: 1.5× walking acceleration while the timer is live.
@@ -227,7 +236,7 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     // Grounded → normal jump. Mid-slam → abort the dive and jump back up
     // (lets you tap C then immediately SPACE to bounce out of a slam).
     // Mid-roll → carry horizontal momentum into the leap (roll-jump combo).
-    if (keys[' '] && (onGround || slamming)) {
+    if (keys[getKey('jump')] && (onGround || slamming)) {
       vy = JUMP_FORCE;
       setOnGround(false);
       playJump();
@@ -441,16 +450,49 @@ function PlayerVisual({ blocksProp, positionRef, rollStateRef }) {
   // Equipped cosmetic body + crown — drives the colors of capsule/base/head
   // and the crown variant. Defaults to the original green / classic torus.
   const { body: equippedBody, crown: equippedCrown } = useCosmetics();
+  // Per-frame access to active potion timestamps (e.g. invisibility) so
+  // the player visual can fade alpha without re-rendering.
+  const { activeRef: effectsRef } = useConsumables();
   const haloRef = useRef();
   const shadowRef = useRef();
   const headMatRef = useRef();
   const crownRef = useRef();
   const bodyRef = useRef();
+  const allMatsRef = useRef([]);   // every player-visual material for opacity sweep
   const t = useRef(0);
 
   useFrame((_, delta) => {
     t.current += delta;
     const pulse = 0.6 + 0.4 * Math.sin(t.current * 3.0);
+
+    // Invisibility fade — when the potion is live, walk every material
+    // under bodyRef and crownRef and drop opacity to a low ghost level
+    // with a slight flicker. Restore to 1.0 when the effect ends.
+    const now = Date.now();
+    const invisible = effectsRef.current.invisibleUntil > now;
+    const targetOpacity = invisible ? 0.25 + 0.10 * Math.sin(t.current * 6.5) : 1;
+    const applyFade = (obj) => {
+      if (!obj) return;
+      obj.traverse((child) => {
+        const m = child.material;
+        if (!m) return;
+        // Some materials are arrays — handle both shapes.
+        const list = Array.isArray(m) ? m : [m];
+        for (const mat of list) {
+          if (!mat) continue;
+          if (!mat.transparent) mat.transparent = true;
+          mat.opacity = targetOpacity;
+          // depthWrite=false while invisible so the player ghost doesn't
+          // occlude what's behind them; restore when fully visible.
+          mat.depthWrite = !invisible;
+        }
+      });
+    };
+    if (invisible || allMatsRef.current.faded) {
+      applyFade(bodyRef.current);
+      applyFade(crownRef.current);
+      allMatsRef.current.faded = invisible;   // remembers we mutated, so we restore on transition
+    }
 
     // Crown rotates constantly (skipped on Potato)
     if (crownRef.current) {
@@ -559,11 +601,13 @@ function PlayerVisual({ blocksProp, positionRef, rollStateRef }) {
 
   return (
     <group>
-      {/* Soft neon ground halo (skipped on Potato) */}
+      {/* Soft neon ground halo (skipped on Potato). Color tracks the
+          equipped body skin so cyan/gold/crimson skins all leave a
+          matching glow on the ground. */}
       {!minimal && (
         <mesh ref={haloRef} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.55, 1.4, 48]} />
-          <meshBasicMaterial color="#5cff8a" transparent opacity={0.4} depthWrite={false}
+          <meshBasicMaterial color={equippedBody.headEmissive} transparent opacity={0.4} depthWrite={false}
             side={THREE.DoubleSide} toneMapped={false} />
         </mesh>
       )}
@@ -659,6 +703,9 @@ function PlayerVisual({ blocksProp, positionRef, rollStateRef }) {
 // fewer segments than High.
 function PlayerTrail({ trailRef }) {
   const q = useGraphics();
+  // Trail tint follows the equipped skin so swapping body colors keeps
+  // the motion ghosts visually consistent with the player avatar.
+  const { body: equippedBody } = useCosmetics();
   const segments = q.trailSegments;
   const groupRef = useRef();
   const meshRefs = useRef([]);
@@ -695,7 +742,7 @@ function PlayerTrail({ trailRef }) {
           visible={false}
         >
           <sphereGeometry args={[1, 10, 8]} />
-          <meshBasicMaterial color="#5cff8a" transparent opacity={0.4} depthWrite={false} toneMapped={false} />
+          <meshBasicMaterial color={equippedBody.headEmissive} transparent opacity={0.4} depthWrite={false} toneMapped={false} />
         </mesh>
       ))}
     </group>

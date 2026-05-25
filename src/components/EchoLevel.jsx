@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { getEchoTheme } from '../utils/echoThemes';
 import { startEchoAmbient, stopEchoAmbient } from '../utils/sounds';
+import EchoVisualOverlay from './EchoVisualOverlay';
 import './EchoLevel.css';
 
 // EchoLevel wraps the inner Level component during a portal-teleport
@@ -38,6 +39,11 @@ function EchoLevel({ level, children }) {
       <div className="echo-sky" aria-hidden="true" />
 
       {children}
+
+      {/* Phase 3b.4 per-level atmospheric overlay (scanlines, embers,
+          lightning, gold filigree, …). Sits above the canvas but below
+          the banner and vignette. */}
+      <EchoVisualOverlay level={level} />
 
       {/* Top banner — fixed position, doesn't block canvas pointer events. */}
       <div className="echo-banner">

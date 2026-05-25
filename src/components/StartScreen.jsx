@@ -1,32 +1,16 @@
 import React, { useState } from 'react';
-import { ACHIEVEMENTS } from '../utils/rewards';
 import './StartScreen.css';
 
 function StartScreen({
-  onStart, adminMode, onToggleAdmin, onAdminJump, onLevelJump, progress,
+  onStart, adminMode, onToggleAdmin, onAdminJump,
   authUser, onSignIn, onRegister, onSignOut, onLeaderboard, onMyStats, onGuide,
-  onSettings, onShop, muted, onToggleMute,
+  onSettings, onShop,
   cloudEnabled, isAdmin,
 }) {
   const [levelInput, setLevelInput] = useState('');
   const [error, setError] = useState('');
-  const [showTrophies, setShowTrophies] = useState(false);
-
-  const hasProgress = progress && (
-    Object.keys(progress.medals || {}).length > 0 ||
-    (progress.achievements && progress.achievements.length > 0)
-  );
 
   const displayName = authUser?.displayName || authUser?.email?.split('@')[0] || 'Player';
-
-  // Earned level select: every level the user has cleared, plus the next one
-  // (so finishing L3 unlocks the L4 button).
-  const clearedLevels = Object.keys(progress?.medals || {})
-    .map(Number)
-    .filter(n => Number.isInteger(n) && n >= 1 && n <= 10);
-  const highestCleared = clearedLevels.length ? Math.max(...clearedLevels) : 0;
-  const continueUpTo = Math.min(10, highestCleared + 1);
-  const showContinue = !!onLevelJump && highestCleared > 0;
 
   const submitLevelInput = () => {
     const trimmed = levelInput.trim();
@@ -89,77 +73,6 @@ function StartScreen({
       <button className="start-button" onClick={onStart}>
         Click to Start
       </button>
-
-      {showContinue && (
-        <div className="continue-section">
-          <div className="continue-label">Continue from level:</div>
-          <div className="continue-row">
-            {Array.from({ length: continueUpTo }, (_, i) => i + 1).map(n => {
-              const cleared = clearedLevels.includes(n);
-              return (
-                <button
-                  key={n}
-                  className={`continue-btn ${cleared ? 'continue-cleared' : 'continue-next'}`}
-                  onClick={() => onLevelJump(n)}
-                  title={cleared ? `Replay Level ${n}` : `Continue at Level ${n}`}
-                >
-                  {n}
-                </button>
-              );
-            })}
-          </div>
-          <div className="continue-hint">
-            Highest cleared: <strong>Level {highestCleared}</strong>
-            {highestCleared < 10 && <> · next: <strong>Level {highestCleared + 1}</strong></>}
-          </div>
-        </div>
-      )}
-
-      <div className="controls">
-        <p>Controls:</p>
-        <p>WASD — Move</p>
-        <p>SPACE — Jump (Level 3: also Sonar Pulse)</p>
-        <p>Arrow Keys / Drag — Rotate Camera</p>
-        <p>R — Restart Level</p>
-        <p>ESC / Q — Quit to Menu</p>
-      </div>
-
-      {hasProgress && (
-        <div className="trophy-summary">
-          <div className="trophy-row">
-            {[1,2,3,4,5,6,7,8,9,10].map(n => {
-              const m = progress.medals?.[n];
-              const cls = m ? `trophy-medal trophy-${m}` : 'trophy-medal trophy-empty';
-              return (
-                <div key={n} className={cls} title={m ? `Level ${n}: ${m}` : `Level ${n}: not yet`}>
-                  <span className="trophy-medal-label">L{n}</span>
-                  <span className="trophy-medal-tier">{m ? m[0].toUpperCase() : '—'}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="trophy-stats">
-            <span>Runs: {progress.totalRuns ?? 0}</span>
-            <span>Cleared: {progress.totalCompletes ?? 0}</span>
-          </div>
-          <button className="trophy-toggle" onClick={() => setShowTrophies(prev => !prev)}>
-            {showTrophies ? 'Hide Achievements' : `Achievements (${progress.achievements?.length ?? 0}/${ACHIEVEMENTS.length})`}
-          </button>
-          {showTrophies && (
-            <div className="trophy-list">
-              {ACHIEVEMENTS.map(a => {
-                const owned = (progress.achievements || []).includes(a.id);
-                return (
-                  <div key={a.id} className={`trophy-item ${owned ? 'owned' : ''}`}>
-                    <div className="trophy-item-name">{owned ? '★' : '☆'} {a.name}</div>
-                    <div className="trophy-item-desc">{a.desc}</div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {isAdmin && <div className="admin-section">
         <label className="admin-toggle">

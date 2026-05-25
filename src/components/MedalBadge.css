@@ -1,0 +1,59 @@
+/* Shared medal badge styling — one consistent visual language across
+   MyStats, Leaderboard, RewardScreen, etc. The SVG carries the icon
+   colour; this wrapper provides the glow + sizing. */
+
+.medal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.medal-badge-svg {
+  width: var(--badge-size, 28px);
+  height: var(--badge-size, 28px);
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
+  display: block;
+}
+
+/* Per-tier glow halos behind the SVG. */
+.medal-badge-diamond .medal-badge-svg {
+  filter:
+    drop-shadow(0 0 6px rgba(170, 220, 255, 0.85))
+    drop-shadow(0 0 14px rgba(160, 100, 255, 0.55));
+  animation: medal-diamond-shine 4s ease-in-out infinite;
+}
+.medal-badge-platinum .medal-badge-svg {
+  filter:
+    drop-shadow(0 0 5px rgba(230, 235, 250, 0.85))
+    drop-shadow(0 0 12px rgba(180, 190, 220, 0.45));
+}
+.medal-badge-gold .medal-badge-svg {
+  filter:
+    drop-shadow(0 0 4px rgba(255, 215, 100, 0.85))
+    drop-shadow(0 0 10px rgba(255, 180, 60, 0.45));
+}
+.medal-badge-silver .medal-badge-svg {
+  filter:
+    drop-shadow(0 0 4px rgba(220, 230, 245, 0.85))
+    drop-shadow(0 0 10px rgba(170, 185, 215, 0.4));
+}
+.medal-badge-bronze .medal-badge-svg {
+  filter:
+    drop-shadow(0 0 4px rgba(220, 160, 110, 0.85))
+    drop-shadow(0 0 10px rgba(180, 110, 60, 0.4));
+}
+
+@keyframes medal-diamond-shine {
+  0%, 100% { transform: scale(1.0); }
+  50%      { transform: scale(1.06); }
+}
+
+.medal-badge-count {
+  font-weight: 700;
+  font-size: 0.92em;
+  color: #ffffff;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+  letter-spacing: 0.3px;
+}

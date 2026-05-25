@@ -9,6 +9,7 @@ import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
 import Portal from '../components/Portal';
 import { useRunStats } from '../components/RunStatsContext';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
@@ -17,6 +18,7 @@ import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { playFall, playLaunch, playWarning } from '../utils/sounds';
 import { goalPlatformColor } from '../utils/palette';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
 import { PORTAL_SPAWN_CHANCE } from '../constants/gameConstants';
 import useRestartOnR from '../hooks/useRestartOnR';
 import useVictoryTimer from '../hooks/useVictoryTimer';
@@ -149,11 +151,16 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
   Array.isArray(__l4_fresh) ? __l4_fresh : __l4_fresh.blocks
 );
 
-function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
+function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
   const sideQuestCompleteRef = useRef(false);
+  // Phase 3b: disableLaunchers removes the shortcut-launch behaviour so
+  // the player has to traverse every betrayal-platform the slow way.
+  const echoMechanic = hardMode ? getEchoMechanic(4) : {};
+  const launchersDisabled = !!echoMechanic.disableLaunchers;
+  const echoVisual = hardMode ? getEchoVisual(4) : null;
   const START = startPositionOverride || [ 0, 5, 40 ];
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
@@ -218,8 +225,8 @@ function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       if (cur) {
         // Trapdoor: start fall timer on first step
         if (cur.isTrapdoor) cur.stepped = true;
-        // Launcher: launch immediately on transition
-        if (cur.isLauncher && playerControlRef.current?.setLaunch) {
+        // Launcher: launch immediately on transition (echo disables it).
+        if (cur.isLauncher && !launchersDisabled && playerControlRef.current?.setLaunch) {
           playerControlRef.current.setLaunch(cur.launchVx, cur.launchVy, cur.launchVz);
           playLaunch();
         }
@@ -237,13 +244,13 @@ function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <QualityCanvas
         camera={{ position: [30, 20, 50], fov: 60 }}
         style={{
-          background: 'linear-gradient(180deg, #050018 0%, #1a0530 55%, #3a0050 100%)',
+          background: echoVisual?.sky || 'linear-gradient(180deg, #050018 0%, #1a0530 55%, #3a0050 100%)',
           touchAction: 'none',
         }}
       >
-        <fog attach="fog" args={['#150528', 45, 200]} />
-        <ambientLight intensity={0.45} />
-        <hemisphereLight args={['#a0a0ff', '#2a0030', 0.55]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#150528', echoVisual?.fogNear ?? 45, echoVisual?.fogFar ?? 200]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.45} color={echoVisual?.ambientColor || '#ffffff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#a0a0ff', echoVisual?.hemiBottom || '#2a0030', echoVisual?.hemiIntensity ?? 0.55]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} />
         {!q.minimalLights && (
           <>
@@ -253,7 +260,7 @@ function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
         )}
 
         <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <QualitySparkles position={[0, 4, -70]} count={30} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 4, -70]} count={30} scale={[8, 5, 4]} size={2.2} speed={0.3} color={echoVisual?.sparkleColor || '#ffd966'} />
 
         <InfiniteGrid />
 
@@ -281,6 +288,8 @@ function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           candidates={JEWEL_CANDIDATES}
           playerPosRef={playerPosRef}
         />
+
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
 
         {/* L4 side branch: violet stone at (-14, 0, -12), far off the main
             weave. Portal faces +X back toward the main path. */}

@@ -8,6 +8,7 @@ import { applyCloudInventory } from '../utils/consumables';
 const EMPTY_PROGRESS = {
   bestDeaths: {}, bestTimes: {}, medals: {},
   achievements: [], totalRuns: 0, totalCompletes: 0, lastRun: null,
+  tutorialComplete: false,
 };
 
 // Owns the auth → local progress sync side-effect.
@@ -47,6 +48,10 @@ export default function useCloudProgressSync(authUser, setPersistedProgress) {
               totalRuns: cloudData.totalRuns || 0,
               totalCompletes: cloudData.totalCompletes || 0,
               lastRun: cloudData.lastRun || null,
+              // Tutorial completion is the gate for Hardcore + Practice
+              // modes. Pull it from cloud so a player who cleared the
+              // tutorial on one device doesn't have to redo it on another.
+              tutorialComplete: !!cloudData.tutorialComplete,
             }
           : EMPTY_PROGRESS;
         setPersistedProgress(adapted);

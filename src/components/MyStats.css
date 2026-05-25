@@ -186,6 +186,17 @@
   border: 1px solid transparent;
 }
 
+.mystats-medal-pill-diamond {
+  background: linear-gradient(135deg, rgba(170, 230, 255, 0.35) 0%, rgba(200, 140, 255, 0.32) 50%, rgba(110, 70, 200, 0.32) 100%);
+  border-color: rgba(190, 220, 255, 0.7);
+  box-shadow: 0 0 18px rgba(170, 220, 255, 0.45);
+  animation: mystats-diamond-shine 5s ease-in-out infinite;
+}
+.mystats-medal-pill-platinum {
+  background: linear-gradient(135deg, rgba(230, 235, 250, 0.38) 0%, rgba(170, 180, 215, 0.3) 100%);
+  border-color: rgba(220, 225, 245, 0.65);
+  box-shadow: 0 0 14px rgba(220, 225, 245, 0.4);
+}
 .mystats-medal-pill-gold {
   background: radial-gradient(circle, rgba(255, 215, 100, 0.32) 0%, rgba(174, 110, 38, 0.32) 100%);
   border-color: rgba(255, 200, 80, 0.55);
@@ -202,6 +213,11 @@
   box-shadow: 0 0 12px rgba(220, 160, 110, 0.25);
 }
 
+@keyframes mystats-diamond-shine {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  50%      { filter: hue-rotate(35deg) brightness(1.12); }
+}
+
 .mystats-medal-letter {
   width: 32px;
   height: 32px;
@@ -216,9 +232,11 @@
   text-shadow: 0 0 6px currentColor;
 }
 
-.mystats-medal-pill-gold .mystats-medal-letter   { color: #ffd966; }
-.mystats-medal-pill-silver .mystats-medal-letter { color: #e8eef9; }
-.mystats-medal-pill-bronze .mystats-medal-letter { color: #ffc99a; }
+.mystats-medal-pill-diamond .mystats-medal-letter  { color: #c8e8ff; }
+.mystats-medal-pill-platinum .mystats-medal-letter { color: #ffffff; }
+.mystats-medal-pill-gold .mystats-medal-letter     { color: #ffd966; }
+.mystats-medal-pill-silver .mystats-medal-letter   { color: #e8eef9; }
+.mystats-medal-pill-bronze .mystats-medal-letter   { color: #ffc99a; }
 
 .mystats-medal-count {
   font-size: 1.6rem;

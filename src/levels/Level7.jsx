@@ -9,13 +9,16 @@ import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
 import Portal from '../components/Portal';
 import { useRunStats } from '../components/RunStatsContext';
+import { useIsInvisibleNow } from '../components/ConsumablesProvider';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { goalPlatformColor } from '../utils/palette';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
 import { PORTAL_SPAWN_CHANCE, PLAYER_HALF } from '../constants/gameConstants';
 import useRestartOnR from '../hooks/useRestartOnR';
 import useVictoryTimer from '../hooks/useVictoryTimer';
@@ -59,15 +62,15 @@ function buildLevel7() {
   return { blocks, goal: { x: 0, y: 0.5, z: -32 } };
 }
 
-function buildSlidingWalls() {
-  // 6 walls (was 3), all faster (was ~5 → 7-8), with wider sweep range.
+function buildSlidingWalls(params = {}) {
+  const sm = params.wallSpeedMul || 1;
   return [
-    { x: -12, y: 0.5, z: 17,  w: 1, h: 3, d: 4, vx:  7.5, range: 12 },
-    { x:  12, y: 0.5, z: 10,  w: 1, h: 3, d: 4, vx: -8.0, range: 12 },
-    { x: -12, y: 0.5, z:  3,  w: 1, h: 3, d: 4, vx:  7.0, range: 12 },
-    { x:  12, y: 0.5, z: -4,  w: 1, h: 3, d: 4, vx: -7.5, range: 12 },
-    { x: -12, y: 0.5, z: -12, w: 1, h: 3, d: 4, vx:  8.0, range: 12 },
-    { x:  12, y: 0.5, z: -22, w: 1, h: 3, d: 4, vx: -8.5, range: 12 },
+    { x: -12, y: 0.5, z: 17,  w: 1, h: 3, d: 4, vx:  7.5 * sm, range: 12 },
+    { x:  12, y: 0.5, z: 10,  w: 1, h: 3, d: 4, vx: -8.0 * sm, range: 12 },
+    { x: -12, y: 0.5, z:  3,  w: 1, h: 3, d: 4, vx:  7.0 * sm, range: 12 },
+    { x:  12, y: 0.5, z: -4,  w: 1, h: 3, d: 4, vx: -7.5 * sm, range: 12 },
+    { x: -12, y: 0.5, z: -12, w: 1, h: 3, d: 4, vx:  8.0 * sm, range: 12 },
+    { x:  12, y: 0.5, z: -22, w: 1, h: 3, d: 4, vx: -8.5 * sm, range: 12 },
   ];
 }
 
@@ -91,7 +94,7 @@ const SPOT_MAX = 5;               // peak spot-light intensity while airborne
 const GROUND_FLOOR = 0.25;        // dim residual glow when grounded
 const LERP_SPEED = 8.0;           // 1/seconds — smooth ramp up/down
 
-function PlayerFlashlight({ playerPosRef }) {
+function PlayerFlashlight({ playerPosRef, radiusMul = 1 }) {
   const pointRef = useRef();
   const spotRef = useRef();
   const targetRef = useRef();
@@ -143,7 +146,7 @@ function PlayerFlashlight({ playerPosRef }) {
       <pointLight
         ref={pointRef}
         intensity={GROUND_FLOOR}
-        distance={6}
+        distance={6 * radiusMul}
         decay={1.0}
         color="#ffffff"
       />
@@ -155,7 +158,7 @@ function PlayerFlashlight({ playerPosRef }) {
         angle={0.85}
         penumbra={0.5}
         intensity={GROUND_FLOOR}
-        distance={7}
+        distance={7 * radiusMul}
         decay={1.0}
         color="#ffffff"
       />
@@ -170,12 +173,17 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
   Array.isArray(__l7_fresh) ? __l7_fresh : __l7_fresh.blocks
 );
 
-function Level7({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
+function Level7({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [ 0, 5, 30 ];
+  // Phase 3b: lanternRadiusMul shrinks the visible pool around the player;
+  // wallSpeedMul scales the sliding-wall sweeps.
+  const echoMechanic = hardMode ? getEchoMechanic(7) : {};
+  const lanternRadiusMul = echoMechanic.lanternRadiusMul || 1;
+  const echoVisual = hardMode ? getEchoVisual(7) : null;
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -184,7 +192,7 @@ function Level7({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
   const initial = useRef(buildLevel7());
   const blocksRef = useRef(initial.current.blocks);
   const goalRef = useRef(initial.current.goal);
-  const wallsRef = useRef(buildSlidingWalls());
+  const wallsRef = useRef(buildSlidingWalls(echoMechanic));
   const playerPosRef = useRef(START);
 
   const cameraControlRef = useRef(null);
@@ -204,7 +212,7 @@ function Level7({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
     const fresh = buildLevel7();
     blocksRef.current.forEach((b, i) => Object.assign(b, fresh.blocks[i]));
     goalRef.current = fresh.goal;
-    wallsRef.current = buildSlidingWalls();
+    wallsRef.current = buildSlidingWalls(echoMechanic);
     playerPosRef.current = START;
     setPlayerPosition(START);
     setDeathReason('');
@@ -232,7 +240,7 @@ function Level7({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <QualityCanvas
         camera={{ position: [20, 14, 40], fov: 60 }}
         style={{
-          background: 'linear-gradient(180deg, #000004 0%, #000010 100%)',
+          background: echoVisual?.sky || 'linear-gradient(180deg, #000004 0%, #000010 100%)',
           touchAction: 'none',
         }}
       >
@@ -242,18 +250,19 @@ function Level7({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
             fog NEAR past the camera-to-player distance, otherwise the
             lantern's brightly-lit floor gets fog-blended to black BEFORE
             it reaches your eyes — that was the "lantern only works when
-            the camera is close to a surface" bug. */}
-        <fog attach="fog" args={['#000000', 38, q.l7FogFar]} />
+            the camera is close to a surface" bug. Echo can tighten FAR
+            to crush the visible distance further, but NEAR stays at 38. */}
+        <fog attach="fog" args={[echoVisual?.fogColor || '#000000', echoVisual?.fogNear ?? 38, echoVisual?.fogFar ?? q.l7FogFar]} />
         {/* Slightly stronger baseline so the white platforms catch a hint
             of light at the lantern's edge — bright enough to read as
             "there is a platform there", dim enough to keep the dread. */}
-        <ambientLight intensity={0.28} color="#2a3a60" />
-        <hemisphereLight args={['#3a4870', '#000010', 0.35]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.28} color={echoVisual?.ambientColor || '#2a3a60'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#3a4870', echoVisual?.hemiBottom || '#000010', echoVisual?.hemiIntensity ?? 0.35]} />
 
         {/* Player-following flashlight (gameplay-essential — never disabled).
             Bright pure-white pool that reveals the white tiles directly
             beneath and around the player. */}
-        <PlayerFlashlight playerPosRef={playerPosRef} />
+        <PlayerFlashlight playerPosRef={playerPosRef} radiusMul={lanternRadiusMul} />
 
         {/* Star field — only mounts at High preset (QualityStars returns null
             when starsScale=0). drei <Stars> uses its own shader that isn't
@@ -261,7 +270,7 @@ function Level7({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
             void even though everything else in L7 fades to fog. */}
         <QualityStars radius={180} depth={60} count={2200} factor={4} saturation={0} fade speed={0.4} />
 
-        <QualitySparkles position={[0, 3, -32]} count={28} scale={[8, 4, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 3, -32]} count={28} scale={[8, 4, 4]} size={2.2} speed={0.3} color={echoVisual?.sparkleColor || '#ffd966'} />
 
         <InfiniteGrid />
 
@@ -285,6 +294,8 @@ function Level7({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           candidates={JEWEL_CANDIDATES}
           playerPosRef={playerPosRef}
         />
+
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
 
         {/* L7 side branch: violet stone at (6, 0, -8), in the wall-free z gap.
             Portal faces -X back toward the main lantern path. */}
@@ -369,6 +380,7 @@ function SlidingWall({ wall }) {
 
 function Level7Sim({ gameState, wallsRef, playerPosRef, onWallHit }) {
   const hitRef = useRef(false);
+  const isInvisible = useIsInvisibleNow();
   useFrame((_, deltaRaw) => {
     if (gameState !== 'playing') { hitRef.current = false; return; }
     if (hitRef.current) return;
@@ -384,8 +396,9 @@ function Level7Sim({ gameState, wallsRef, playerPosRef, onWallHit }) {
         w.vx *= -1;
         w.x = startX + Math.sign(w.x - startX) * w.range;
       }
-      // AABB death check
+      // AABB death check (skipped while invisibility is live)
       if (
+        !isInvisible() &&
         Math.abs(px - w.x) < w.w / 2 + PLAYER_HALF &&
         Math.abs(py - w.y) < w.h / 2 + PLAYER_HALF &&
         Math.abs(pz - w.z) < w.d / 2 + PLAYER_HALF

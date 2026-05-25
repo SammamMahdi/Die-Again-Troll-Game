@@ -9,14 +9,16 @@ import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
 import Portal from '../components/Portal';
 import { useRunStats } from '../components/RunStatsContext';
+import { useIsInvisibleNow } from '../components/ConsumablesProvider';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { goalPlatformColor } from '../utils/palette';
-import { getEchoMechanic } from '../utils/echoThemes';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
 import { PORTAL_SPAWN_CHANCE, PLAYER_HALF } from '../constants/gameConstants';
 import useRestartOnR from '../hooks/useRestartOnR';
 import useVictoryTimer from '../hooks/useVictoryTimer';
@@ -143,6 +145,7 @@ function Level5({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [ 0, 5, 25 ];
   const echoMechanic = hardMode ? getEchoMechanic(5) : {};
+  const echoVisual = hardMode ? getEchoVisual(5) : null;
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -206,13 +209,13 @@ function Level5({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <QualityCanvas
         camera={{ position: [30, 18, 40], fov: 60 }}
         style={{
-          background: 'linear-gradient(180deg, #0a0a14 0%, #1c1c2e 60%, #2a2540 100%)',
+          background: echoVisual?.sky || 'linear-gradient(180deg, #0a0a14 0%, #1c1c2e 60%, #2a2540 100%)',
           touchAction: 'none',
         }}
       >
-        <fog attach="fog" args={['#15151f', 45, 180]} />
-        <ambientLight intensity={0.45} />
-        <hemisphereLight args={['#b0c4ff', '#1a1a30', 0.5]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#15151f', echoVisual?.fogNear ?? 45, echoVisual?.fogFar ?? 180]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.45} color={echoVisual?.ambientColor || '#ffffff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#b0c4ff', echoVisual?.hemiBottom || '#1a1a30', echoVisual?.hemiIntensity ?? 0.5]} />
         <directionalLight position={[15, 25, 10]} intensity={1.1} />
         {!q.minimalLights && (
           <>
@@ -222,7 +225,7 @@ function Level5({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
         )}
 
         <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <QualitySparkles position={[0, 3, -38]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 3, -38]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color={echoVisual?.sparkleColor || '#ffd966'} />
 
         <InfiniteGrid />
 
@@ -242,6 +245,8 @@ function Level5({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           candidates={JEWEL_CANDIDATES}
           playerPosRef={playerPosRef}
         />
+
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
 
         {/* L5 side branch: violet stone at (12, 0, -7), safely outside the
             pendulum sweep. Portal opening faces -X back to the main lane. */}
@@ -302,6 +307,7 @@ function Level5({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
 function Level5Sim({ gameState, pendulumsRef, playerPosRef, onPendulumHit }) {
   const timerRef = useRef(0);
   const hitRef = useRef(false);
+  const isInvisible = useIsInvisibleNow();
   const PEND_ANGLE_MAX = 1.25; // ~72° — pendulums reach further out into the path
 
   useFrame((_, deltaRaw) => {
@@ -321,7 +327,7 @@ function Level5Sim({ gameState, pendulumsRef, playerPosRef, onPendulumHit }) {
       const dx = px - bx;
       const dy = py - by;
       const dz = pz - bz;
-      if (Math.sqrt(dx * dx + dy * dy + dz * dz) < (p.bobRadius + PLAYER_HALF + 0.1)) {
+      if (!isInvisible() && Math.sqrt(dx * dx + dy * dy + dz * dz) < (p.bobRadius + PLAYER_HALF + 0.1)) {
         hitRef.current = true;
         onPendulumHit();
         return;

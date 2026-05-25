@@ -10,14 +10,17 @@ import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
 import Portal from '../components/Portal';
 import { useRunStats } from '../components/RunStatsContext';
+import { useIsInvisibleNow } from '../components/ConsumablesProvider';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { playLightRed, playLightBlue, playCreak } from '../utils/sounds';
 import { goalPlatformColor } from '../utils/palette';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
 import { PORTAL_SPAWN_CHANCE, PLAYER_HALF } from '../constants/gameConstants';
 import useRestartOnR from '../hooks/useRestartOnR';
 import useVictoryTimer from '../hooks/useVictoryTimer';
@@ -43,7 +46,12 @@ const COLOR_FLOOR = [0.78, 0.78, 0.85];
 const JEWEL_HEX = '#ff6fb5';
 const COLOR_GOAL = goalPlatformColor(JEWEL_HEX);
 
-function buildLevel2() {
+function buildLevel2(params = {}) {
+  // Phase 3b echo: shrink path platforms when platformScale < 1 so the
+  // player has less footing to plant on between RED freezes. The big
+  // 10x10 start, the goal, and the side-branch keep their full size
+  // (they're the safe zones).
+  const scale = params.platformScale || 1;
   const blocks = [];
   const startZ = 25;
   for (let i = 0; i < 10; i++) {
@@ -52,11 +60,13 @@ function buildLevel2() {
     const moveX = i === 3 || i === 5;
     const moveY = i === 6;
     const breakable = i === 8;
+    const w = isGoal ? BLOCK_SIZE : BLOCK_SIZE * scale;
+    const d = isGoal ? BLOCK_SIZE : BLOCK_SIZE * scale;
     blocks.push({
       index: i,
       x: 0, y: 0, z,
       startX: 0, startY: 0, startZ: z,
-      w: BLOCK_SIZE, h: 1, d: BLOCK_SIZE,
+      w, h: 1, d,
       visible: true,
       color: isGoal ? [...COLOR_GOAL] : [...COLOR_FLOOR],
       isGoal,
@@ -117,12 +127,19 @@ function buildGlobes() {
 // on each level entry.
 const JEWEL_CANDIDATES = candidatesFromBlocks(buildLevel2());
 
-function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
+function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [0, 3, 25];
+  // Phase 3b echo:
+  //  - platformScale shrinks the path platforms
+  //  - permanentRed keeps the globe-stoplight stuck in RED (no safe blue
+  //    windows; any movement triggers the chase always)
+  const echoMechanic = hardMode ? getEchoMechanic(2) : {};
+  const permanentRed = !!echoMechanic.permanentRed;
+  const echoVisual = hardMode ? getEchoVisual(2) : null;
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [globeStateLabel, setGlobeStateLabel] = useState('BLUE');
@@ -130,7 +147,7 @@ function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
   const [playerPosition, setPlayerPosition] = useState(START);
 
   // Mutable simulation state — never put in React state to avoid re-render storms
-  const blocksRef = useRef(buildLevel2());
+  const blocksRef = useRef(buildLevel2(echoMechanic));
   const globesRef = useRef(buildGlobes());
   const cycleTimerRef = useRef(0);
   const playerPosRef = useRef(START);
@@ -155,7 +172,7 @@ function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
   const handleRestart = () => {
     // Mutate the existing mutable objects in place so AnimatedBlock / Globe
     // components keep their refs valid; only state values are reset.
-    const fresh = buildLevel2();
+    const fresh = buildLevel2(echoMechanic);
     blocksRef.current.forEach((b, i) => Object.assign(b, fresh[i]));
     const freshG = buildGlobes();
     globesRef.current.forEach((g, i) => Object.assign(g, freshG[i]));
@@ -213,13 +230,13 @@ function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <QualityCanvas
         camera={{ position: [30, 20, 40], fov: 60 }}
         style={{
-          background: 'linear-gradient(180deg, #190a18 0%, #2a1a3e 100%)',
+          background: echoVisual?.sky || 'linear-gradient(180deg, #190a18 0%, #2a1a3e 100%)',
           touchAction: 'none',
         }}
       >
-        <fog attach="fog" args={['#1f0f30', 45, 180]} />
-        <ambientLight intensity={0.45} />
-        <hemisphereLight args={['#9fb8ff', '#5a2050', 0.45]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#1f0f30', echoVisual?.fogNear ?? 45, echoVisual?.fogFar ?? 180]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.45} color={echoVisual?.ambientColor || '#ffffff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#9fb8ff', echoVisual?.hemiBottom || '#5a2050', echoVisual?.hemiIntensity ?? 0.45]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} />
         {!q.minimalLights && (
           <>
@@ -236,7 +253,7 @@ function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           scale={[8, 5, 4]}
           size={3.5}
           speed={0.4}
-          color="#ffd966"
+          color={echoVisual?.sparkleColor || '#ffd966'}
         />
 
         <InfiniteGrid />
@@ -267,6 +284,8 @@ function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           candidates={JEWEL_CANDIDATES}
           playerPosRef={playerPosRef}
         />
+
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
 
         {/* L2: side branch — violet stone at (5, 0, -3), reachable via
             sideways hop off the 5th main stone. Portal faces -X toward the
@@ -307,6 +326,7 @@ function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           playerPosRef={playerPosRef}
           isMovingRef={isMovingRef}
           onGroundRef={onGroundRef}
+          permanentRed={permanentRed}
           onGlobeHit={() => handlePlayerDeath('Crushed by a Globe!')}
           onLightChange={(state) => {
             setGlobeStateLabel(state);
@@ -346,10 +366,12 @@ function Level2({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
 function Level2Sim({
   gameState, blocksRef, globesRef, cycleTimerRef,
   playerPosRef, isMovingRef, onGroundRef,
+  permanentRed,
   onGlobeHit, onLightChange,
 }) {
   const lastStateRef = useRef('BLUE');
   const hitRef = useRef(false);
+  const isInvisible = useIsInvisibleNow();
 
   useFrame((_, deltaRaw) => {
     if (gameState !== 'playing') {
@@ -361,7 +383,8 @@ function Level2Sim({
 
     cycleTimerRef.current += delta;
     const cyclePos = cycleTimerRef.current % CYCLE;
-    const state = cyclePos < BLUE_DURATION ? 'BLUE' : 'RED';
+    // Echo override: stuck on RED — any movement is always dangerous.
+    const state = permanentRed ? 'RED' : (cyclePos < BLUE_DURATION ? 'BLUE' : 'RED');
     if (state !== lastStateRef.current) {
       lastStateRef.current = state;
       onLightChange(state);
@@ -369,15 +392,23 @@ function Level2Sim({
 
     const [px, py, pz] = playerPosRef.current;
 
+    // Invisibility makes every globe lose track of the player entirely:
+    // chase is disarmed AND movement is frozen, so they don't follow at
+    // all. They snap back to normal Red-Light rules once the potion
+    // wears off.
+    const invisible = isInvisible();
+
     // Globe simulation
     for (const g of globesRef.current) {
       g.state = state;
-      if (state === 'BLUE') {
+      if (invisible) {
+        g.chasing = false;
+      } else if (state === 'BLUE') {
         g.chasing = false;
       } else if (isMovingRef.current && onGroundRef.current) {
         g.chasing = true;
       }
-      if (g.chasing && state === 'RED' && isMovingRef.current) {
+      if (!invisible && g.chasing && state === 'RED' && isMovingRef.current) {
         const dx = px - g.x;
         const dy = py - g.y;
         const dz = pz - g.z;
@@ -388,14 +419,16 @@ function Level2Sim({
           g.z += (dz / d) * GLOBE_CHASE_SPEED * delta;
         }
       }
-      // Player collision
-      const cx = px - g.x;
-      const cy = py - g.y;
-      const cz = pz - g.z;
-      if (Math.sqrt(cx * cx + cy * cy + cz * cz) < (g.radius + PLAYER_HALF)) {
-        hitRef.current = true;
-        onGlobeHit();
-        return;
+      // Player collision (skipped while invisibility potion is live)
+      if (!invisible) {
+        const cx = px - g.x;
+        const cy = py - g.y;
+        const cz = pz - g.z;
+        if (Math.sqrt(cx * cx + cy * cy + cz * cz) < (g.radius + PLAYER_HALF)) {
+          hitRef.current = true;
+          onGlobeHit();
+          return;
+        }
       }
     }
 

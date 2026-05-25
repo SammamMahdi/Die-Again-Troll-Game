@@ -3,6 +3,16 @@ import {
   CONSUMABLES_CATALOG,
   getInventory, consumeOne, subscribeConsumables,
 } from '../utils/consumables';
+import { matches } from '../utils/controls';
+import {
+  playPotionSpeed, playPotionMagnet, playPotionGhost, playPotionEmpty,
+} from '../utils/sounds';
+
+const POTION_SOUND = {
+  speed_potion:        playPotionSpeed,
+  jewel_magnet:        playPotionMagnet,
+  invisibility_potion: playPotionGhost,
+};
 
 // State tracked by this provider:
 //   - inventory:        { [id]: count } — re-rendered when counts change
@@ -16,15 +26,15 @@ import {
 // activeRef gives non-render-triggering live access for per-frame consumers.
 const ConsumablesContext = createContext({
   inventory: {},
-  activeRef: { current: { speedBoostUntil: 0, magnetUntil: 0 } },
+  activeRef: { current: { speedBoostUntil: 0, magnetUntil: 0, invisibleUntil: 0 } },
   activate: () => {},
 });
 
 export function ConsumablesProvider({ children }) {
   const [inventory, setInventory] = useState(getInventory);
-  // Single shared mutable object so the Player + Jewels can poll it each
-  // frame without subscribing to re-renders.
-  const activeRef = useRef({ speedBoostUntil: 0, magnetUntil: 0 });
+  // Single shared mutable object so the Player + Jewels + level Sims can
+  // poll it each frame without subscribing to re-renders.
+  const activeRef = useRef({ speedBoostUntil: 0, magnetUntil: 0, invisibleUntil: 0 });
   // Mirror for components that DO want to re-render on activation
   // (e.g. an HUD chip turning gold while active).
   const [tick, setTick] = useState(0);
@@ -36,8 +46,18 @@ export function ConsumablesProvider({ children }) {
   const activate = useCallback((id) => {
     const def = CONSUMABLES_CATALOG.find(c => c.id === id);
     if (!def || !def.duration) return false;
-    if ((getInventory()[id] || 0) <= 0) return false;
+    // Audio feedback: distinct "empty" cue when the player presses a
+    // potion key with nothing in stock — separates "wrong key" from
+    // "out of potions" without any HUD pop-up.
+    if ((getInventory()[id] || 0) <= 0) {
+      playPotionEmpty();
+      return false;
+    }
     if (!consumeOne(id)) return false;
+    // Activation chime — one per potion id so the player hears which
+    // effect just fired without looking at the HUD chip.
+    const sound = POTION_SOUND[id];
+    if (sound) sound();
     // Duration stacking — re-activating while an effect is still live ADDS
     // the new duration to the remaining timer instead of resetting it. So
     // chaining two Speed Potions back-to-back gives ~30 s of boost (one
@@ -52,6 +72,10 @@ export function ConsumablesProvider({ children }) {
       const prev = activeRef.current.magnetUntil;
       activeRef.current.magnetUntil = (prev > now ? prev : now) + addMs;
     }
+    if (id === 'invisibility_potion') {
+      const prev = activeRef.current.invisibleUntil;
+      activeRef.current.invisibleUntil = (prev > now ? prev : now) + addMs;
+    }
     setTick(t => t + 1);
     return true;
   }, []);
@@ -63,8 +87,11 @@ export function ConsumablesProvider({ children }) {
     const onKey = (e) => {
       const tag = e.target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
-      if (e.key === '1') activate('speed_potion');
-      else if (e.key === '2') activate('jewel_magnet');
+      // Hotkeys live in the rebindable Controls table — Settings can
+      // remap any of the three potion slots.
+      if (matches(e.key, 'potionSpeed'))       activate('speed_potion');
+      else if (matches(e.key, 'potionMagnet')) activate('jewel_magnet');
+      else if (matches(e.key, 'potionGhost'))  activate('invisibility_potion');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -85,6 +112,10 @@ export function ConsumablesProvider({ children }) {
         activeRef.current.magnetUntil = 0;
         changed = true;
       }
+      if (activeRef.current.invisibleUntil && now > activeRef.current.invisibleUntil) {
+        activeRef.current.invisibleUntil = 0;
+        changed = true;
+      }
       if (changed) setTick(t => t + 1);
     }, 250);
     return () => clearInterval(id);
@@ -99,4 +130,12 @@ export function ConsumablesProvider({ children }) {
 
 export function useConsumables() {
   return useContext(ConsumablesContext);
+}
+
+// Tiny helper for hazard-collision Sims: returns a function that checks
+// whether invisibility is currently live. Cheaper than dragging the
+// whole context in just to read one field.
+export function useIsInvisibleNow() {
+  const { activeRef } = useContext(ConsumablesContext);
+  return () => activeRef.current.invisibleUntil > Date.now();
 }

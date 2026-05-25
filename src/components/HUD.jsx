@@ -20,9 +20,11 @@ function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
   const now = Date.now();
   const speedActive = effectsRef.current.speedBoostUntil > now;
   const magnetActive = effectsRef.current.magnetUntil > now;
+  const invisibleActive = effectsRef.current.invisibleUntil > now;
   const startRef = useRef(Date.now());
   const isTutorial = level === 0;
   const isHardcore = mode === 'hardcore';
+  const isPractice = mode === 'practice';
 
   // Reset + tick a per-level elapsed timer. Pauses when the level ends.
   useEffect(() => {
@@ -105,10 +107,15 @@ function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
             <span className="hud-stat-value">×{streak}</span>
           </div>
         )}
-        <div className="hud-stat">
-          <span className="hud-stat-icon">💀</span>
-          <span className="hud-stat-value">{deathCount}</span>
-        </div>
+        {/* Hardcore tracks LIVES (❤ chip above). Practice tracks DEATHS
+            (the 💀 chip is purely for self-pacing — no try cap). Tutorial
+            shows neither since it's a single teaching session. */}
+        {isPractice && (
+          <div className="hud-stat">
+            <span className="hud-stat-icon">💀</span>
+            <span className="hud-stat-value">{deathCount}</span>
+          </div>
+        )}
         <div className="hud-stat hud-stat-dim">
           <span className="hud-stat-icon">⏱</span>
           <span className="hud-stat-value">{timeStr}</span>
@@ -134,7 +141,8 @@ function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
             if (count <= 0) return null;
             const active =
               (item.id === 'speed_potion' && speedActive) ||
-              (item.id === 'jewel_magnet' && magnetActive);
+              (item.id === 'jewel_magnet' && magnetActive) ||
+              (item.id === 'invisibility_potion' && invisibleActive);
             return (
               <div
                 key={item.id}

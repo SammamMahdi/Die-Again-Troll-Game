@@ -14,7 +14,6 @@ import Settings from './components/Settings';
 import { useGraphics } from './components/GraphicsProvider';
 import {
   playDeath, playWin, playUIClick, playUIOpen,
-  isMuted, setMuted,
   startAmbient, stopAmbient,
 } from './utils/sounds';
 import Level0 from './levels/Level0';
@@ -23,6 +22,7 @@ import WarpOverlay from './components/WarpOverlay';
 import ModeSelectScreen from './components/ModeSelectScreen';
 import PracticeLevelSelect from './components/PracticeLevelSelect';
 import RunFailedScreen from './components/RunFailedScreen';
+import ExtraLifePrompt from './components/ExtraLifePrompt';
 import Shop from './components/Shop';
 import {
   getMedal,
@@ -36,9 +36,9 @@ import {
   pointsForLevelResult,
 } from './utils/rewards';
 import { RunStatsProvider } from './components/RunStatsContext';
-import { getRealJewels, setAdminUnlimited } from './utils/jewels';
-import { getCosmetics } from './utils/cosmetics';
-import { getInventory, consumeOne } from './utils/consumables';
+import { getRealJewels, setAdminUnlimited, subscribeJewels } from './utils/jewels';
+import { getCosmetics, subscribeCosmetics } from './utils/cosmetics';
+import { getInventory, consumeOne, subscribeConsumables } from './utils/consumables';
 import {
   isCloudEnabled,
   subscribeToAuth,
@@ -93,13 +93,7 @@ function App() {
   const [authUser, setAuthUser] = useState(null);
   const [authModalMode, setAuthModalMode] = useState(null); // 'signin' | 'register' | null
 
-  // Sound mute (persisted via sounds.js)
-  const [muted, setMutedState] = useState(isMuted());
-  const toggleMuted = () => {
-    const next = !muted;
-    setMuted(next);
-    setMutedState(next);
-  };
+  // Sound mute state is owned + toggled inside Settings.jsx directly.
 
   // Settings modal
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -122,6 +116,43 @@ function App() {
   useEffect(() => {
     setAdminUnlimited(adminMode);
   }, [adminMode]);
+
+  // Live cloud sync — whenever the local jewel purse, equipped/owned
+  // cosmetics, or consumable inventory mutate, push a fresh snapshot
+  // to Firestore. Debounced 1.2s so rapid edits (e.g. binge-buying
+  // skins in the shop) coalesce into one write instead of N.
+  // Per-level cloud sync still fires on level complete; this hook
+  // catches all the OTHER mutation paths (shop purchases, in-level
+  // potion pickups, jewel earnings between levels, etc.) so nothing
+  // is ever lost just because the player closed the tab mid-shop.
+  useEffect(() => {
+    if (!authUser || !isCloudEnabled()) return undefined;
+    let pending = null;
+    const push = () => {
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(() => {
+        submitScore({
+          uid: authUser.uid,
+          username: authUser.displayName || authUser.email?.split('@')[0] || 'anon',
+          scoreData: {
+            jewels: getRealJewels(),
+            cosmetics: getCosmetics(),
+            consumables: getInventory(),
+          },
+        }).catch((e) => {
+          // eslint-disable-next-line no-console
+          console.warn('Live sync failed:', e?.message || e);
+        });
+      }, 1200);
+    };
+    const u1 = subscribeJewels(push);
+    const u2 = subscribeCosmetics(push);
+    const u3 = subscribeConsumables(push);
+    return () => {
+      if (pending) clearTimeout(pending);
+      u1(); u2(); u3();
+    };
+  }, [authUser]);
 
   // Global Escape handler: close auth modal first, else return to start screen
   // from any non-start screen. Ignores Escape while typing in inputs.
@@ -335,21 +366,6 @@ function App() {
     setCurrentScreen(screen);
   };
 
-  // Earned level-select: any user can jump to a level N if they've cleared
-  // N-1 (or N == 1). Doesn't enable admin mode, but does set usedAdmin so
-  // run-spanning achievements (iron_will / flawless) still require a full
-  // linear playthrough.
-  const handleLevelJump = (levelNumber) => {
-    const screen = LEVEL_SCREENS[levelNumber];
-    if (!screen) return;
-    setDeathCount(0);
-    setRunStats({});
-    setUsedAdmin(true);
-    setRunScore(0);
-    runStartTimeRef.current = null;
-    setCurrentScreen(screen);
-  };
-
   // Phase 3b — Echo Dimension routing.
   //
   // handlePortalEnter: fired by a Level when the player walks through
@@ -398,48 +414,74 @@ function App() {
     setAdminMode(next);
   };
 
+  // Snapshot the run state for the RunFailed screen. Called when the
+  // player exhausts their tries (and has no Extra Life, OR declines to
+  // burn one).
+  const bailToRunFailed = () => {
+    const failedAt = parseInt((currentScreen || '').replace('level', ''), 10) || 0;
+    const totalDeaths = Object.values(runStats).reduce((s, r) => s + (r?.deaths ?? 0), 0) + HARDCORE_TRIES;
+    const totalMs = runStartTimeRef.current ? Date.now() - runStartTimeRef.current : 0;
+    const levelsCleared = Object.keys(runStats).length;
+    setRunFailedSummary({
+      failedAtLevel: failedAt,
+      levelsCleared,
+      totalDeaths,
+      totalMs,
+      pointsEarned: runScore,
+      jewelsEarned: Math.max(0, getRealJewels() - runStartJewelsRef.current),
+      maxStreak,
+      runStats,
+    });
+    setCurrentScreen('runFailed');
+  };
+
   const handleDeath = () => {
     playDeath();
     setDeathCount(prev => prev + 1);
-    // Hardcore: drain a try; on the transition to 0, bail to RunFailed.
-    // Guard against repeated deaths after the run is already over (e.g. the
-    // player presses R during the 200ms tear-down) so the screen swap only
-    // fires once.
+    // Hardcore: drain a try; on the transition to 0, ASK the player
+    // whether to burn an Extra Life (if owned) or end the run.
+    // Guard against repeated deaths after the run is already over so
+    // the screen swap only fires once.
     if (mode === 'hardcore' && runFailedSummary == null) {
-      // Death also breaks any active streak.
       setStreak(0);
       setTriesLeft(prev => {
         const next = prev - 1;
         if (prev > 0 && next <= 0) {
-          // Extra Life consumable: if owned, burn one and refill tries
-          // instead of ending the run. The player keeps everything they
-          // earned so far.
-          if ((getInventory().extra_life || 0) > 0 && consumeOne('extra_life')) {
-            return HARDCORE_TRIES;
-          }
-          // Snapshot everything for the RunFailed screen + bail. setTimeout
-          // so the death sound + state update lands before the screen swap.
+          // Defer the prompt/RunFailed by 200 ms so the death sound
+          // plays + HUD-dead overlay shows before the modal pops.
           setTimeout(() => {
-            const failedAt = parseInt((currentScreen || '').replace('level', ''), 10) || 0;
-            const totalDeaths = Object.values(runStats).reduce((s, r) => s + (r?.deaths ?? 0), 0) + HARDCORE_TRIES;
-            const totalMs = runStartTimeRef.current ? Date.now() - runStartTimeRef.current : 0;
-            const levelsCleared = Object.keys(runStats).length;
-            setRunFailedSummary({
-              failedAtLevel: failedAt,
-              levelsCleared,
-              totalDeaths,
-              totalMs,
-              pointsEarned: runScore,
-              jewelsEarned: Math.max(0, getRealJewels() - runStartJewelsRef.current),
-              maxStreak,
-              runStats,
-            });
-            setCurrentScreen('runFailed');
+            if ((getInventory().extra_life || 0) > 0) {
+              setExtraLifePromptOpen(true);
+            } else {
+              bailToRunFailed();
+            }
           }, 200);
         }
         return next;
       });
     }
+  };
+
+  // ExtraLife prompt — open when the player would otherwise hit
+  // RunFailed AND they have ≥1 Extra Life in inventory.
+  const [extraLifePromptOpen, setExtraLifePromptOpen] = useState(false);
+
+  const handleUseExtraLife = () => {
+    if (consumeOne('extra_life')) {
+      setTriesLeft(HARDCORE_TRIES);
+      setExtraLifePromptOpen(false);
+      // Player is still on the dead overlay; press R restarts the
+      // level with refilled tries — matches the original Hardcore loop.
+    } else {
+      // Stock disappeared between roll and confirm — bail anyway.
+      setExtraLifePromptOpen(false);
+      bailToRunFailed();
+    }
+  };
+
+  const handleDeclineExtraLife = () => {
+    setExtraLifePromptOpen(false);
+    bailToRunFailed();
   };
 
   const handleLevelComplete = (levelNumber, sideQuest = null) => {
@@ -524,6 +566,8 @@ function App() {
       runStats: nextRunStats,
       usedAdmin,
       alreadyOwned: persistedProgress.achievements || [],
+      medal,
+      persistedProgress,
     });
 
     const updated = recordLevelComplete({
@@ -556,6 +600,7 @@ function App() {
           bestDeaths: updated.bestDeaths || {},
           totalRuns: updated.totalRuns || 0,
           totalCompletes: updated.totalCompletes || 0,
+          tutorialComplete: !!updated.tutorialComplete,
           jewels: getRealJewels(),
           cosmetics: getCosmetics(),
           consumables: getInventory(),
@@ -616,6 +661,7 @@ function App() {
             achievements: updated.achievements || [],
             totalRuns: updated.totalRuns || 0,
             totalCompletes: updated.totalCompletes || 0,
+            tutorialComplete: !!updated.tutorialComplete,
             jewels: getRealJewels(),
           },
         }).catch(() => {});
@@ -653,14 +699,23 @@ function App() {
   // EVERY level + bypass the 35% random roll (see portalAlwaysSpawn).
   // Lets developers test the portal mechanic without first Gold-clearing
   // the level in Hardcore.
+  // Master switch — flip back to `false` to re-enable the Phase 3b
+  // portal-to-echo flow. While true, no level reports `portalEligible`,
+  // so the portal mesh never spawns and the admin always-spawn override
+  // is also blocked. Echo Dimension code stays intact and reachable via
+  // direct screen routing if needed.
+  const PORTALS_DISABLED = true;
   const PORTAL_MEDALS = ['gold', 'platinum', 'diamond'];
   const portalEligibleFor = (lvl) => {
+    if (PORTALS_DISABLED) return false;
     if (adminMode) return true;
     return mode === 'hardcore'
       && PORTAL_MEDALS.includes(persistedProgress.medals?.[lvl]);
   };
   // Force every gated portal to spawn (skip 35% roll) when in admin mode.
-  const portalAlwaysSpawn = adminMode;
+  // Also gated by PORTALS_DISABLED so the master switch fully turns the
+  // portal mechanic off.
+  const portalAlwaysSpawn = !PORTALS_DISABLED && adminMode;
 
   return (
     <div className="App">
@@ -670,8 +725,6 @@ function App() {
           adminMode={adminMode}
           onToggleAdmin={handleToggleAdmin}
           onAdminJump={handleAdminJump}
-          onLevelJump={handleLevelJump}
-          progress={persistedProgress}
           authUser={authUser}
           onSignIn={() => setAuthModalMode('signin')}
           onRegister={() => setAuthModalMode('register')}
@@ -681,8 +734,6 @@ function App() {
           onGuide={() => setCurrentScreen('guide')}
           onShop={() => setCurrentScreen('shop')}
           onSettings={() => { playUIOpen(); setSettingsOpen(true); }}
-          muted={muted}
-          onToggleMute={toggleMuted}
           cloudEnabled={isCloudEnabled()}
           isAdmin={isAdmin}
         />
@@ -762,6 +813,16 @@ function App() {
 
       {settingsOpen && (
         <Settings onClose={() => setSettingsOpen(false)} />
+      )}
+
+      {/* Hardcore "use Extra Life?" modal — appears when the player
+          exhausts their 3 tries AND has at least one Extra Life. */}
+      {extraLifePromptOpen && (
+        <ExtraLifePrompt
+          availableExtraLives={getInventory().extra_life || 0}
+          onUse={handleUseExtraLife}
+          onDecline={handleDeclineExtraLife}
+        />
       )}
 
       {currentScreen !== 'start' && currentScreen !== 'leaderboard' && (

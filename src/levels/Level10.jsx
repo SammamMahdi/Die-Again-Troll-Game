@@ -9,14 +9,17 @@ import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
 import Portal from '../components/Portal';
 import { useRunStats } from '../components/RunStatsContext';
+import { useIsInvisibleNow } from '../components/ConsumablesProvider';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { playPillarChime, playOrbSpawn, playGateUnlock } from '../utils/sounds';
 import { goalPlatformColor } from '../utils/palette';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
 import { PORTAL_SPAWN_CHANCE } from '../constants/gameConstants';
 import useRestartOnR from '../hooks/useRestartOnR';
 import useVictoryTimer from '../hooks/useVictoryTimer';
@@ -160,12 +163,16 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
   Array.isArray(__l10_fresh) ? __l10_fresh : __l10_fresh.blocks
 );
 
-function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
+function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [ 0, 5, 8 ];
+  // Phase 3b: in echo, scale the Architect orb + chase-orb speeds.
+  const echoMechanic = hardMode ? getEchoMechanic(10) : {};
+  const orbSpeedMul = echoMechanic.orbSpeedMul || 1;
+  const echoVisual = hardMode ? getEchoVisual(10) : null;
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -179,7 +186,7 @@ function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPosition
   // The Architect itself is faster + larger than before. Pillar touches spawn
   // chaser orbs at ramped-up speeds. When the gate unlocks, an "executioner"
   // orb spawns at the centre — the final sprint is the most dangerous.
-  const orbRef = useRef({ x: 0, y: 5, z: -10, radius: 1.75, speed: 5.0 });
+  const orbRef = useRef({ x: 0, y: 5, z: -10, radius: 1.75, speed: 5.0 * orbSpeedMul });
   const extraOrbsRef = useRef([]);
   const playerPosRef = useRef(START);
 
@@ -200,7 +207,7 @@ function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPosition
     const fresh = buildLevel10();
     blocksRef.current.forEach((b, i) => Object.assign(b, fresh.blocks[i]));
     pillarsRef.current = buildPillars();
-    orbRef.current = { x: 0, y: 5, z: -10, radius: 1.75, speed: 5.0 };
+    orbRef.current = { x: 0, y: 5, z: -10, radius: 1.75, speed: 5.0 * orbSpeedMul };
     extraOrbsRef.current = [];
     playerPosRef.current = START;
     setPlayerPosition(START);
@@ -236,7 +243,7 @@ function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPosition
           y: 5,
           z: -spawnSide * 10,
           radius: 1.25,
-          speed: 5.6 + idx * 0.3,   // 5.6, 5.9, 6.2 for the three pillars
+          speed: (5.6 + idx * 0.3) * orbSpeedMul,
         });
         playOrbSpawn();
       }
@@ -258,10 +265,12 @@ function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPosition
         y: 9,
         z: 0,
         radius: 1.45,
-        speed: 7.0,
+        speed: 7.0 * orbSpeedMul,
       });
       playOrbSpawn();
     }
+    // orbSpeedMul is stable for the level's lifetime (derived from hardMode).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pillarsTouched, gateUnlocked]);
 
   useEffect(() => {
@@ -277,13 +286,13 @@ function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPosition
       <QualityCanvas
         camera={{ position: [25, 22, 25], fov: 60 }}
         style={{
-          background: 'radial-gradient(circle at 50% 40%, #1a0040 0%, #050015 70%, #000005 100%)',
+          background: echoVisual?.sky || 'radial-gradient(circle at 50% 40%, #1a0040 0%, #050015 70%, #000005 100%)',
           touchAction: 'none',
         }}
       >
-        <fog attach="fog" args={['#100020', 40, 200]} />
-        <ambientLight intensity={0.45} />
-        <hemisphereLight args={['#aaaaff', '#1a0033', 0.45]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#100020', echoVisual?.fogNear ?? 40, echoVisual?.fogFar ?? 200]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.45} color={echoVisual?.ambientColor || '#ffffff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#aaaaff', echoVisual?.hemiBottom || '#1a0033', echoVisual?.hemiIntensity ?? 0.45]} />
         <directionalLight position={[15, 25, 10]} intensity={0.9} />
         {!q.minimalLights && (
           <>
@@ -295,7 +304,7 @@ function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPosition
         )}
 
         <QualityStars radius={250} depth={80} count={3000} factor={5} saturation={0} fade speed={0.4} />
-        <QualitySparkles position={[0, 5, 0]} count={70} scale={[14, 6, 14]} size={3.5} speed={0.25} color="#ffd966" />
+        <QualitySparkles position={[0, 5, 0]} count={70} scale={[14, 6, 14]} size={3.5} speed={0.25} color={echoVisual?.sparkleColor || '#ffd966'} />
 
         <InfiniteGrid />
 
@@ -321,6 +330,8 @@ function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPosition
           candidates={JEWEL_CANDIDATES}
           playerPosRef={playerPosRef}
         />
+
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
 
         {/* L10 side branch: violet stone detached from the arena at
             (22, 0, 13). Portal opening faces -X back toward the arena. */}
@@ -392,6 +403,7 @@ function Level10({ deathCount, onDeath, onComplete, onPortalEnter, startPosition
 function Level10Sim({ gameState, orbRef, extraOrbsRef, playerPosRef, gateUnlocked, onOrbHit, onWin }) {
   const hitRef = useRef(false);
   const wonRef = useRef(false);
+  const isInvisible = useIsInvisibleNow();
 
   const stepOrb = (o, px, py, pz, delta) => {
     const dx = px - o.x;
@@ -412,14 +424,17 @@ function Level10Sim({ gameState, orbRef, extraOrbsRef, playerPosRef, gateUnlocke
     const delta = Math.min(deltaRaw, 0.05);
     const [px, py, pz] = playerPosRef.current;
 
-    // Primary orb
-    if (stepOrb(orbRef.current, px, py, pz, delta)) {
-      hitRef.current = true; onOrbHit(); return;
-    }
-    // Extra orbs spawned at pillar touches
-    for (const o of extraOrbsRef.current) {
-      if (stepOrb(o, px, py, pz, delta)) {
+    // Invisibility freezes every orb where it is — they lose track of
+    // the player and don't follow at all until the potion wears off.
+    const phasing = isInvisible();
+    if (!phasing) {
+      if (stepOrb(orbRef.current, px, py, pz, delta)) {
         hitRef.current = true; onOrbHit(); return;
+      }
+      for (const o of extraOrbsRef.current) {
+        if (stepOrb(o, px, py, pz, delta)) {
+          hitRef.current = true; onOrbHit(); return;
+        }
       }
     }
 

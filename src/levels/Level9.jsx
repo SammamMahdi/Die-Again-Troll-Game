@@ -10,6 +10,7 @@ import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
 import Portal from '../components/Portal';
 import { useRunStats } from '../components/RunStatsContext';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
@@ -18,7 +19,7 @@ import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { playWindGust } from '../utils/sounds';
 import { goalPlatformColor } from '../utils/palette';
-import { getEchoMechanic } from '../utils/echoThemes';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
 import { PORTAL_SPAWN_CHANCE } from '../constants/gameConstants';
 import useRestartOnR from '../hooks/useRestartOnR';
 import useVictoryTimer from '../hooks/useVictoryTimer';
@@ -114,6 +115,7 @@ function Level9({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
   const START = startPositionOverride || [ 0, 5, 25 ];
   // Phase 3b: in echo, multiply wind force and shrink platforms.
   const echoMechanic = hardMode ? getEchoMechanic(9) : {};
+  const echoVisual = hardMode ? getEchoVisual(9) : null;
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -170,13 +172,13 @@ function Level9({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <QualityCanvas
         camera={{ position: [30, 18, 40], fov: 60 }}
         style={{
-          background: 'linear-gradient(180deg, #00141a 0%, #023a4a 60%, #0a6080 100%)',
+          background: echoVisual?.sky || 'linear-gradient(180deg, #00141a 0%, #023a4a 60%, #0a6080 100%)',
           touchAction: 'none',
         }}
       >
-        <fog attach="fog" args={['#0a2a3a', 40, 180]} />
-        <ambientLight intensity={0.5} color="#aaddff" />
-        <hemisphereLight args={['#ccf0ff', '#001830', 0.55]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#0a2a3a', echoVisual?.fogNear ?? 40, echoVisual?.fogFar ?? 180]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.5} color={echoVisual?.ambientColor || '#aaddff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#ccf0ff', echoVisual?.hemiBottom || '#001830', echoVisual?.hemiIntensity ?? 0.55]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} color="#e8f8ff" />
         {!q.minimalLights && (
           <>
@@ -186,7 +188,7 @@ function Level9({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
         )}
 
         <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.7} />
-        <QualitySparkles position={[0, 3, -32]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 3, -32]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color={echoVisual?.sparkleColor || '#ffd966'} />
         {/* Whipping wind particles across the level */}
         <QualitySparkles position={[0, 4, -5]} count={120} scale={[20, 8, 50]} size={1.5} speed={2.5} color="#cceeff" />
 
@@ -212,6 +214,8 @@ function Level9({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           candidates={JEWEL_CANDIDATES}
           playerPosRef={playerPosRef}
         />
+
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
 
         {/* L9 side branch: violet stone at (10, 0, 0), outside both the wind
             zones' x extent and the z-gap between zones. */}

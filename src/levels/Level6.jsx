@@ -10,14 +10,16 @@ import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
 import Portal from '../components/Portal';
 import { useRunStats } from '../components/RunStatsContext';
+import { useIsInvisibleNow } from '../components/ConsumablesProvider';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { goalPlatformColor } from '../utils/palette';
-import { getEchoMechanic } from '../utils/echoThemes';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
 import { PORTAL_SPAWN_CHANCE, PLAYER_HALF } from '../constants/gameConstants';
 import useRestartOnR from '../hooks/useRestartOnR';
 import useVictoryTimer from '../hooks/useVictoryTimer';
@@ -188,6 +190,7 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [ 0, 5, 25 ];
   const echoMechanic = hardMode ? getEchoMechanic(6) : {};
+  const echoVisual = hardMode ? getEchoVisual(6) : null;
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -245,13 +248,13 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <QualityCanvas
         camera={{ position: [30, 18, 40], fov: 60 }}
         style={{
-          background: 'linear-gradient(180deg, #0a0010 0%, #1c0420 60%, #310c30 100%)',
+          background: echoVisual?.sky || 'linear-gradient(180deg, #0a0010 0%, #1c0420 60%, #310c30 100%)',
           touchAction: 'none',
         }}
       >
-        <fog attach="fog" args={['#1a0820', 45, 180]} />
-        <ambientLight intensity={0.45} />
-        <hemisphereLight args={['#ffaaff', '#2a0020', 0.5]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#1a0820', echoVisual?.fogNear ?? 45, echoVisual?.fogFar ?? 180]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.45} color={echoVisual?.ambientColor || '#ffffff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#ffaaff', echoVisual?.hemiBottom || '#2a0020', echoVisual?.hemiIntensity ?? 0.5]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} />
         {!q.minimalLights && (
           <>
@@ -261,7 +264,7 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
         )}
 
         <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <QualitySparkles position={[0, 3, -55]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 3, -55]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color={echoVisual?.sparkleColor || '#ffd966'} />
 
         <InfiniteGrid />
 
@@ -287,6 +290,8 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           candidates={JEWEL_CANDIDATES}
           playerPosRef={playerPosRef}
         />
+
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
 
         {/* L6 side branch: violet stone at (8, 0, -5), off the mid bridge. */}
         {portalSpawned && (
@@ -348,6 +353,7 @@ function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
 function Level6Sim({ gameState, blocksRef, lasersRef, playerPosRef, playerControlRef, onLaserHit }) {
   const timerRef = useRef(0);
   const hitRef = useRef(false);
+  const isInvisible = useIsInvisibleNow();
 
   useFrame((_, deltaRaw) => {
     if (gameState !== 'playing') { hitRef.current = false; return; }
@@ -398,7 +404,7 @@ function Level6Sim({ gameState, blocksRef, lasersRef, playerPosRef, playerContro
       const perp = Math.sqrt(perpX * perpX + perpZ * perpZ);
       // Y check: beam is horizontal at oy; player center is at py
       if (Math.abs(py - oy) > 1.4) continue;
-      if (perp < (l.thickness + PLAYER_HALF + 0.05)) {
+      if (perp < (l.thickness + PLAYER_HALF + 0.05) && !isInvisible()) {
         hitRef.current = true;
         onLaserHit();
         return;

@@ -9,13 +9,16 @@ import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
 import Portal from '../components/Portal';
 import { useRunStats } from '../components/RunStatsContext';
+import { useIsInvisibleNow } from '../components/ConsumablesProvider';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { playSonar } from '../utils/sounds';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
 import { PORTAL_SPAWN_CHANCE, PLAYER_HALF } from '../constants/gameConstants';
 import useRestartOnR from '../hooks/useRestartOnR';
 import useVictoryTimer from '../hooks/useVictoryTimer';
@@ -138,11 +141,16 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
   Array.isArray(__l3_fresh) ? __l3_fresh : __l3_fresh.blocks
 );
 
-function Level3({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
+function Level3({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
   const sideQuestCompleteRef = useRef(false);
+  // Phase 3b: sonarAlwaysOn forces every ghost block to render permanently
+  // visible — the player no longer needs to hold SPACE to reveal them.
+  const echoMechanic = hardMode ? getEchoMechanic(3) : {};
+  const sonarAlwaysOn = !!echoMechanic.sonarAlwaysOn;
+  const echoVisual = hardMode ? getEchoVisual(3) : null;
   // Extra spaces inside the literal so the per-level replace_all that
   // swaps `[0, Y, Z]` → `START` leaves this default initializer alone.
   const START = startPositionOverride || [ 0, 5, 5 ];
@@ -220,13 +228,13 @@ function Level3({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <QualityCanvas
         camera={{ position: [30, 18, 35], fov: 60 }}
         style={{
-          background: 'linear-gradient(180deg, #06101e 0%, #163455 55%, #4a7ab0 100%)',
+          background: echoVisual?.sky || 'linear-gradient(180deg, #06101e 0%, #163455 55%, #4a7ab0 100%)',
           touchAction: 'none',
         }}
       >
-        <fog attach="fog" args={['#1a3050', 35, 170]} />
-        <ambientLight intensity={0.5} color="#c8dbff" />
-        <hemisphereLight args={['#dbe9ff', '#0c1830', 0.55]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#1a3050', echoVisual?.fogNear ?? 35, echoVisual?.fogFar ?? 170]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.5} color={echoVisual?.ambientColor || '#c8dbff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#dbe9ff', echoVisual?.hemiBottom || '#0c1830', echoVisual?.hemiIntensity ?? 0.55]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} color="#e8f2ff" />
         {!q.minimalLights && (
           <>
@@ -241,7 +249,7 @@ function Level3({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
         <QualitySparkles position={[0, 4, -25]} count={80} scale={[14, 6, 70]} size={2.5} speed={0.25} color="#c8efff" />
 
         {/* Goal glow */}
-        <QualitySparkles position={[0, 3, -60]} count={26} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 3, -60]} count={26} scale={[8, 5, 4]} size={2.2} speed={0.3} color={echoVisual?.sparkleColor || '#ffd966'} />
 
         <InfiniteGrid />
 
@@ -280,6 +288,8 @@ function Level3({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           playerPosRef={playerPosRef}
         />
 
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
+
         {/* L3 side branch: violet stone at (8, -1, -30) off the safe haven.
             Portal faces -X back toward the main safe-haven block. */}
         {portalSpawned && (
@@ -311,6 +321,7 @@ function Level3({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           playerPosRef={playerPosRef}
           sonarTimerRef={sonarTimerRef}
           sonarPressedRef={sonarPressedRef}
+          sonarAlwaysOn={sonarAlwaysOn}
           onKill={(reason) => handlePlayerDeath(reason)}
           onWin={() => setGameState('won')}
           onSonarChange={(active) => {
@@ -348,10 +359,11 @@ function Level3({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
 
 function Level3Sim({
   gameState, blocksRef, playerPosRef,
-  sonarTimerRef, sonarPressedRef,
+  sonarTimerRef, sonarPressedRef, sonarAlwaysOn,
   onKill, onWin, onSonarChange,
 }) {
   const lastSonarRef = useRef(false);
+  const isInvisible = useIsInvisibleNow();
   const hitRef = useRef(false);
   const wonRef = useRef(false);
 
@@ -370,7 +382,8 @@ function Level3Sim({
     } else if (sonarTimerRef.current > 0) {
       sonarTimerRef.current = Math.max(0, sonarTimerRef.current - delta);
     }
-    const sonarActive = sonarTimerRef.current > 0;
+    // Echo override: sonar is permanently active — no SPACE charge needed.
+    const sonarActive = sonarAlwaysOn || sonarTimerRef.current > 0;
     if (sonarActive !== lastSonarRef.current) {
       lastSonarRef.current = sonarActive;
       onSonarChange(sonarActive);
@@ -404,8 +417,9 @@ function Level3Sim({
         else if (b.moveAxis === 'y') b.y = b.startY + offset;
       }
 
-      // Kill check (static or moving) — only when visible
-      if (b.isKill && b.visible !== false) {
+      // Kill check (static or moving) — only when visible, skipped while
+      // the invisibility potion is live.
+      if (b.isKill && b.visible !== false && !isInvisible()) {
         const dxPlayer = Math.abs(px - b.x);
         const dyPlayer = Math.abs(py - b.y);
         const dzPlayer = Math.abs(pz - b.z);

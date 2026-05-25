@@ -5,6 +5,7 @@ import {
 import {
   formatTime, ACHIEVEMENTS, computeScore, medalCounts,
 } from '../utils/rewards';
+import MedalBadge from './MedalBadge';
 import './MyStats.css';
 
 const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -106,13 +107,15 @@ function MyStats({ authUser, progress, onBack }) {
           </div>
         </div>
 
-        {/* ===== Medal totals ===== */}
+        {/* ===== Medal totals — all five tiers ===== */}
         <div className="mystats-section">
           <div className="mystats-section-label">Medal totals</div>
           <div className="mystats-medal-totals">
-            <MedalTotal tier="gold" count={mCounts.gold || 0} />
-            <MedalTotal tier="silver" count={mCounts.silver || 0} />
-            <MedalTotal tier="bronze" count={mCounts.bronze || 0} />
+            <MedalTotal tier="diamond"  count={mCounts.diamond  || 0} />
+            <MedalTotal tier="platinum" count={mCounts.platinum || 0} />
+            <MedalTotal tier="gold"     count={mCounts.gold     || 0} />
+            <MedalTotal tier="silver"   count={mCounts.silver   || 0} />
+            <MedalTotal tier="bronze"   count={mCounts.bronze   || 0} />
           </div>
         </div>
 
@@ -133,7 +136,7 @@ function MyStats({ authUser, progress, onBack }) {
                 >
                   <div className="mystats-level-num">Level {n}</div>
                   <div className="mystats-level-medal">
-                    {cleared ? m[0].toUpperCase() : '—'}
+                    {cleared ? <MedalBadge tier={m} size={32} /> : <span className="mystats-level-medal-empty">—</span>}
                   </div>
                   <div className="mystats-level-stats">
                     <span className="mystats-level-time">{Number.isFinite(t) ? formatTime(t) : '—'}</span>
@@ -183,7 +186,7 @@ function Stat({ label, value, hint }) {
 function MedalTotal({ tier, count }) {
   return (
     <div className={`mystats-medal-pill mystats-medal-pill-${tier}`}>
-      <div className="mystats-medal-letter">{tier[0].toUpperCase()}</div>
+      <MedalBadge tier={tier} size={36} />
       <div className="mystats-medal-count">{count}</div>
       <div className="mystats-medal-tier">{tier}</div>
     </div>

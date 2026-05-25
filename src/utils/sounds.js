@@ -228,6 +228,31 @@ export function playGateUnlock() {
   tone({ freq: 1568, duration: 0.4, type: 'sine', volume: 0.12, delay: 0.4 });
 }
 
+// ===== Potion activation chimes — one per consumable so the player
+// gets clear audio feedback when they fire (or fail to fire) the right
+// key. Each profile is a short, distinct tone signature. =====
+export function playPotionSpeed() {
+  // Bright rising arpeggio — feels fast.
+  [523, 784, 1175].forEach((f, i) => {
+    tone({ freq: f, duration: 0.10, type: 'square', volume: 0.16, delay: i * 0.04 });
+  });
+}
+export function playPotionMagnet() {
+  // Wobble pair — feels magnetic / metallic.
+  tone({ freq: 660, freqEnd: 990, duration: 0.18, type: 'sine', volume: 0.18 });
+  tone({ freq: 990, freqEnd: 660, duration: 0.18, type: 'sine', volume: 0.14, delay: 0.10 });
+}
+export function playPotionGhost() {
+  // Eerie descending whisper — feels ethereal.
+  tone({ freq: 1320, freqEnd: 440, duration: 0.45, type: 'sine', volume: 0.16 });
+  noiseBurst({ duration: 0.4, volume: 0.05, freq: 220, delay: 0.05 });
+}
+// Played when the player presses a potion key with zero in stock.
+export function playPotionEmpty() {
+  tone({ freq: 220, duration: 0.05, type: 'square', volume: 0.10 });
+  tone({ freq: 165, duration: 0.07, type: 'square', volume: 0.08, delay: 0.03 });
+}
+
 // ===== UI sounds (ui channel) =====
 export function playUIClick() {
   tone({ freq: 880, duration: 0.04, type: 'square', volume: 0.08, channel: 'ui' });

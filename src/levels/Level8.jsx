@@ -9,13 +9,16 @@ import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
 import Portal from '../components/Portal';
 import { useRunStats } from '../components/RunStatsContext';
+import { useIsInvisibleNow } from '../components/ConsumablesProvider';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { goalPlatformColor } from '../utils/palette';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
 import { PORTAL_SPAWN_CHANCE, PLAYER_HALF } from '../constants/gameConstants';
 import useRestartOnR from '../hooks/useRestartOnR';
 import useVictoryTimer from '../hooks/useVictoryTimer';
@@ -53,9 +56,8 @@ function buildLevel8() {
   return { blocks, goal: { x: 0, y: 0.5, z: -22 } };
 }
 
-function buildShadowHazards() {
-  // Twice as many spikes — clustered to leave only narrow safe corridors.
-  return [
+function buildShadowHazards(params = {}) {
+  const base = [
     // First section
     { x:  3, y: 0.7, z: 18,  w: 1.6, h: 1.6, d: 1.6 },
     { x: -3, y: 0.7, z: 18,  w: 1.6, h: 1.6, d: 1.6 },
@@ -74,6 +76,18 @@ function buildShadowHazards() {
     { x:  3,   y: 0.7, z: -17, w: 1.6, h: 1.6, d: 1.6 },
     { x: -3,   y: 0.7, z: -17, w: 1.6, h: 1.6, d: 1.6 },
   ];
+  // Phase 3b echo: hazardExtraCount appends additional spikes at the
+  // empty positions in the cluster (closes the remaining safe corridors).
+  const extras = [
+    { x:  0, y: 0.7, z: 18,  w: 1.6, h: 1.6, d: 1.6 },
+    { x:  0, y: 0.7, z: 11,  w: 1.6, h: 1.6, d: 1.6 },
+    { x:  0, y: 0.7, z:  4,  w: 1.6, h: 1.6, d: 1.6 },
+    { x:  0, y: 0.7, z: -10, w: 1.6, h: 1.6, d: 1.6 },
+    { x:  2, y: 0.7, z: -17, w: 1.6, h: 1.6, d: 1.6 },
+    { x: -2, y: 0.7, z: -17, w: 1.6, h: 1.6, d: 1.6 },
+  ];
+  const extraN = Math.min(extras.length, params.hazardExtraCount || 0);
+  return extraN > 0 ? base.concat(extras.slice(0, extraN)) : base;
 }
 
 function ShadowAvatar({ playerPosRef }) {
@@ -129,12 +143,15 @@ const JEWEL_CANDIDATES = candidatesFromBlocks(
   Array.isArray(__l8_fresh) ? __l8_fresh : __l8_fresh.blocks
 );
 
-function Level8({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride }) {
+function Level8({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
   const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
   const sideQuestCompleteRef = useRef(false);
   const START = startPositionOverride || [ 0, 5, 25 ];
+  // Phase 3b: hazardExtraCount fills in extra spikes along the path.
+  const echoMechanic = hardMode ? getEchoMechanic(8) : {};
+  const echoVisual = hardMode ? getEchoVisual(8) : null;
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
@@ -143,7 +160,7 @@ function Level8({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
   const initial = useRef(buildLevel8());
   const blocksRef = useRef(initial.current.blocks);
   const goalRef = useRef(initial.current.goal);
-  const hazardsRef = useRef(buildShadowHazards());
+  const hazardsRef = useRef(buildShadowHazards(echoMechanic));
   const playerPosRef = useRef(START);
 
   const cameraControlRef = useRef(null);
@@ -163,7 +180,7 @@ function Level8({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
     const fresh = buildLevel8();
     blocksRef.current.forEach((b, i) => Object.assign(b, fresh.blocks[i]));
     goalRef.current = fresh.goal;
-    hazardsRef.current = buildShadowHazards();
+    hazardsRef.current = buildShadowHazards(echoMechanic);
     playerPosRef.current = START;
     setPlayerPosition(START);
     setDeathReason('');
@@ -191,13 +208,13 @@ function Level8({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
       <QualityCanvas
         camera={{ position: [0, 18, 45], fov: 60 }}
         style={{
-          background: 'linear-gradient(180deg, #100020 0%, #1c0440 60%, #4a1080 100%)',
+          background: echoVisual?.sky || 'linear-gradient(180deg, #100020 0%, #1c0440 60%, #4a1080 100%)',
           touchAction: 'none',
         }}
       >
-        <fog attach="fog" args={['#1a0830', 45, 200]} />
-        <ambientLight intensity={0.5} />
-        <hemisphereLight args={['#aaddff', '#330055', 0.5]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#1a0830', echoVisual?.fogNear ?? 45, echoVisual?.fogFar ?? 200]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.5} color={echoVisual?.ambientColor || '#ffffff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#aaddff', echoVisual?.hemiBottom || '#330055', echoVisual?.hemiIntensity ?? 0.5]} />
         <directionalLight position={[0, 25, 15]} intensity={1.0} color="#ddccff" />
         {!q.minimalLights && (
           <>
@@ -207,7 +224,7 @@ function Level8({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
         )}
 
         <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <QualitySparkles position={[0, 3, -22]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 3, -22]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color={echoVisual?.sparkleColor || '#ffd966'} />
 
         <InfiniteGrid />
 
@@ -227,6 +244,8 @@ function Level8({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
           candidates={JEWEL_CANDIDATES}
           playerPosRef={playerPosRef}
         />
+
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
 
         {/* L8 side branch: violet stone at (9, 0, -3). Portal faces -X. */}
         {portalSpawned && (
@@ -287,9 +306,11 @@ function Level8({ deathCount, onDeath, onComplete, onPortalEnter, startPositionO
 
 function Level8Sim({ gameState, hazardsRef, playerPosRef, onShadowHit }) {
   const hitRef = useRef(false);
+  const isInvisible = useIsInvisibleNow();
   useFrame(() => {
     if (gameState !== 'playing') { hitRef.current = false; return; }
     if (hitRef.current) return;
+    if (isInvisible()) return;
     const [px, py, pz] = playerPosRef.current;
     const sx = -px, sy = py, sz = pz;
     for (const h of hazardsRef.current) {

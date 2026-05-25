@@ -62,6 +62,12 @@ export const ACHIEVEMENTS = [
   { id: 'speed_demon_3',     name: 'Speed Demon III',     desc: 'Complete Level 3 in under 60s.',                score: 50 },
   // Phase 1 (Tutorial)
   { id: 'tutorial_complete', name: 'First Footing',       desc: 'Clear the Tutorial.',                           score: 10 },
+  // Phase 3 (Echo / Portal route — Platinum + Diamond medals)
+  { id: 'platinum_initiate', name: 'Platinum Initiate',   desc: 'Earn your first Platinum medal.',               score: 100 },
+  { id: 'royal_court',       name: 'Royal Court',         desc: 'Earn Platinum on 5 different levels.',          score: 300 },
+  { id: 'platinum_emperor',  name: 'Platinum Emperor',    desc: 'Earn Platinum on all 10 levels.',               score: 750 },
+  { id: 'diamond_initiate',  name: 'Diamond Initiate',    desc: 'Earn your first Diamond medal.',                score: 150 },
+  { id: 'diamond_emperor',   name: 'Diamond Emperor',     desc: 'Earn Diamond on all 10 levels.',                score: 1000 },
 ];
 
 // Medal point values (per level). Exported so the HUD + RewardScreen can show
@@ -98,7 +104,9 @@ export function computeScore(progress) {
 }
 
 export function medalCounts(progress) {
-  const out = { gold: 0, silver: 0, bronze: 0 };
+  // All five tiers now tracked. Diamond + Platinum live above Gold and
+  // count separately so leaderboards / stats can sort by elite tiers.
+  const out = { diamond: 0, platinum: 0, gold: 0, silver: 0, bronze: 0 };
   for (const m of Object.values(progress?.medals || {})) {
     if (out[m] != null) out[m]++;
   }
@@ -133,7 +141,7 @@ const NO_DEATH_ACHIEVEMENT = {
 //   runStats      { [lvl]: {deaths, time, medal} } accumulated this run incl. current
 //   usedAdmin     whether admin jump was used in this run (gates iron_will / flawless)
 //   alreadyOwned  ids already in the user's persistent set
-export function evaluateLevelComplete({ level, deathsUsed, timeMs, runStats, usedAdmin, alreadyOwned }) {
+export function evaluateLevelComplete({ level, deathsUsed, timeMs, runStats, usedAdmin, alreadyOwned, medal, persistedProgress }) {
   const newly = [];
   const own = new Set(alreadyOwned);
 
@@ -152,6 +160,21 @@ export function evaluateLevelComplete({ level, deathsUsed, timeMs, runStats, use
   // sub-30s achievement when elapsedMs defaulted to 0).
   if (SPEED_THRESHOLDS_MS[level] && timeMs > 0 && timeMs < SPEED_THRESHOLDS_MS[level]) {
     add(`speed_demon_${level}`);
+  }
+
+  // Phase 3 Platinum / Diamond ladder. `medal` is the medal awarded for
+  // THIS clear. We also look at persistedProgress.medals (the historical
+  // best per level) so the count includes this level's just-banked medal
+  // when checking "5 different levels with Platinum", etc.
+  if (medal === 'platinum' || medal === 'diamond') add('platinum_initiate');
+  if (medal === 'diamond') add('diamond_initiate');
+  if (persistedProgress && persistedProgress.medals) {
+    const merged = { ...persistedProgress.medals, [level]: medal };
+    const platinumCount = Object.values(merged).filter(m => m === 'platinum' || m === 'diamond').length;
+    const diamondCount = Object.values(merged).filter(m => m === 'diamond').length;
+    if (platinumCount >= 5)  add('royal_court');
+    if (platinumCount >= 10) add('platinum_emperor');
+    if (diamondCount >= 10)  add('diamond_emperor');
   }
 
   // Run-spanning (only when this is the final level AND no admin jumping)

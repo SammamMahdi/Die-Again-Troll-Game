@@ -8,6 +8,7 @@ import Block from '../components/Block';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
 import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
 import Portal from '../components/Portal';
 import { useRunStats } from '../components/RunStatsContext';
 import { candidatesFromBlocks } from '../utils/jewelCandidates';
@@ -16,6 +17,7 @@ import CameraController from '../components/CameraController';
 import SequenceManager from '../components/SequenceManager';
 import ScenePostFX from '../components/ScenePostFX';
 import { playTeleport } from '../utils/sounds';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
 import { PORTAL_SPAWN_CHANCE } from '../constants/gameConstants';
 import useRestartOnR from '../hooks/useRestartOnR';
 import useVictoryTimer from '../hooks/useVictoryTimer';
@@ -23,12 +25,18 @@ import useTeleportOnRequest from '../hooks/useTeleportOnRequest';
 import usePortalEnter from '../hooks/usePortalEnter';
 import './Level.css';
 
-function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, startPositionOverride }) {
+function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
   // Phase 3 portal — only spawns if player has Gold on this level + is in
   // Hardcore mode (gated upstream). Random ~35% chance per attempt.
   const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
   const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
+  // Phase 3b: in echo, shorten the warning grace between landing on a
+  // stone and the next one vanishing. echoMechanic.vanishDelay overrides
+  // the 2.0s default delay between sequence reveals.
+  const echoMechanic = hardMode ? getEchoMechanic(1) : {};
+  const VANISH_DELAY = echoMechanic.vanishDelay || 2.0;
+  const echoVisual = hardMode ? getEchoVisual(1) : null;
   // Phase 3b: kept around for the legacy "portal touch = sideQuestComplete"
   // fallback when no onPortalEnter handler is supplied (i.e. dev contexts).
   const sideQuestCompleteRef = useRef(false);
@@ -223,7 +231,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, sta
     // Check if player crossed z=12 to trigger sequence
     if (!startTriggered && playerPos[2] < 12) {
       setStartTriggered(true);
-      setVanishTimer(2.0); // 2 second delay before first block appears
+      setVanishTimer(VANISH_DELAY); // echo halves this delay
       setSequenceState(1);
       
       // Hide all middle blocks
@@ -259,11 +267,11 @@ function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, sta
     <div className="level-container">
       <QualityCanvas
         camera={{ position: [30, 20, 40], fov: 60 }}
-        style={{ background: 'linear-gradient(180deg, #05051a 0%, #160c3e 55%, #3a1f6a 100%)', touchAction: 'none' }}
+        style={{ background: echoVisual?.sky || 'linear-gradient(180deg, #05051a 0%, #160c3e 55%, #3a1f6a 100%)', touchAction: 'none' }}
       >
-        <fog attach="fog" args={['#100a26', 45, 200]} />
-        <ambientLight intensity={0.4} />
-        <hemisphereLight args={['#b8c4ff', '#150b30', 0.55]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#100a26', echoVisual?.fogNear ?? 45, echoVisual?.fogFar ?? 200]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.4} color={echoVisual?.ambientColor || '#ffffff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#b8c4ff', echoVisual?.hemiBottom || '#150b30', echoVisual?.hemiIntensity ?? 0.55]} />
         <directionalLight position={[12, 22, 8]} intensity={1.1} color="#dde6ff" />
         {!q.minimalLights && (
           <>
@@ -281,7 +289,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, sta
           scale={[8, 5, 4]}
           size={3.5}
           speed={0.35}
-          color="#ffd966"
+          color={echoVisual?.sparkleColor || '#ffd966'}
         />
 
         <InfiniteGrid />
@@ -333,6 +341,11 @@ function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, sta
           candidates={JEWEL_CANDIDATES}
           playerPosRef={playerPosRef}
         />
+
+        {/* Hardcore-only consumable drop — 25% chance to spawn one
+            random potion (Speed / Magnet / Invisibility) on a level
+            block. No-op outside Hardcore. */}
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocks} playerPosRef={playerPosRef} />
 
         {/* L1: side-branch detour. The portal sits on the violet stone at
             (5, 0, -12) — a sideways hop off the 3rd middle stone (also at

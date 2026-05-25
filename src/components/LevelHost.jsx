@@ -11,10 +11,30 @@ import Level7 from '../levels/Level7';
 import Level8 from '../levels/Level8';
 import Level9 from '../levels/Level9';
 import Level10 from '../levels/Level10';
+// Phase 3b.4 — dedicated Echo Dimension levels with full mechanic +
+// hellish visual implementations. Each Level{N}Echo is a standalone
+// Level component (not a hardMode branch of the main) so radical
+// mechanic changes (reversed sequence, double shadows, 5 pillars, etc.)
+// don't pollute the main levels.
+import Level1Echo from '../levels/echo/Level1Echo';
+import Level2Echo from '../levels/echo/Level2Echo';
+import Level3Echo from '../levels/echo/Level3Echo';
+import Level4Echo from '../levels/echo/Level4Echo';
+import Level5Echo from '../levels/echo/Level5Echo';
+import Level6Echo from '../levels/echo/Level6Echo';
+import Level7Echo from '../levels/echo/Level7Echo';
+import Level8Echo from '../levels/echo/Level8Echo';
+import Level9Echo from '../levels/echo/Level9Echo';
+import Level10Echo from '../levels/echo/Level10Echo';
 
 const LEVEL_COMPONENTS = {
   1: Level1, 2: Level2, 3: Level3, 4: Level4, 5: Level5,
   6: Level6, 7: Level7, 8: Level8, 9: Level9, 10: Level10,
+};
+
+const ECHO_LEVEL_COMPONENTS = {
+  1: Level1Echo, 2: Level2Echo, 3: Level3Echo, 4: Level4Echo, 5: Level5Echo,
+  6: Level6Echo, 7: Level7Echo, 8: Level8Echo, 9: Level9Echo, 10: Level10Echo,
 };
 
 // Derive the main level number from currentScreen. Both `level{n}` and
@@ -65,7 +85,7 @@ function LevelHost({
   if (mainLevelNum == null) return null;
   const echoActive = currentScreen.endsWith('Echo');
   const Main = LEVEL_COMPONENTS[mainLevelNum];
-  const Echo = LEVEL_COMPONENTS[mainLevelNum];
+  const Echo = ECHO_LEVEL_COMPONENTS[mainLevelNum];
 
   return (
     <>
@@ -103,11 +123,11 @@ function LevelHost({
       </div>
 
       {/* Echo overlay — mounted only while currentScreen is an echo.
-          Same Level component inside <EchoLevel> with hardMode + the
-          universal echo framing. Portal is gated off so the player can't
-          recurse. Deaths bail back to main without spending Hardcore
-          tries. */}
-      {echoActive && (
+          Dispatches to the dedicated Level{N}Echo component inside
+          <EchoLevel> for the universal warped-prism framing. Portal is
+          gated off so the player can't recurse. Deaths bail back to main
+          without spending Hardcore tries. */}
+      {echoActive && Echo && (
         <RunStatsProvider
           key={`echo-prov-${mainLevelNum}`}
           runScore={runScore}
@@ -127,7 +147,6 @@ function LevelHost({
               onRestart={onRestart}
               onPortalEnter={() => {}}
               startPositionOverride={null}
-              hardMode
             />
           </EchoLevel>
         </RunStatsProvider>
