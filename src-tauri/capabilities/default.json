@@ -1,12 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions for the main window. shell:allow-open lets the Google sign-in button pop the system browser; deep-link:default lets the dieagain:// callback reach the JS layer once auth completes.",
+  "description": "Permissions for the main window. shell:allow-open lets the Google sign-in button pop the system browser; deep-link:default lets the dieagain:// callback reach the JS layer; core:window:allow-set-fullscreen lets the F11 toggle (utils/fullscreen.js) flip the window into fullscreen.",
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-is-fullscreen",
+    "core:window:allow-unminimize",
+    "core:window:allow-set-focus",
     {
       "identifier": "shell:allow-open",
       "allow": [{ "url": "https://**" }]
