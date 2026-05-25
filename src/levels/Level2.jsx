@@ -408,7 +408,12 @@ function Level2Sim({
       } else if (isMovingRef.current && onGroundRef.current) {
         g.chasing = true;
       }
-      if (!invisible && g.chasing && state === 'RED' && isMovingRef.current) {
+      // Once a globe is armed during a RED phase it KEEPS chasing for the
+      // rest of that phase — standing still no longer freezes the globe.
+      // The "Stillness shields you" rule applies only to the arming step
+      // (line 408 above): if you never move during RED, the globe never
+      // wakes up. Once it does, you have to outrun it or wait for BLUE.
+      if (!invisible && g.chasing && state === 'RED') {
         const dx = px - g.x;
         const dy = py - g.y;
         const dz = pz - g.z;
