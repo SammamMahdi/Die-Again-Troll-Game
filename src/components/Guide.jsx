@@ -145,19 +145,126 @@ export const ABILITY_HINTS = Object.fromEntries(
 const CORE_MECHANICS = [
   { title: 'Movement', detail: 'WASD moves relative to the camera. "Forward" always means whatever way you’re looking.' },
   { title: 'Jumping', detail: 'SPACE jumps from any solid platform. No double-jump.' },
+  { title: 'Roll (ground)', detail: 'Tap C on the ground to roll: shorter hitbox, +30% forward boost, ~0.45s window with ~0.8s cooldown. Pass under low obstacles.' },
+  { title: 'Slam-dive (air)', detail: 'Tap C while airborne to dive forward and downward — useful for closing gaps when a jump is short.' },
   { title: 'Friction', detail: 'Normal blocks slow you quickly. Ice blocks let you slide far past where you wanted to stop.' },
   { title: 'Void death', detail: 'Falling below the world resets you to the level start. The death counter remembers.' },
   { title: 'Shadow projection', detail: 'A faint disc under your pawn shows where you would land if you fell. It fades the higher you jump.' },
   { title: 'Camera', detail: 'Arrow keys or mouse drag rotate the view. The camera follows the pawn at a fixed distance.' },
 ];
 
+const MODES = [
+  {
+    name: 'Tutorial',
+    accent: '#82eaff',
+    desc:
+      'A single short level (L0) that teaches movement, jumping, rolling, restarting, and the void. Always replayable. Clearing it ONCE unlocks Hardcore and Practice — your tutorial-cleared flag is synced to the cloud, so it stays cleared on every device.',
+    rules: [
+      'No medals, no jewels, no achievements (except the one-time First Footing).',
+      'Floating signs label each platform. You cannot fail a tutorial run.',
+      'Required as the gate to the rest of the game.',
+    ],
+  },
+  {
+    name: 'Hardcore',
+    accent: '#ff6677',
+    desc:
+      'The full L1 → L10 campaign with rage-game stakes. You start each level with 3 tries. Die a 3rd time and the run ends — unless you spend an Extra Life from your inventory (you’ll be prompted).',
+    rules: [
+      'Tries reset per level on entry. The tries badge shows ❤×N in the HUD.',
+      'Earning Iron Will and Flawless requires a clean, no-admin Hardcore run.',
+      'Random potion drops can appear on platforms during a Hardcore run — grab them before you finish.',
+      'Echo Dimension portals (Diamond/Platinum route) only appear in Hardcore.',
+      'Run-end shows a shareable Run Summary card with deaths, medals, time, and jewels.',
+    ],
+  },
+  {
+    name: 'Practice',
+    accent: '#a8ffd6',
+    desc:
+      'A level-select grid for grinding individual levels. Unlimited tries, no run penalty. Every level you’ve unlocked through Hardcore is available — plus L1 is always open after the Tutorial.',
+    rules: [
+      'Per-level RewardScreen still fires — medals, points, achievements, jewels all count.',
+      'Iron Will / Flawless / streak-spanning achievements do NOT trigger in Practice.',
+      'No Echo portals, no Diamond/Platinum medals — those belong to Hardcore.',
+      'Best place to grind jewels, hunt speed-run times, or learn a level cleanly.',
+    ],
+  },
+];
+
+const ECHO_NOTES = [
+  'Echo portals only appear in HARDCORE — never in Practice or Tutorial.',
+  'A level becomes Echo-eligible once you have earned Gold (0 deaths) on its main form.',
+  'After that, each Hardcore entry has a chance to spawn a glowing portal somewhere on the level.',
+  'Walk into the portal to be pulled into the Echo Dimension — a thematically distinct, harder reflection of the level (lightning storms, hall of mirrors, gravity wells, etc.).',
+  'You have 3 tries in the Echo. Clearing it earns Platinum on completion of the main level. Cleared Echo + 0 deaths on the main level → Diamond.',
+  'Failing the Echo (3 deaths or pressing Esc) returns you to the main level — you can still finish for Silver/Gold, just no Platinum/Diamond this attempt.',
+  'The portal is OPTIONAL. Skipping it and finishing normally still earns Gold or worse based on your death count.',
+];
+
+const ACHIEVEMENT_CATEGORIES = [
+  {
+    title: 'Onboarding & per-level',
+    items: [
+      'First Steps — Complete Level 1 (any deaths).',
+      'First Footing — Clear the Tutorial.',
+      'Phantom Runner / Red Light Winner / Frost Master / Trust Issues / Pendulum Dancer / Spin Master / Walks in Darkness / Mirror Mind / Storm Walker — Clear L1–L9 with 0 deaths.',
+      'Architect Slayer — Clear L10 with 0 deaths.',
+    ],
+  },
+  {
+    title: 'Speed-run',
+    items: [
+      'Speed Demon I — Clear L1 in under 30 seconds.',
+      'Speed Demon II — Clear L2 in under 45 seconds.',
+      'Speed Demon III — Clear L3 in under 60 seconds.',
+    ],
+  },
+  {
+    title: 'Run-spanning (Hardcore only)',
+    items: [
+      'Iron Will — Complete the full L1 → L10 Hardcore campaign in one run.',
+      'Flawless — Complete L1 → L10 in one Hardcore run with 0 deaths on every level.',
+    ],
+  },
+  {
+    title: 'Echo Dimension mastery',
+    items: [
+      'Platinum Initiate — Earn your first Platinum medal.',
+      'Royal Court — Earn Platinum on 5 different levels.',
+      'Platinum Emperor — Earn Platinum on all 10 levels.',
+      'Diamond Initiate — Earn your first Diamond medal.',
+      'Diamond Emperor — Earn Diamond on all 10 levels.',
+    ],
+  },
+];
+
 const TIPS = [
-  'Press **ESC** anytime to bail to the home screen.',
-  'After clearing a level, **the next level is unlocked** on the start screen. Click "Continue from level".',
-  'Sign in to save your medals to the cloud and **compete on the leaderboard**.',
-  '**Gold medals** require 0 deaths in a level. Silver tolerates a few. Bronze is just for finishing.',
-  '**Iron Will** and **Flawless** need a clean L1→L10 run — admin or level-select jumps disqualify the attempt.',
+  'Press **ESC** anytime to bail to the home screen — your in-run jewels and inventory stay.',
+  'Clearing the **Tutorial** is the gate to Hardcore + Practice. The flag syncs to the cloud once you sign in.',
+  '**Sign in** to save medals, jewels, skins, and consumables to the cloud and compete on the leaderboard.',
+  'Open **Settings** (gear icon) to remap any key, tune audio per channel, and pick a graphics preset.',
+  'Use jewels in the **Shop** for skin colors, crown variants, and consumable potions (Speed, Magnet, Invisibility, Extra Life).',
+  '**Hardcore runs** randomly drop a free potion on one of the level platforms — keep your eyes open.',
+  '**Iron Will** and **Flawless** need a clean L1→L10 Hardcore run — admin jumps disqualify.',
+  '**Echo Dimension portals** are optional. They appear only in Hardcore on levels you’ve already Gold’d — entering one is the only path to Platinum + Diamond.',
+  'The **Roll** (C) under low arches is faster than jumping over them. Roll cooldown is ~0.8s.',
   '**Don’t fear death.** Most levels become readable after a handful of attempts. The death counter is your trophy.',
+];
+
+const MEDAL_TIERS = [
+  { tier: 'Diamond',  desc: 'Echo Dimension cleared AND main level finished with 0 deaths.', points: 300 },
+  { tier: 'Platinum', desc: 'Echo Dimension cleared (any number of deaths in the main level).', points: 200 },
+  { tier: 'Gold',     desc: 'Main level cleared with 0 deaths.', points: 100 },
+  { tier: 'Silver',   desc: 'Main level cleared with only a handful of deaths.', points: 50 },
+  { tier: 'Bronze',   desc: 'Main level cleared — any death count.', points: 20 },
+];
+
+const CONSUMABLES = [
+  { icon: '⚡', name: 'Speed Potion',        desc: 'Press 1: +50% movement speed for 15 seconds. Stacks duration.' },
+  { icon: '🧲', name: 'Jewel Magnet',        desc: 'Press 2: wider jewel pickup radius for 12 seconds.' },
+  { icon: '👻', name: 'Invisibility Potion', desc: 'Press 3: hazards (globes, orbs, pendulums, lasers, walls, spikes) pass through you for 8 seconds.' },
+  { icon: '❤', name: 'Extra Life',           desc: 'Auto-consumed on a 3rd-try death in Hardcore — refills tries to 3 and saves the run.' },
 ];
 
 function Guide({ onBack }) {
@@ -190,18 +297,130 @@ function Guide({ onBack }) {
           </p>
         </section>
 
-        {/* Controls */}
+        {/* Game modes */}
+        <section className="guide-section">
+          <h2 className="guide-section-title">Game modes</h2>
+          <p className="guide-paragraph guide-paragraph-quiet">
+            Three distinct paths through the game. Pick one from the Mode
+            Select screen after clearing the Tutorial.
+          </p>
+          <div className="guide-modes">
+            {MODES.map(m => (
+              <div className="guide-mode" key={m.name} style={{ '--accent': m.accent }}>
+                <div className="guide-mode-name">{m.name}</div>
+                <p className="guide-mode-desc">{m.desc}</p>
+                <ul className="guide-mode-rules">
+                  {m.rules.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Echo Dimensions */}
+        <section className="guide-section">
+          <h2 className="guide-section-title">Echo Dimensions (the portal route)</h2>
+          <p className="guide-paragraph">
+            Behind every main level lives an <strong>Echo Dimension</strong> —
+            a fractured, distinct reflection of that level with harder
+            mechanics and a completely different visual theme. Echo clears
+            are the only path to <strong>Platinum</strong> and <strong>Diamond</strong> medals.
+          </p>
+          <ul className="guide-tip-list">
+            {ECHO_NOTES.map((n, i) => <li key={i}>{n}</li>)}
+          </ul>
+        </section>
+
+        {/* Controls — default bindings; remappable in Settings */}
         <section className="guide-section">
           <h2 className="guide-section-title">Controls</h2>
+          <p className="guide-paragraph guide-paragraph-quiet">
+            Default keybindings shown below. Every key is rebindable in
+            <strong> Settings → Controls</strong>.
+          </p>
           <div className="guide-controls-grid">
             <div className="guide-control"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>Move (relative to camera)</span></div>
-            <div className="guide-control"><kbd>SPACE</kbd><span>Jump (Level 3: also sonar pulse)</span></div>
+            <div className="guide-control"><kbd>SPACE</kbd><span>Jump</span></div>
+            <div className="guide-control"><kbd>C</kbd><span>Roll on ground · slam-dive mid-air</span></div>
             <div className="guide-control"><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd><span>Rotate camera</span></div>
             <div className="guide-control"><kbd>Mouse drag</kbd><span>Rotate camera</span></div>
             <div className="guide-control"><kbd>R</kbd><span>Restart level after dying</span></div>
+            <div className="guide-control"><kbd>1</kbd><span>Speed Potion (if owned)</span></div>
+            <div className="guide-control"><kbd>2</kbd><span>Jewel Magnet (if owned)</span></div>
+            <div className="guide-control"><kbd>3</kbd><span>Invisibility Potion (if owned)</span></div>
             <div className="guide-control"><kbd>Esc</kbd><span>Return to home screen / close modals</span></div>
-            <div className="guide-control"><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd><span>Admin level jump (admin account only)</span></div>
           </div>
+        </section>
+
+        {/* Medal tiers */}
+        <section className="guide-section">
+          <h2 className="guide-section-title">Medals & scoring</h2>
+          <p className="guide-paragraph guide-paragraph-quiet">
+            Every cleared level awards a medal. Diamond and Platinum are
+            unlocked through the Hardcore Echo Dimension portal route.
+          </p>
+          <div className="guide-mech-grid">
+            {MEDAL_TIERS.map(m => (
+              <div className="guide-mech" key={m.tier}>
+                <div className="guide-mech-title">{m.tier} <span style={{ opacity: 0.65, fontSize: '0.85rem' }}>+{m.points} pts</span></div>
+                <div className="guide-mech-detail">{m.desc}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Consumables + shop */}
+        <section className="guide-section">
+          <h2 className="guide-section-title">Shop & consumables</h2>
+          <p className="guide-paragraph guide-paragraph-quiet">
+            Jewels collected during levels are spent in the <strong>Shop</strong>
+            for skins (body colors + crown variants) and consumable potions.
+            Hardcore runs also have a chance to drop one free potion on a
+            random platform — pick it up to add to your inventory.
+          </p>
+          <div className="guide-mech-grid">
+            {CONSUMABLES.map(c => (
+              <div className="guide-mech" key={c.name}>
+                <div className="guide-mech-title">{c.icon} {c.name}</div>
+                <div className="guide-mech-detail">{c.desc}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Achievements */}
+        <section className="guide-section">
+          <h2 className="guide-section-title">Achievements</h2>
+          <p className="guide-paragraph guide-paragraph-quiet">
+            Every cleared milestone awards points and shows on
+            <strong> My Stats</strong>. Run-spanning achievements (Iron Will,
+            Flawless) only count in <strong>Hardcore</strong>.
+          </p>
+          <div className="guide-mech-grid">
+            {ACHIEVEMENT_CATEGORIES.map(cat => (
+              <div className="guide-mech" key={cat.title}>
+                <div className="guide-mech-title">{cat.title}</div>
+                <ul className="guide-ach-list">
+                  {cat.items.map((it, i) => <li key={i}>{it}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Progression + saves */}
+        <section className="guide-section">
+          <h2 className="guide-section-title">Progression & saves</h2>
+          <p className="guide-paragraph">
+            <strong>Tutorial first.</strong> Hardcore + Practice unlock once
+            you clear the Tutorial. Once cleared, the gate stays open across
+            all of your devices (synced via the cloud account).
+          </p>
+          <p className="guide-paragraph">
+            <strong>Tracking.</strong> Open <strong>My Stats</strong> from
+            the start screen to see total score, medal counts across all
+            five tiers, per-level best times, and your full achievement list.
+          </p>
         </section>
 
         {/* Core mechanics */}

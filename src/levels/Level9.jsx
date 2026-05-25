@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import QualityCanvas from '../components/QualityCanvas';
 import QualityStars from '../components/QualityStars';
@@ -9,41 +9,61 @@ import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
+import Portal from '../components/Portal';
+import { useRunStats } from '../components/RunStatsContext';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { playWindGust } from '../utils/sounds';
 import { goalPlatformColor } from '../utils/palette';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
+import { PORTAL_SPAWN_CHANCE } from '../constants/gameConstants';
+import useRestartOnR from '../hooks/useRestartOnR';
+import useVictoryTimer from '../hooks/useVictoryTimer';
+import useTeleportOnRequest from '../hooks/useTeleportOnRequest';
+import usePortalEnter from '../hooks/usePortalEnter';
 import './Level.css';
 
 const COLOR_PATH = [0.7, 0.78, 0.95];
 const JEWEL_HEX  = '#88ddff';                       // wind-sky theme
 const COLOR_GOAL = goalPlatformColor(JEWEL_HEX);    // pale sky-blue goal platform
 
-function buildLevel9() {
+function buildLevel9(params = {}) {
+  const widthMul = params.platformWidthMul || 1;
   const blocks = [];
   // Eased: widened path slightly (2.5 → 3.2) so light gusts don't insta-kill.
   blocks.push({ x: 0, y: 0, z: 25, w: 8, h: 1, d: 6, visible: true, color: [...COLOR_PATH] });
   let z = 18;
   for (let i = 0; i < 8; i++) {
     blocks.push({
-      x: 0, y: 0, z, w: 3.2, h: 1, d: 3.5, visible: true, color: [...COLOR_PATH],
+      x: 0, y: 0, z, w: 3.2 * widthMul, h: 1, d: 3.5, visible: true, color: [...COLOR_PATH],
     });
     z -= 6;
   }
+  // Phase 3 side-branch: violet stone off the +X side at z=0 — mid-route,
+  // outside the wind zones' x extent (zones are w=12 → x range ±6). Place
+  // at x=10 so the player can hop sideways without being blown off.
+  blocks.push({
+    x: 10, y: 0, z: 0, w: 3, h: 1, d: 3,
+    visible: true, color: [0.45, 0.32, 0.6],
+  });
   blocks.push({ x: 0, y: 0, z: -32, w: 10, h: 1, d: 8, visible: true, color: [...COLOR_GOAL], isGoal: true });
   return { blocks, goal: { x: 0, y: 0.5, z: -32 } };
 }
 
-function buildWindZones() {
+function buildWindZones(params = {}) {
+  const forceMul = params.windForceMul || 1;
   // Eased: 5 zones with moderately strong gusts (was ±10/12 → ±7/9). Final
   // diagonal zone keeps its kicker but with a smaller Z component.
   return [
-    { x: 0, y: 0, z: 15,  w: 12, h: 8, d: 8, dirX:  7, dirZ: 0,  freq: 1.7, phase: 0.0 },
-    { x: 0, y: 0, z:  5,  w: 12, h: 8, d: 8, dirX: -8, dirZ: 0,  freq: 1.5, phase: 1.2 },
-    { x: 0, y: 0, z:  -5, w: 12, h: 8, d: 8, dirX:  8, dirZ: 0,  freq: 1.9, phase: 0.6 },
-    { x: 0, y: 0, z: -15, w: 12, h: 8, d: 8, dirX: -9, dirZ: 0,  freq: 1.7, phase: 2.0 },
-    { x: 0, y: 0, z: -25, w: 12, h: 8, d: 8, dirX:  6, dirZ: 4,  freq: 2.0, phase: 0.4 },
+    { x: 0, y: 0, z: 15,  w: 12, h: 8, d: 8, dirX:  7 * forceMul, dirZ: 0,             freq: 1.7, phase: 0.0 },
+    { x: 0, y: 0, z:  5,  w: 12, h: 8, d: 8, dirX: -8 * forceMul, dirZ: 0,             freq: 1.5, phase: 1.2 },
+    { x: 0, y: 0, z:  -5, w: 12, h: 8, d: 8, dirX:  8 * forceMul, dirZ: 0,             freq: 1.9, phase: 0.6 },
+    { x: 0, y: 0, z: -15, w: 12, h: 8, d: 8, dirX: -9 * forceMul, dirZ: 0,             freq: 1.7, phase: 2.0 },
+    { x: 0, y: 0, z: -25, w: 12, h: 8, d: 8, dirX:  6 * forceMul, dirZ: 4 * forceMul, freq: 2.0, phase: 0.4 },
   ];
 }
 
@@ -82,21 +102,36 @@ function WindZoneVisual({ zone }) {
   );
 }
 
-function Level9({ deathCount, onDeath, onComplete }) {
+const __l9_fresh = buildLevel9();
+const JEWEL_CANDIDATES = candidatesFromBlocks(
+  Array.isArray(__l9_fresh) ? __l9_fresh : __l9_fresh.blocks
+);
+
+function Level9({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
+  const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
+  const sideQuestCompleteRef = useRef(false);
+  const START = startPositionOverride || [ 0, 5, 25 ];
+  // Phase 3b: in echo, multiply wind force and shrink platforms.
+  const echoMechanic = hardMode ? getEchoMechanic(9) : {};
+  const echoVisual = hardMode ? getEchoVisual(9) : null;
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
-  const [playerPosition, setPlayerPosition] = useState([0, 5, 25]);
+  const [playerPosition, setPlayerPosition] = useState(START);
 
-  const initial = useRef(buildLevel9());
+  const initial = useRef(buildLevel9(echoMechanic));
   const blocksRef = useRef(initial.current.blocks);
   const goalRef = useRef(initial.current.goal);
-  const zonesRef = useRef(buildWindZones());
-  const playerPosRef = useRef([0, 5, 25]);
+  const zonesRef = useRef(buildWindZones(echoMechanic));
+  const playerPosRef = useRef(START);
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
+
+  useTeleportOnRequest(playerControlRef, teleportRequest);
+  const handlePortalEnterCb = usePortalEnter(onPortalEnter, sideQuestCompleteRef);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -106,24 +141,18 @@ function Level9({ deathCount, onDeath, onComplete }) {
   };
 
   const handleRestart = () => {
-    const fresh = buildLevel9();
+    const fresh = buildLevel9(echoMechanic);
     blocksRef.current.forEach((b, i) => Object.assign(b, fresh.blocks[i]));
     goalRef.current = fresh.goal;
-    zonesRef.current = buildWindZones();
-    playerPosRef.current = [0, 5, 25];
-    setPlayerPosition([0, 5, 25]);
+    zonesRef.current = buildWindZones(echoMechanic);
+    playerPosRef.current = START;
+    setPlayerPosition(START);
     setDeathReason('');
     setGameState('playing');
     setRestartKey(prev => prev + 1);
   };
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key.toLowerCase() === 'r' && gameState === 'dead') handleRestart();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [gameState]); // eslint-disable-line
+  useRestartOnR(gameState, handleRestart);
 
   const handlePlayerUpdate = (pos) => {
     playerPosRef.current = pos;
@@ -136,25 +165,20 @@ function Level9({ deathCount, onDeath, onComplete }) {
     }
   };
 
-  useEffect(() => {
-    if (gameState === 'won') {
-      const t = setTimeout(() => onComplete(), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [gameState, onComplete]);
+  useVictoryTimer(gameState, () => onComplete({ complete: sideQuestCompleteRef.current }));
 
   return (
     <div className="level-container">
       <QualityCanvas
         camera={{ position: [30, 18, 40], fov: 60 }}
         style={{
-          background: 'linear-gradient(180deg, #00141a 0%, #023a4a 60%, #0a6080 100%)',
+          background: echoVisual?.sky || 'linear-gradient(180deg, #00141a 0%, #023a4a 60%, #0a6080 100%)',
           touchAction: 'none',
         }}
       >
-        <fog attach="fog" args={['#0a2a3a', 40, 180]} />
-        <ambientLight intensity={0.5} color="#aaddff" />
-        <hemisphereLight args={['#ccf0ff', '#001830', 0.55]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#0a2a3a', echoVisual?.fogNear ?? 40, echoVisual?.fogFar ?? 180]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.5} color={echoVisual?.ambientColor || '#aaddff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#ccf0ff', echoVisual?.hemiBottom || '#001830', echoVisual?.hemiIntensity ?? 0.55]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} color="#e8f8ff" />
         {!q.minimalLights && (
           <>
@@ -164,7 +188,7 @@ function Level9({ deathCount, onDeath, onComplete }) {
         )}
 
         <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.7} />
-        <QualitySparkles position={[0, 3, -32]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 3, -32]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color={echoVisual?.sparkleColor || '#ffd966'} />
         {/* Whipping wind particles across the level */}
         <QualitySparkles position={[0, 4, -5]} count={120} scale={[20, 8, 50]} size={1.5} speed={2.5} color="#cceeff" />
 
@@ -185,21 +209,40 @@ function Level9({ deathCount, onDeath, onComplete }) {
 
         <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor={JEWEL_HEX} />
 
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
+
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
+
+        {/* L9 side branch: violet stone at (10, 0, 0), outside both the wind
+            zones' x extent and the z-gap between zones. */}
+        {portalSpawned && (
+          <Portal
+            position={[10, 0.5, 0]}
+            rotationY={Math.PI / 2}
+            playerPosRef={playerPosRef}
+            onEnter={handlePortalEnterCb}
+          />
+        )}
+
         <Player
           key={restartKey}
-          startPosition={[0, 5, 25]}
+          startPosition={START}
           blocks={blocksRef.current}
           gate={null}
           onDeath={handlePlayerDeath}
           onWin={() => {}}
           onUpdate={handlePlayerUpdate}
           onGateTrigger={() => {}}
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           mobileControlRef={playerControlRef}
         />
 
         <Level9Sim
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           zonesRef={zonesRef}
           playerPosRef={playerPosRef}
           playerControlRef={playerControlRef}
@@ -213,7 +256,7 @@ function Level9({ deathCount, onDeath, onComplete }) {
       <HUD
         level={9}
         deathCount={deathCount}
-        gameState={gameState}
+        gameState={paused ? 'paused' : gameState}
         deathReason={deathReason}
         onRestart={handleRestart}
       />

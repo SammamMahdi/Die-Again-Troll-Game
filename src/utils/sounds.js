@@ -203,6 +203,18 @@ export function playPillarChime() {
   tone({ freq: 1175, duration: 0.45, type: 'sine', volume: 0.15, delay: 0.1 });
   tone({ freq: 1568, duration: 0.55, type: 'sine', volume: 0.11, delay: 0.2 });
 }
+// Jewel pickup chime — bright arpeggio. Bonus jewels get a longer richer
+// version so they FEEL like a bigger reward than commons.
+export function playJewelPickup(kind = 'common') {
+  if (kind === 'bonus') {
+    tone({ freq: 1175, duration: 0.10, type: 'sine', volume: 0.16 });
+    tone({ freq: 1568, duration: 0.12, type: 'sine', volume: 0.14, delay: 0.05 });
+    tone({ freq: 2093, duration: 0.18, type: 'sine', volume: 0.10, delay: 0.1 });
+  } else {
+    tone({ freq: 1400, duration: 0.06, type: 'sine', volume: 0.12 });
+    tone({ freq: 2100, duration: 0.08, type: 'sine', volume: 0.08, delay: 0.03 });
+  }
+}
 export function playOrbSpawn() {
   tone({ freq: 80, freqEnd: 320, duration: 0.32, type: 'sawtooth', volume: 0.16 });
   tone({ freq: 200, freqEnd: 60, duration: 0.4, type: 'triangle', volume: 0.10, delay: 0.1 });
@@ -214,6 +226,31 @@ export function playGateUnlock() {
   });
   tone({ freq: 1175, duration: 0.5, type: 'sine', volume: 0.16, delay: 0.32 });
   tone({ freq: 1568, duration: 0.4, type: 'sine', volume: 0.12, delay: 0.4 });
+}
+
+// ===== Potion activation chimes — one per consumable so the player
+// gets clear audio feedback when they fire (or fail to fire) the right
+// key. Each profile is a short, distinct tone signature. =====
+export function playPotionSpeed() {
+  // Bright rising arpeggio — feels fast.
+  [523, 784, 1175].forEach((f, i) => {
+    tone({ freq: f, duration: 0.10, type: 'square', volume: 0.16, delay: i * 0.04 });
+  });
+}
+export function playPotionMagnet() {
+  // Wobble pair — feels magnetic / metallic.
+  tone({ freq: 660, freqEnd: 990, duration: 0.18, type: 'sine', volume: 0.18 });
+  tone({ freq: 990, freqEnd: 660, duration: 0.18, type: 'sine', volume: 0.14, delay: 0.10 });
+}
+export function playPotionGhost() {
+  // Eerie descending whisper — feels ethereal.
+  tone({ freq: 1320, freqEnd: 440, duration: 0.45, type: 'sine', volume: 0.16 });
+  noiseBurst({ duration: 0.4, volume: 0.05, freq: 220, delay: 0.05 });
+}
+// Played when the player presses a potion key with zero in stock.
+export function playPotionEmpty() {
+  tone({ freq: 220, duration: 0.05, type: 'square', volume: 0.10 });
+  tone({ freq: 165, duration: 0.07, type: 'square', volume: 0.08, delay: 0.03 });
 }
 
 // ===== UI sounds (ui channel) =====
@@ -289,6 +326,63 @@ function applyAmbientGain() {
   const now = c.currentTime;
   _ambient.gain.gain.cancelScheduledValues(now);
   _ambient.gain.gain.setTargetAtTime(target, now, 0.08);
+}
+
+// ===== Echo Dimension ambient =====
+// A separate slot from `_ambient` so the per-level ambient keeps running
+// underneath the echo glitch tone — and so re-entering an echo doesn't
+// rebuild the per-level bed.
+let _echoAmbient = null;
+
+export function startEchoAmbient() {
+  if (_echoAmbient) return;
+  withRunningCtx((c) => {
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.connect(c.destination);
+
+    // Detuned beating drone (the "wrong dimension" sound) + a high
+    // shimmer that occasionally drifts. Heavy low-pass + reverbless on
+    // purpose — should feel airless, not cinematic.
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1200;
+    lp.Q.value = 0.6;
+
+    const bus = c.createGain();
+    bus.gain.value = 1.0;
+    bus.connect(lp).connect(gain);
+
+    const nodes = [lp, bus];
+    nodes.push(...startOsc(c, bus, { freq: 61.74, type: 'sawtooth', volume: 0.04 }));        // B1 (off-key vs E)
+    nodes.push(...startOsc(c, bus, { freq: 62.40, type: 'sawtooth', volume: 0.035 }));       // ~0.7 Hz beat
+    nodes.push(...startOsc(c, bus, { freq: 932.33, type: 'sine', volume: 0.012, lfoFreq: 0.21, lfoDepth: 18 })); // shimmer with wide LFO
+    nodes.push(...startNoiseBed(c, bus, { duration: 6.0, volume: 0.02, lowpass: 220 }));    // sub-rumble
+
+    _echoAmbient = { gain, nodes };
+
+    // Fade in to a constant volume — quieter than per-level ambient so
+    // the underlying level bed still reads.
+    const target = channelVolume('ambient') * 0.7;
+    const now = c.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setTargetAtTime(target, now, 0.25);
+  });
+}
+
+export function stopEchoAmbient() {
+  if (!_echoAmbient) return;
+  const c = ctx();
+  const now = c ? c.currentTime : 0;
+  try { _echoAmbient.gain.gain.setTargetAtTime(0, now, 0.2); } catch {}
+  const nodes = _echoAmbient.nodes;
+  setTimeout(() => {
+    for (const n of nodes) {
+      try { n.stop && n.stop(); } catch {}
+      try { n.disconnect && n.disconnect(); } catch {}
+    }
+  }, 350);
+  _echoAmbient = null;
 }
 
 export function stopAmbient() {

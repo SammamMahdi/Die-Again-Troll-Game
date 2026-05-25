@@ -290,3 +290,102 @@
   font-size: 1.05rem;
   line-height: 1;
 }
+
+/* ===== Controls (rebindable keys) ===== */
+.settings-controls-hint {
+  font-size: 0.78rem;
+  color: rgba(220, 200, 240, 0.75);
+  margin-bottom: 12px;
+}
+.settings-controls-hint kbd {
+  display: inline-block;
+  background: rgba(80, 30, 130, 0.6);
+  border: 1px solid rgba(160, 100, 220, 0.4);
+  border-radius: 4px;
+  padding: 0 5px;
+  margin: 0 2px;
+  font-size: 0.72rem;
+  font-family: 'Courier New', monospace;
+}
+
+.settings-controls-note {
+  font-size: 0.78rem;
+  color: rgba(220, 200, 240, 0.85);
+  background: rgba(70, 35, 130, 0.28);
+  border: 1px solid rgba(160, 100, 220, 0.28);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 14px;
+  line-height: 1.45;
+}
+.settings-controls-note strong {
+  color: #d9c4ff;
+}
+
+.settings-controls-group {
+  margin-bottom: 12px;
+}
+
+.settings-controls-group-title {
+  font-size: 0.72rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #c89aff;
+  margin-bottom: 6px;
+  opacity: 0.85;
+}
+
+.settings-controls-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  background: rgba(40, 18, 70, 0.42);
+  border: 1px solid rgba(120, 60, 180, 0.2);
+  border-radius: 6px;
+}
+
+.settings-controls-label {
+  font-size: 0.88rem;
+  color: #f0e4ff;
+}
+
+.settings-controls-key {
+  min-width: 96px;
+  padding: 5px 12px;
+  background: rgba(120, 60, 200, 0.32);
+  color: #ffffff;
+  border: 1px solid rgba(180, 120, 240, 0.55);
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.settings-controls-key:hover {
+  background: rgba(160, 100, 240, 0.45);
+  box-shadow: 0 0 8px rgba(200, 120, 255, 0.4);
+}
+
+.settings-controls-key.listening {
+  background: linear-gradient(135deg, rgba(255, 100, 220, 0.6) 0%, rgba(180, 100, 255, 0.6) 100%);
+  border-color: rgba(255, 140, 240, 0.85);
+  box-shadow: 0 0 14px rgba(255, 120, 220, 0.55);
+  animation: settings-controls-pulse 1s ease-in-out infinite;
+}
+
+@keyframes settings-controls-pulse {
+  0%, 100% { transform: scale(1.0); }
+  50%      { transform: scale(1.03); }
+}

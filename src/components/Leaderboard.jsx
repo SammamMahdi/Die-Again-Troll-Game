@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { isCloudEnabled, fetchLeaderboard } from '../firebase';
 import { formatTime, ACHIEVEMENTS } from '../utils/rewards';
+import MedalBadge from './MedalBadge';
 import './Leaderboard.css';
 
 const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -47,10 +48,11 @@ function Leaderboard({ currentUserUid, onBack }) {
         </div>
 
         <div className="leaderboard-legend">
-          <span><strong className="lb-leg-gold">G</strong> = gold medals</span>
-          <span><strong className="lb-leg-silver">S</strong> = silver medals</span>
-          <span><strong className="lb-leg-bronze">B</strong> = bronze medals</span>
-          <span><strong className="lb-leg-deaths">💀</strong> = deaths on best run</span>
+          <span className="lb-leg-item"><MedalBadge tier="diamond"  size={16} /> Diamond</span>
+          <span className="lb-leg-item"><MedalBadge tier="platinum" size={16} /> Platinum</span>
+          <span className="lb-leg-item"><MedalBadge tier="gold"     size={16} /> Gold</span>
+          <span className="lb-leg-item"><MedalBadge tier="silver"   size={16} /> Silver</span>
+          <span className="lb-leg-item"><MedalBadge tier="bronze"   size={16} /> Bronze</span>
         </div>
 
         {loading && <div className="leaderboard-message">Loading…</div>}
@@ -94,9 +96,11 @@ function Leaderboard({ currentUserUid, onBack }) {
                       </div>
                     </div>
                     <div className="lb-medals">
-                      <span className="lb-gold"   title={`${row.medalCounts?.gold ?? 0} gold medals`}>{row.medalCounts?.gold ?? 0}</span>
-                      <span className="lb-silver" title={`${row.medalCounts?.silver ?? 0} silver medals`}>{row.medalCounts?.silver ?? 0}</span>
-                      <span className="lb-bronze" title={`${row.medalCounts?.bronze ?? 0} bronze medals`}>{row.medalCounts?.bronze ?? 0}</span>
+                      <MedalBadge tier="diamond"  size={18} count={row.medalCounts?.diamond  ?? 0} />
+                      <MedalBadge tier="platinum" size={18} count={row.medalCounts?.platinum ?? 0} />
+                      <MedalBadge tier="gold"     size={18} count={row.medalCounts?.gold     ?? 0} />
+                      <MedalBadge tier="silver"   size={18} count={row.medalCounts?.silver   ?? 0} />
+                      <MedalBadge tier="bronze"   size={18} count={row.medalCounts?.bronze   ?? 0} />
                     </div>
                     <div className="lb-score">{row.totalScore ?? 0}</div>
                   </button>
@@ -131,10 +135,8 @@ function ExpandedDetail({ row }) {
                 className={`lb-pip ${m ? `lb-pip-${m}` : 'lb-pip-none'}`}
                 title={m ? `Level ${n}: ${m}` : `Level ${n}: not cleared`}
               >
-                <span className="lb-pip-num">{n}</span>
-                <span className="lb-pip-tier">
-                  {m ? m[0].toUpperCase() : '—'}
-                </span>
+                <span className="lb-pip-num">L{n}</span>
+                {m ? <MedalBadge tier={m} size={22} /> : <span className="lb-pip-tier-empty">—</span>}
               </div>
             );
           })}

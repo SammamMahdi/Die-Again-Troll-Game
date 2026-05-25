@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import QualityCanvas from '../components/QualityCanvas';
 import QualityStars from '../components/QualityStars';
 import QualitySparkles from '../components/QualitySparkles';
@@ -7,15 +7,42 @@ import Player from '../components/Player';
 import Block from '../components/Block';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
+import Portal from '../components/Portal';
+import { useRunStats } from '../components/RunStatsContext';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import SequenceManager from '../components/SequenceManager';
 import ScenePostFX from '../components/ScenePostFX';
 import { playTeleport } from '../utils/sounds';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
+import { PORTAL_SPAWN_CHANCE } from '../constants/gameConstants';
+import useRestartOnR from '../hooks/useRestartOnR';
+import useVictoryTimer from '../hooks/useVictoryTimer';
+import useTeleportOnRequest from '../hooks/useTeleportOnRequest';
+import usePortalEnter from '../hooks/usePortalEnter';
 import './Level.css';
 
-function Level1({ deathCount, onDeath, onComplete, onRestart }) {
+function Level1({ deathCount, onDeath, onComplete, onRestart, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
+  // Phase 3 portal — only spawns if player has Gold on this level + is in
+  // Hardcore mode (gated upstream). Random ~35% chance per attempt.
+  const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
+  // Phase 3b: in echo, shorten the warning grace between landing on a
+  // stone and the next one vanishing. echoMechanic.vanishDelay overrides
+  // the 2.0s default delay between sequence reveals.
+  const echoMechanic = hardMode ? getEchoMechanic(1) : {};
+  const VANISH_DELAY = echoMechanic.vanishDelay || 2.0;
+  const echoVisual = hardMode ? getEchoVisual(1) : null;
+  // Phase 3b: kept around for the legacy "portal touch = sideQuestComplete"
+  // fallback when no onPortalEnter handler is supplied (i.e. dev contexts).
+  const sideQuestCompleteRef = useRef(false);
+  // Start position can be overridden by App.js so the player respawns at
+  // the portal location after returning from an Echo Dimension clear.
+  const START = startPositionOverride || [0, 3, 20];
   const [gameState, setGameState] = useState('playing'); // 'playing', 'dead', 'won'
   const [deathReason, setDeathReason] = useState('');
   const [blocks, setBlocks] = useState([]);
@@ -35,15 +62,19 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   const [reverseVanishIndex, setReverseVanishIndex] = useState(4);
   const [currentBlockIndex, setCurrentBlockIndex] = useState(-1);
   const [restartKey, setRestartKey] = useState(0);
-  const [playerPosition, setPlayerPosition] = useState([0, 3, 20]);
-  
+  const [playerPosition, setPlayerPosition] = useState(START);
+  // Mirror as ref so jewel pickups can poll without forcing a re-render.
+  const playerPosRef = useRef(START);
+
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
-  // (mobile detection removed — PC only)
-  useEffect(() => {
-    return () => {};
-  }, []);
 
+  useTeleportOnRequest(playerControlRef, teleportRequest);
+  const handlePortalEnterCb = usePortalEnter(onPortalEnter, sideQuestCompleteRef);
+
+  // JEWEL_CANDIDATES — derive from the level's static block layout once.
+  // Random-subset spawning happens inside <JewelField>.
+  const JEWEL_CANDIDATES = useMemo(() => candidatesFromBlocks(blocks), [blocks]);
   // Level setup
   const PLANE_SIZE = 20;
   const BLOCK_SIZE = 4;
@@ -72,10 +103,22 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
         x: 0, y: 0, z: currentZ,
         w: BLOCK_SIZE, h: 1, d: BLOCK_SIZE,
         visible: true, // Start visible, will vanish when player triggers
-        index: i, 
+        index: i,
         color: [0.5, 0.5, 0.5]
       };
       blockList.push(block);
+      // Phase 3 side-branch: a stone offset to +X next to the 3rd middle
+      // stone (z=-12). Player jumps SIDEWAYS off the main sequence path
+      // to reach it — that's where the portal sits. Always rendered (so
+      // the player sees the option even without portal eligibility).
+      if (i === 2) {
+        blockList.push({
+          x: 5, y: 0, z: currentZ,
+          w: 3, h: 1, d: 3,
+          visible: true, index: -1,
+          color: [0.45, 0.32, 0.6],   // distinct violet tone hints "different path"
+        });
+      }
       middleList.push(block);
       currentZ -= STEP_SIZE;
     }
@@ -115,18 +158,6 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
     setGameState('won');
   };
   
-  // Add keyboard listener for R key restart
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (e.key.toLowerCase() === 'r' && gameState === 'dead') {
-        handleRestart();
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState, PLANE_SIZE, BLOCK_SIZE, GAP_SIZE, STEP_SIZE]);
 
   const handleRestart = () => {
     // Reset game state
@@ -164,21 +195,29 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
         visible: true, index: i, color: [0.5, 0.5, 0.5]
       };
       blockList.push(block);
+      if (i === 2) {
+        blockList.push({
+          x: 5, y: 0, z: currentZ,
+          w: 3, h: 1, d: 3,
+          visible: true, index: -1,
+          color: [0.45, 0.32, 0.6],
+        });
+      }
       middleList.push(block);
       currentZ -= STEP_SIZE;
     }
-    
+
     const endPlaneZ = currentZ - (GAP_SIZE + PLANE_SIZE / 2 - BLOCK_SIZE / 2);
     blockList.push({
       x: 0, y: 0, z: endPlaneZ,
       w: PLANE_SIZE, h: 1, d: PLANE_SIZE,
       visible: true, index: -1, color: [0.8, 0.8, 0.8]
     });
-    
+
     setBlocks(blockList);
     setMiddleBlocks(middleList);
     setGate({ x: 0, y: 1, z: endPlaneZ, visible: true, floatingAtStart: false });
-    
+
     // Increment restart key to force Player component remount
     setRestartKey(prev => prev + 1);
   };
@@ -186,12 +225,13 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
   // Callback for player position updates
   const handlePlayerUpdate = (playerPos, blockIdx) => {
     setPlayerPosition(playerPos);
+    playerPosRef.current = playerPos;
     setCurrentBlockIndex(blockIdx);
     
     // Check if player crossed z=12 to trigger sequence
     if (!startTriggered && playerPos[2] < 12) {
       setStartTriggered(true);
-      setVanishTimer(2.0); // 2 second delay before first block appears
+      setVanishTimer(VANISH_DELAY); // echo halves this delay
       setSequenceState(1);
       
       // Hide all middle blocks
@@ -220,25 +260,18 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
     }
   };
 
-  // Victory timer
-  useEffect(() => {
-    if (gameState === 'won') {
-      const timer = setTimeout(() => {
-        onComplete();
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [gameState, onComplete]);
+  useRestartOnR(gameState, handleRestart);
+  useVictoryTimer(gameState, () => onComplete({ complete: sideQuestCompleteRef.current }));
 
   return (
     <div className="level-container">
       <QualityCanvas
         camera={{ position: [30, 20, 40], fov: 60 }}
-        style={{ background: 'linear-gradient(180deg, #05051a 0%, #160c3e 55%, #3a1f6a 100%)', touchAction: 'none' }}
+        style={{ background: echoVisual?.sky || 'linear-gradient(180deg, #05051a 0%, #160c3e 55%, #3a1f6a 100%)', touchAction: 'none' }}
       >
-        <fog attach="fog" args={['#100a26', 45, 200]} />
-        <ambientLight intensity={0.4} />
-        <hemisphereLight args={['#b8c4ff', '#150b30', 0.55]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#100a26', echoVisual?.fogNear ?? 45, echoVisual?.fogFar ?? 200]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.4} color={echoVisual?.ambientColor || '#ffffff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#b8c4ff', echoVisual?.hemiBottom || '#150b30', echoVisual?.hemiIntensity ?? 0.55]} />
         <directionalLight position={[12, 22, 8]} intensity={1.1} color="#dde6ff" />
         {!q.minimalLights && (
           <>
@@ -256,7 +289,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
           scale={[8, 5, 4]}
           size={3.5}
           speed={0.35}
-          color="#ffd966"
+          color={echoVisual?.sparkleColor || '#ffd966'}
         />
 
         <InfiniteGrid />
@@ -303,22 +336,48 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
           <Gate position={[gate.x, 0.5, gate.z]} jewelColor="#ffe14a" />
         )}
 
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
+
+        {/* Hardcore-only consumable drop — 25% chance to spawn one
+            random potion (Speed / Magnet / Invisibility) on a level
+            block. No-op outside Hardcore. */}
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocks} playerPosRef={playerPosRef} />
+
+        {/* L1: side-branch detour. The portal sits on the violet stone at
+            (5, 0, -12) — a sideways hop off the 3rd middle stone (also at
+            z=-12). The player must leave the main sequence path mid-route
+            to reach it. rotationY faces the opening toward -X (back toward
+            the main stones), so the player walks INTO the portal from the
+            side block's edge. */}
+        {portalSpawned && (
+          <Portal
+            position={[5, 0.5, -12]}
+            rotationY={Math.PI / 2}
+            playerPosRef={playerPosRef}
+            onEnter={handlePortalEnterCb}
+          />
+        )}
+
         {/* Player */}
         <Player
           key={restartKey}
-          startPosition={[0, 3, 20]}
+          startPosition={START}
           blocks={blocks}
           gate={gate}
           onDeath={handlePlayerDeath}
           onWin={handlePlayerWin}
           onUpdate={handlePlayerUpdate}
           onGateTrigger={handleGateTrigger}
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           mobileControlRef={playerControlRef}
         />
 
         <SequenceManager
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           startTriggered={startTriggered}
           sequenceState={sequenceState}
           setSequenceState={setSequenceState}
@@ -350,7 +409,7 @@ function Level1({ deathCount, onDeath, onComplete, onRestart }) {
       <HUD
         level={1}
         deathCount={deathCount}
-        gameState={gameState}
+        gameState={paused ? 'paused' : gameState}
         deathReason={deathReason}
         onRestart={handleRestart}
       />

@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { matches } from '../utils/controls';
 
 const CAM_DIST = 40.0;
 const CAM_YAW = 90.0; // degrees
@@ -32,20 +33,21 @@ function CameraController({ target, cameraControlRef }) {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Arrow keys to rotate camera (same as Python version)
+      // Rotate camera via the rebindable Camera bindings (default
+      // ← / → / ↑ / ↓). matches() handles the key-string normalization.
       const rotSpeed = 2.0;
-      if (e.key === 'ArrowLeft') {
+      if (matches(e.key, 'camLeft')) {
         yawRef.current -= rotSpeed;
         cameraYawRef.current = yawRef.current;
       }
-      if (e.key === 'ArrowRight') {
+      if (matches(e.key, 'camRight')) {
         yawRef.current += rotSpeed;
         cameraYawRef.current = yawRef.current;
       }
-      if (e.key === 'ArrowUp') {
+      if (matches(e.key, 'camUp')) {
         pitchRef.current = Math.min(89, pitchRef.current + rotSpeed);
       }
-      if (e.key === 'ArrowDown') {
+      if (matches(e.key, 'camDown')) {
         pitchRef.current = Math.max(-89, pitchRef.current - rotSpeed);
       }
     };

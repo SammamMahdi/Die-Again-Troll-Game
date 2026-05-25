@@ -6,11 +6,13 @@ const STORAGE_KEY = 'die-again-rewards-v1';
 
 // ----- Medals -----
 // "Best medal achieved" per level. The thresholds tell us, at completion
-// time, which medal the run earned based on deaths used.
+// time, which medal the run earned based on deaths used + Phase 3 side-quest.
 //
-// gold:   deaths <= gold threshold
-// silver: deaths <= silver threshold
-// bronze: any completion (you have to die a lot to be human about it)
+// diamond:  deaths == 0 AND side-quest cleared (Hardcore portal route)
+// platinum: side-quest cleared (any death count)
+// gold:     deaths <= gold threshold
+// silver:   deaths <= silver threshold
+// bronze:   any completion (you have to die a lot to be human about it)
 export const MEDAL_THRESHOLDS = {
   1:  { gold: 0, silver: 2 },
   2:  { gold: 0, silver: 2 },
@@ -24,11 +26,16 @@ export const MEDAL_THRESHOLDS = {
   10: { gold: 0, silver: 5 },
 };
 
-export const MEDAL_RANK = { none: 0, bronze: 1, silver: 2, gold: 3 };
+export const MEDAL_RANK = { none: 0, bronze: 1, silver: 2, gold: 3, platinum: 4, diamond: 5 };
 
-export function getMedal(levelNumber, deathsUsed) {
+export function getMedal(levelNumber, deathsUsed, sideQuestComplete = false) {
   const t = MEDAL_THRESHOLDS[levelNumber];
   if (!t) return 'bronze';
+  // Diamond: side-quest cleared AND clean main-level run (0 deaths).
+  if (deathsUsed <= t.gold && sideQuestComplete) return 'diamond';
+  // Platinum: side-quest cleared, regardless of deaths in the main level.
+  if (sideQuestComplete) return 'platinum';
+  // Gold/Silver/Bronze: existing death-based ladder for clean runs.
   if (deathsUsed <= t.gold) return 'gold';
   if (deathsUsed <= t.silver) return 'silver';
   return 'bronze';
@@ -53,21 +60,34 @@ export const ACHIEVEMENTS = [
   { id: 'speed_demon_1',     name: 'Speed Demon I',       desc: 'Complete Level 1 in under 30s.',                score: 50 },
   { id: 'speed_demon_2',     name: 'Speed Demon II',      desc: 'Complete Level 2 in under 45s.',                score: 50 },
   { id: 'speed_demon_3',     name: 'Speed Demon III',     desc: 'Complete Level 3 in under 60s.',                score: 50 },
+  // Phase 1 (Tutorial)
+  { id: 'tutorial_complete', name: 'First Footing',       desc: 'Clear the Tutorial.',                           score: 10 },
+  // Phase 3 (Echo / Portal route — Platinum + Diamond medals)
+  { id: 'platinum_initiate', name: 'Platinum Initiate',   desc: 'Earn your first Platinum medal.',               score: 100 },
+  { id: 'royal_court',       name: 'Royal Court',         desc: 'Earn Platinum on 5 different levels.',          score: 300 },
+  { id: 'platinum_emperor',  name: 'Platinum Emperor',    desc: 'Earn Platinum on all 10 levels.',               score: 750 },
+  { id: 'diamond_initiate',  name: 'Diamond Initiate',    desc: 'Earn your first Diamond medal.',                score: 150 },
+  { id: 'diamond_emperor',   name: 'Diamond Emperor',     desc: 'Earn Diamond on all 10 levels.',                score: 1000 },
 ];
 
 // Medal point values (per level). Exported so the HUD + RewardScreen can show
 // "+100 (Gold medal)" lines without re-deriving the table.
-export const MEDAL_POINTS = { gold: 100, silver: 50, bronze: 20, none: 0 };
+// Platinum: side-quest cleared, partial credit for finding + clearing the
+//           Hardcore portal even if the main level had deaths.
+// Diamond:  side-quest AND a clean main level — perfection bar.
+export const MEDAL_POINTS = { diamond: 300, platinum: 200, gold: 100, silver: 50, bronze: 20, none: 0 };
 
 /**
  * Compute total score for a progress object.
- *   Sum of medal points (10 levels × up to 100 = 1000) + achievement points.
+ *   Sum of medal points (10 levels × up to 300 = 3000) + achievement points.
  *
  * Achievement maximum = 25 (first_steps) + 9×25 (per-level no-deaths L1–L9)
  *                     + 50 (architect_slayer / L10 no-deaths) + 250 (iron_will)
  *                     + 500 (flawless) + 3×50 (speed_demon_1..3) = 1200.
  *
- * Theoretical max ≈ 1000 (medals) + 1200 (achievements) = 2200.
+ * Theoretical max (after Diamond tier in Phase 3) ≈ 3000 (medals) +
+ * 1200 (achievements baseline) = 4200, plus whatever the Phase 4
+ * achievement expansion adds.
  */
 export function computeScore(progress) {
   if (!progress) return 0;
@@ -84,7 +104,9 @@ export function computeScore(progress) {
 }
 
 export function medalCounts(progress) {
-  const out = { gold: 0, silver: 0, bronze: 0 };
+  // All five tiers now tracked. Diamond + Platinum live above Gold and
+  // count separately so leaderboards / stats can sort by elite tiers.
+  const out = { diamond: 0, platinum: 0, gold: 0, silver: 0, bronze: 0 };
   for (const m of Object.values(progress?.medals || {})) {
     if (out[m] != null) out[m]++;
   }
@@ -119,7 +141,7 @@ const NO_DEATH_ACHIEVEMENT = {
 //   runStats      { [lvl]: {deaths, time, medal} } accumulated this run incl. current
 //   usedAdmin     whether admin jump was used in this run (gates iron_will / flawless)
 //   alreadyOwned  ids already in the user's persistent set
-export function evaluateLevelComplete({ level, deathsUsed, timeMs, runStats, usedAdmin, alreadyOwned }) {
+export function evaluateLevelComplete({ level, deathsUsed, timeMs, runStats, usedAdmin, alreadyOwned, medal, persistedProgress }) {
   const newly = [];
   const own = new Set(alreadyOwned);
 
@@ -138,6 +160,21 @@ export function evaluateLevelComplete({ level, deathsUsed, timeMs, runStats, use
   // sub-30s achievement when elapsedMs defaulted to 0).
   if (SPEED_THRESHOLDS_MS[level] && timeMs > 0 && timeMs < SPEED_THRESHOLDS_MS[level]) {
     add(`speed_demon_${level}`);
+  }
+
+  // Phase 3 Platinum / Diamond ladder. `medal` is the medal awarded for
+  // THIS clear. We also look at persistedProgress.medals (the historical
+  // best per level) so the count includes this level's just-banked medal
+  // when checking "5 different levels with Platinum", etc.
+  if (medal === 'platinum' || medal === 'diamond') add('platinum_initiate');
+  if (medal === 'diamond') add('diamond_initiate');
+  if (persistedProgress && persistedProgress.medals) {
+    const merged = { ...persistedProgress.medals, [level]: medal };
+    const platinumCount = Object.values(merged).filter(m => m === 'platinum' || m === 'diamond').length;
+    const diamondCount = Object.values(merged).filter(m => m === 'diamond').length;
+    if (platinumCount >= 5)  add('royal_court');
+    if (platinumCount >= 10) add('platinum_emperor');
+    if (diamondCount >= 10)  add('diamond_emperor');
   }
 
   // Run-spanning (only when this is the final level AND no admin jumping)
@@ -163,6 +200,7 @@ const EMPTY = {
   totalRuns: 0,
   totalCompletes: 0,
   lastRun: null,    // { date, totals, perLevel }
+  tutorialComplete: false,   // Phase 1: set once Level 0 is cleared.
 };
 
 export function loadProgress() {
@@ -203,6 +241,24 @@ export function recordLevelComplete({ level, deathsUsed, timeMs, medal, newlyUnl
   }
   saveProgress(prog);
   return prog;
+}
+
+// Mark the tutorial complete (idempotent). Awards the `tutorial_complete`
+// achievement if it isn't already owned. Returns the updated progress object
+// + the array of newly-unlocked achievements (so the caller can show the
+// reward screen). Does NOT touch medals / bestTimes / bestDeaths.
+export function recordTutorialComplete() {
+  const prog = loadProgress();
+  const newly = [];
+  if (!prog.tutorialComplete) {
+    prog.tutorialComplete = true;
+    if (!prog.achievements.includes('tutorial_complete')) {
+      prog.achievements.push('tutorial_complete');
+      newly.push('tutorial_complete');
+    }
+    saveProgress(prog);
+  }
+  return { progress: prog, newlyUnlocked: newly };
 }
 
 // Sum the points a player earned from one level completion. Used by the HUD

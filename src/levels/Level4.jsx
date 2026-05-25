@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import QualityCanvas from '../components/QualityCanvas';
 import QualityStars from '../components/QualityStars';
@@ -8,11 +8,22 @@ import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
+import Portal from '../components/Portal';
+import { useRunStats } from '../components/RunStatsContext';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { playFall, playLaunch, playWarning } from '../utils/sounds';
 import { goalPlatformColor } from '../utils/palette';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
+import { PORTAL_SPAWN_CHANCE } from '../constants/gameConstants';
+import useRestartOnR from '../hooks/useRestartOnR';
+import useVictoryTimer from '../hooks/useVictoryTimer';
+import useTeleportOnRequest from '../hooks/useTeleportOnRequest';
+import usePortalEnter from '../hooks/usePortalEnter';
 import './Level.css';
 
 // Block "types" — matches level4.py
@@ -101,24 +112,70 @@ function buildLevel4() {
     [0, -70, T_GOAL, 10, 1, 10],  // end goal platform
   ];
 
-  return layout.map(([x, z, type, w, h, d]) => makeBlock({ x, z, type, w, h, d }));
+  const out = layout.map(([x, z, type, w, h, d]) => makeBlock({ x, z, type, w, h, d }));
+  // Phase 3 side-branch: a violet stepping stone way off the main weave at
+  // x=-14, z=-12. Reachable by jumping sideways from the (-6, -12) SAFE
+  // block. Portal sits here. Built manually so it doesn't roll the disguised-
+  // trapdoor RNG and so its color stays violet.
+  out.push({
+    type: T_SAFE,
+    displayType: T_SAFE,
+    isDisguised: false,
+    x: -14, y: 0, z: -12,
+    startX: -14, startY: 0, startZ: -12,
+    w: 3, h: 1, d: 3,
+    visible: true,
+    solid: true,
+    isLauncher: false,
+    isTrapdoor: false,
+    isIllusion: false,
+    isGoal: false,
+    color: [0.45, 0.32, 0.6],
+    stepped: false,
+    fallTimer: 999,
+    warning: false,
+    falling: false,
+    fallSpeed: 0,
+    launchVx: 0,
+    launchVy: 0,
+    launchVz: 0,
+    blinkTimer: 0,
+  });
+  return out;
 }
 
 const GATE = { x: 0, y: 0.5, z: -70 };
 
-function Level4({ deathCount, onDeath, onComplete }) {
+const __l4_fresh = buildLevel4();
+const JEWEL_CANDIDATES = candidatesFromBlocks(
+  Array.isArray(__l4_fresh) ? __l4_fresh : __l4_fresh.blocks
+);
+
+function Level4({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
+  const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
+  const sideQuestCompleteRef = useRef(false);
+  // Phase 3b: disableLaunchers removes the shortcut-launch behaviour so
+  // the player has to traverse every betrayal-platform the slow way.
+  const echoMechanic = hardMode ? getEchoMechanic(4) : {};
+  const launchersDisabled = !!echoMechanic.disableLaunchers;
+  const echoVisual = hardMode ? getEchoVisual(4) : null;
+  const START = startPositionOverride || [ 0, 5, 40 ];
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
-  const [playerPosition, setPlayerPosition] = useState([0, 5, 40]);
+  const [playerPosition, setPlayerPosition] = useState(START);
 
   const blocksRef = useRef(buildLevel4());
-  const playerPosRef = useRef([0, 5, 40]);
+  const playerPosRef = useRef(START);
   const prevBlockIdxRef = useRef(-1);
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
+
+  useTeleportOnRequest(playerControlRef, teleportRequest);
+  const handlePortalEnterCb = usePortalEnter(onPortalEnter, sideQuestCompleteRef);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -136,20 +193,14 @@ function Level4({ deathCount, onDeath, onComplete }) {
       blocksRef.current = fresh;
     }
     prevBlockIdxRef.current = -1;
-    playerPosRef.current = [0, 5, 40];
-    setPlayerPosition([0, 5, 40]);
+    playerPosRef.current = START;
+    setPlayerPosition(START);
     setDeathReason('');
     setGameState('playing');
     setRestartKey(prev => prev + 1);
   };
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key.toLowerCase() === 'r' && gameState === 'dead') handleRestart();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [gameState]); // eslint-disable-line
+  useRestartOnR(gameState, handleRestart);
 
   const handlePlayerUpdate = (pos, blockIdx) => {
     playerPosRef.current = pos;
@@ -174,8 +225,8 @@ function Level4({ deathCount, onDeath, onComplete }) {
       if (cur) {
         // Trapdoor: start fall timer on first step
         if (cur.isTrapdoor) cur.stepped = true;
-        // Launcher: launch immediately on transition
-        if (cur.isLauncher && playerControlRef.current?.setLaunch) {
+        // Launcher: launch immediately on transition (echo disables it).
+        if (cur.isLauncher && !launchersDisabled && playerControlRef.current?.setLaunch) {
           playerControlRef.current.setLaunch(cur.launchVx, cur.launchVy, cur.launchVz);
           playLaunch();
         }
@@ -186,25 +237,20 @@ function Level4({ deathCount, onDeath, onComplete }) {
     }
   };
 
-  useEffect(() => {
-    if (gameState === 'won') {
-      const t = setTimeout(() => onComplete(), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [gameState, onComplete]);
+  useVictoryTimer(gameState, () => onComplete({ complete: sideQuestCompleteRef.current }));
 
   return (
     <div className="level-container">
       <QualityCanvas
         camera={{ position: [30, 20, 50], fov: 60 }}
         style={{
-          background: 'linear-gradient(180deg, #050018 0%, #1a0530 55%, #3a0050 100%)',
+          background: echoVisual?.sky || 'linear-gradient(180deg, #050018 0%, #1a0530 55%, #3a0050 100%)',
           touchAction: 'none',
         }}
       >
-        <fog attach="fog" args={['#150528', 45, 200]} />
-        <ambientLight intensity={0.45} />
-        <hemisphereLight args={['#a0a0ff', '#2a0030', 0.55]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#150528', echoVisual?.fogNear ?? 45, echoVisual?.fogFar ?? 200]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.45} color={echoVisual?.ambientColor || '#ffffff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#a0a0ff', echoVisual?.hemiBottom || '#2a0030', echoVisual?.hemiIntensity ?? 0.55]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} />
         {!q.minimalLights && (
           <>
@@ -214,7 +260,7 @@ function Level4({ deathCount, onDeath, onComplete }) {
         )}
 
         <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <QualitySparkles position={[0, 4, -70]} count={30} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 4, -70]} count={30} scale={[8, 5, 4]} size={2.2} speed={0.3} color={echoVisual?.sparkleColor || '#ffd966'} />
 
         <InfiniteGrid />
 
@@ -237,21 +283,40 @@ function Level4({ deathCount, onDeath, onComplete }) {
 
         <Gate position={[GATE.x, GATE.y, GATE.z]} jewelColor={JEWEL_HEX} />
 
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
+
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
+
+        {/* L4 side branch: violet stone at (-14, 0, -12), far off the main
+            weave. Portal faces +X back toward the main path. */}
+        {portalSpawned && (
+          <Portal
+            position={[-14, 0.5, -12]}
+            rotationY={-Math.PI / 2}
+            playerPosRef={playerPosRef}
+            onEnter={handlePortalEnterCb}
+          />
+        )}
+
         <Player
           key={restartKey}
-          startPosition={[0, 5, 40]}
+          startPosition={START}
           blocks={blocksRef.current}
           gate={null}
           onDeath={handlePlayerDeath}
           onWin={() => {}}
           onUpdate={handlePlayerUpdate}
           onGateTrigger={() => {}}
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           mobileControlRef={playerControlRef}
         />
 
         <Level4Sim
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           blocksRef={blocksRef}
         />
 
@@ -263,7 +328,7 @@ function Level4({ deathCount, onDeath, onComplete }) {
       <HUD
         level={4}
         deathCount={deathCount}
-        gameState={gameState}
+        gameState={paused ? 'paused' : gameState}
         deathReason={deathReason}
         onRestart={handleRestart}
       />

@@ -3,7 +3,8 @@ import { formatTime, getAchievementById, MEDAL_POINTS } from '../utils/rewards';
 import './RewardScreen.css';
 
 function RewardScreen({ data, onContinue }) {
-  // data: { level, deaths, time, medal, newlyUnlocked, pointsEarned, runScoreAfter, isFinal, runStats }
+  // data: { level, deaths, time, medal, newlyUnlocked, pointsEarned,
+  //         runScoreAfter, isFinal, runStats, sideQuestComplete }
   const [revealAchievements, setRevealAchievements] = useState(false);
   const medalPoints = MEDAL_POINTS[data.medal] || 0;
   const newlyUnlocked = data.newlyUnlocked || [];
@@ -40,7 +41,10 @@ function RewardScreen({ data, onContinue }) {
           <div className="medal-ring" />
           <div className="medal-core">
             <span className="medal-letter">
-              {data.medal === 'gold' ? 'G' : data.medal === 'silver' ? 'S' : 'B'}
+              {data.medal === 'diamond' ? 'D'
+                : data.medal === 'platinum' ? 'P'
+                : data.medal === 'gold' ? 'G'
+                : data.medal === 'silver' ? 'S' : 'B'}
             </span>
           </div>
           <div className="medal-tier">{data.medal.toUpperCase()}</div>
@@ -56,6 +60,18 @@ function RewardScreen({ data, onContinue }) {
             <div className="stat-value">{formatTime(data.time)}</div>
           </div>
         </div>
+
+        {/* Side-quest result line — shown when the player entered + cleared
+            the Hardcore portal (Phase 3 side-quest mechanic). */}
+        {data.sideQuestComplete && (
+          <div className="reward-quest reward-quest-done">
+            <span className="reward-quest-tag">PORTAL CLEARED</span>
+            <span className="reward-quest-name">Side-quest completed</span>
+            <span className="reward-quest-result">
+              {data.medal === 'diamond' ? '✦ DIAMOND' : '✓ Platinum'}
+            </span>
+          </div>
+        )}
 
         {/* Points breakdown — medal + each newly-unlocked achievement, with a
             total earned this level and the resulting run-total readout. */}

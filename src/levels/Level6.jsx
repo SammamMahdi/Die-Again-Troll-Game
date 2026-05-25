@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import QualityCanvas from '../components/QualityCanvas';
 import QualityStars from '../components/QualityStars';
@@ -9,19 +9,31 @@ import Player from '../components/Player';
 import AnimatedBlock from '../components/AnimatedBlock';
 import Gate from '../components/Gate';
 import InfiniteGrid from '../components/InfiniteGrid';
+import JewelField from '../components/JewelField';
+import HardcoreDrop from '../components/HardcoreDrop';
+import Portal from '../components/Portal';
+import { useRunStats } from '../components/RunStatsContext';
+import { useIsInvisibleNow } from '../components/ConsumablesProvider';
+import { candidatesFromBlocks } from '../utils/jewelCandidates';
 import HUD from '../components/HUD';
 import CameraController from '../components/CameraController';
 import ScenePostFX from '../components/ScenePostFX';
 import { goalPlatformColor } from '../utils/palette';
+import { getEchoMechanic, getEchoVisual } from '../utils/echoThemes';
+import { PORTAL_SPAWN_CHANCE, PLAYER_HALF } from '../constants/gameConstants';
+import useRestartOnR from '../hooks/useRestartOnR';
+import useVictoryTimer from '../hooks/useVictoryTimer';
+import useTeleportOnRequest from '../hooks/useTeleportOnRequest';
+import usePortalEnter from '../hooks/usePortalEnter';
 import './Level.css';
 
-const PLAYER_HALF = 0.5;
 const COLOR_DISC  = [0.55, 0.6, 0.95];
 const COLOR_BRIDGE = [0.7, 0.7, 0.85];
 const JEWEL_HEX   = '#ff3366';                       // rotating-disc red-pink theme
 const COLOR_GOAL  = goalPlatformColor(JEWEL_HEX);    // pastel-pink goal platform
 
-function buildLevel6() {
+function buildLevel6(params = {}) {
+  const ds = params.discSpeedMul || 1;
   // Pattern: start → small bridge → DISC → bridge → DISC → bridge → DISC → bridge → GOAL
   // Discs are square hitboxes for our collision system but rendered as cylinders.
   const blocks = [];
@@ -35,15 +47,22 @@ function buildLevel6() {
   // Disc 1 — gentle spin
   blocks.push({
     x: 0, y: 0, z: 5, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_DISC],
-    isDisc: true, rotateSpeed: 0.65, radius: 4,
+    isDisc: true, rotateSpeed: 0.65 * ds, radius: 4,
   });
 
   blocks.push({ x: 0, y: 0, z: -5, w: 3.5, h: 1, d: 3.5, visible: true, color: [...COLOR_BRIDGE] });
 
+  // Phase 3 side-branch: violet stone at (8, 0, -5), sideways jump off the
+  // mid-route bridge. Safely outside the disc and laser sweep zones.
+  blocks.push({
+    x: 8, y: 0, z: -5, w: 3, h: 1, d: 3,
+    visible: true, color: [0.45, 0.32, 0.6],
+  });
+
   // Disc 2 — counter-clockwise, moderate
   blocks.push({
     x: 0, y: 0, z: -15, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_DISC],
-    isDisc: true, rotateSpeed: -0.95, radius: 4,
+    isDisc: true, rotateSpeed: -0.95 * ds, radius: 4,
   });
 
   blocks.push({ x: 0, y: 0, z: -25, w: 3.5, h: 1, d: 3.5, visible: true, color: [...COLOR_BRIDGE] });
@@ -51,7 +70,7 @@ function buildLevel6() {
   // Disc 3 — the fastest, but still readable
   blocks.push({
     x: 0, y: 0, z: -35, w: 8, h: 1, d: 8, visible: true, color: [...COLOR_DISC],
-    isDisc: true, rotateSpeed: 1.15, radius: 4,
+    isDisc: true, rotateSpeed: 1.15 * ds, radius: 4,
   });
 
   blocks.push({ x: 0, y: 0, z: -45, w: 3.5, h: 1, d: 3.5, visible: true, color: [...COLOR_BRIDGE] });
@@ -66,17 +85,15 @@ function buildLevel6() {
   return { blocks, goal: { x: 0, y: 0.5, z: goalZ } };
 }
 
-function buildLasers() {
-  // Two beams per emitter (180° apart) but slower sweeps so you have time to
-  // commit to a step between them. Thinner beam radius gives a little more
-  // wiggle-room too.
+function buildLasers(params = {}) {
+  const ls = params.laserSpeedMul || 1;
   return [
-    { origin: [0, 2, 5],   length: 10, speed: 0.8,  phase: 0.0,           thickness: 0.38 },
-    { origin: [0, 2, 5],   length: 10, speed: 0.8,  phase: Math.PI,       thickness: 0.38 },
-    { origin: [0, 2, -15], length: 10, speed: -1.0, phase: 1.2,           thickness: 0.38 },
-    { origin: [0, 2, -15], length: 10, speed: -1.0, phase: 1.2 + Math.PI, thickness: 0.38 },
-    { origin: [0, 2, -35], length: 10, speed: 0.95, phase: 0.5,           thickness: 0.38 },
-    { origin: [0, 2, -35], length: 10, speed: 0.95, phase: 0.5 + Math.PI, thickness: 0.38 },
+    { origin: [0, 2, 5],   length: 10, speed:  0.8 * ls, phase: 0.0,           thickness: 0.38 },
+    { origin: [0, 2, 5],   length: 10, speed:  0.8 * ls, phase: Math.PI,       thickness: 0.38 },
+    { origin: [0, 2, -15], length: 10, speed: -1.0 * ls, phase: 1.2,           thickness: 0.38 },
+    { origin: [0, 2, -15], length: 10, speed: -1.0 * ls, phase: 1.2 + Math.PI, thickness: 0.38 },
+    { origin: [0, 2, -35], length: 10, speed: 0.95 * ls, phase: 0.5,           thickness: 0.38 },
+    { origin: [0, 2, -35], length: 10, speed: 0.95 * ls, phase: 0.5 + Math.PI, thickness: 0.38 },
   ];
 }
 
@@ -161,21 +178,35 @@ function DiscVisual({ block }) {
   );
 }
 
-function Level6({ deathCount, onDeath, onComplete }) {
+const __l6_fresh = buildLevel6();
+const JEWEL_CANDIDATES = candidatesFromBlocks(
+  Array.isArray(__l6_fresh) ? __l6_fresh : __l6_fresh.blocks
+);
+
+function Level6({ deathCount, onDeath, onComplete, onPortalEnter, startPositionOverride, hardMode }) {
   const q = useGraphics();
+  const { portalEligible, portalAlwaysSpawn, paused, teleportRequest } = useRunStats();
+  const [portalSpawned] = useState(() => portalEligible && (portalAlwaysSpawn || Math.random() < PORTAL_SPAWN_CHANCE));
+  const sideQuestCompleteRef = useRef(false);
+  const START = startPositionOverride || [ 0, 5, 25 ];
+  const echoMechanic = hardMode ? getEchoMechanic(6) : {};
+  const echoVisual = hardMode ? getEchoVisual(6) : null;
   const [gameState, setGameState] = useState('playing');
   const [deathReason, setDeathReason] = useState('');
   const [restartKey, setRestartKey] = useState(0);
-  const [playerPosition, setPlayerPosition] = useState([0, 5, 25]);
+  const [playerPosition, setPlayerPosition] = useState(START);
 
-  const initial = useRef(buildLevel6());
+  const initial = useRef(buildLevel6(echoMechanic));
   const blocksRef = useRef(initial.current.blocks);
   const goalRef = useRef(initial.current.goal);
-  const lasersRef = useRef(buildLasers());
-  const playerPosRef = useRef([0, 5, 25]);
+  const lasersRef = useRef(buildLasers(echoMechanic));
+  const playerPosRef = useRef(START);
 
   const cameraControlRef = useRef(null);
   const playerControlRef = useRef(null);
+
+  useTeleportOnRequest(playerControlRef, teleportRequest);
+  const handlePortalEnterCb = usePortalEnter(onPortalEnter, sideQuestCompleteRef);
 
   const handlePlayerDeath = (reason) => {
     if (gameState !== 'playing') return;
@@ -185,24 +216,18 @@ function Level6({ deathCount, onDeath, onComplete }) {
   };
 
   const handleRestart = () => {
-    const fresh = buildLevel6();
+    const fresh = buildLevel6(echoMechanic);
     blocksRef.current.forEach((b, i) => Object.assign(b, fresh.blocks[i]));
     goalRef.current = fresh.goal;
-    lasersRef.current = buildLasers();
-    playerPosRef.current = [0, 5, 25];
-    setPlayerPosition([0, 5, 25]);
+    lasersRef.current = buildLasers(echoMechanic);
+    playerPosRef.current = START;
+    setPlayerPosition(START);
     setDeathReason('');
     setGameState('playing');
     setRestartKey(prev => prev + 1);
   };
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key.toLowerCase() === 'r' && gameState === 'dead') handleRestart();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [gameState]); // eslint-disable-line
+  useRestartOnR(gameState, handleRestart);
 
   const handlePlayerUpdate = (pos) => {
     playerPosRef.current = pos;
@@ -216,25 +241,20 @@ function Level6({ deathCount, onDeath, onComplete }) {
     }
   };
 
-  useEffect(() => {
-    if (gameState === 'won') {
-      const t = setTimeout(() => onComplete(), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [gameState, onComplete]);
+  useVictoryTimer(gameState, () => onComplete({ complete: sideQuestCompleteRef.current }));
 
   return (
     <div className="level-container">
       <QualityCanvas
         camera={{ position: [30, 18, 40], fov: 60 }}
         style={{
-          background: 'linear-gradient(180deg, #0a0010 0%, #1c0420 60%, #310c30 100%)',
+          background: echoVisual?.sky || 'linear-gradient(180deg, #0a0010 0%, #1c0420 60%, #310c30 100%)',
           touchAction: 'none',
         }}
       >
-        <fog attach="fog" args={['#1a0820', 45, 180]} />
-        <ambientLight intensity={0.45} />
-        <hemisphereLight args={['#ffaaff', '#2a0020', 0.5]} />
+        <fog attach="fog" args={[echoVisual?.fogColor || '#1a0820', echoVisual?.fogNear ?? 45, echoVisual?.fogFar ?? 180]} />
+        <ambientLight intensity={echoVisual?.ambientIntensity ?? 0.45} color={echoVisual?.ambientColor || '#ffffff'} />
+        <hemisphereLight args={[echoVisual?.hemiTop || '#ffaaff', echoVisual?.hemiBottom || '#2a0020', echoVisual?.hemiIntensity ?? 0.5]} />
         <directionalLight position={[15, 25, 10]} intensity={1.0} />
         {!q.minimalLights && (
           <>
@@ -244,7 +264,7 @@ function Level6({ deathCount, onDeath, onComplete }) {
         )}
 
         <QualityStars radius={200} depth={70} count={2400} factor={4} saturation={0} fade speed={0.6} />
-        <QualitySparkles position={[0, 3, -55]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color="#ffd966" />
+        <QualitySparkles position={[0, 3, -55]} count={28} scale={[8, 5, 4]} size={2.2} speed={0.3} color={echoVisual?.sparkleColor || '#ffd966'} />
 
         <InfiniteGrid />
 
@@ -265,25 +285,43 @@ function Level6({ deathCount, onDeath, onComplete }) {
 
         <Gate position={[goalRef.current.x, goalRef.current.y, goalRef.current.z]} jewelColor={JEWEL_HEX} />
 
+        <JewelField
+          key={`jewels-${restartKey}`}
+          candidates={JEWEL_CANDIDATES}
+          playerPosRef={playerPosRef}
+        />
+
+        <HardcoreDrop key={`drop-${restartKey}`} blocks={blocksRef.current} playerPosRef={playerPosRef} />
+
+        {/* L6 side branch: violet stone at (8, 0, -5), off the mid bridge. */}
+        {portalSpawned && (
+          <Portal
+            position={[8, 0.5, -5]}
+            rotationY={Math.PI / 2}
+            playerPosRef={playerPosRef}
+            onEnter={handlePortalEnterCb}
+          />
+        )}
+
         {lasersRef.current.map((l, i) => (
           <LaserBeam key={`${restartKey}-laser-${i}`} laser={l} />
         ))}
 
         <Player
           key={restartKey}
-          startPosition={[0, 5, 25]}
+          startPosition={START}
           blocks={blocksRef.current}
           gate={null}
           onDeath={handlePlayerDeath}
           onWin={() => {}}
           onUpdate={handlePlayerUpdate}
           onGateTrigger={() => {}}
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           mobileControlRef={playerControlRef}
         />
 
         <Level6Sim
-          gameState={gameState}
+          gameState={paused ? 'paused' : gameState}
           blocksRef={blocksRef}
           lasersRef={lasersRef}
           playerPosRef={playerPosRef}
@@ -299,7 +337,7 @@ function Level6({ deathCount, onDeath, onComplete }) {
       <HUD
         level={6}
         deathCount={deathCount}
-        gameState={gameState}
+        gameState={paused ? 'paused' : gameState}
         deathReason={deathReason}
         onRestart={handleRestart}
       />
@@ -315,6 +353,7 @@ function Level6({ deathCount, onDeath, onComplete }) {
 function Level6Sim({ gameState, blocksRef, lasersRef, playerPosRef, playerControlRef, onLaserHit }) {
   const timerRef = useRef(0);
   const hitRef = useRef(false);
+  const isInvisible = useIsInvisibleNow();
 
   useFrame((_, deltaRaw) => {
     if (gameState !== 'playing') { hitRef.current = false; return; }
@@ -365,7 +404,7 @@ function Level6Sim({ gameState, blocksRef, lasersRef, playerPosRef, playerContro
       const perp = Math.sqrt(perpX * perpX + perpZ * perpZ);
       // Y check: beam is horizontal at oy; player center is at py
       if (Math.abs(py - oy) > 1.4) continue;
-      if (perp < (l.thickness + PLAYER_HALF + 0.05)) {
+      if (perp < (l.thickness + PLAYER_HALF + 0.05) && !isInvisible()) {
         hitRef.current = true;
         onLaserHit();
         return;
