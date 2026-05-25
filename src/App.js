@@ -700,6 +700,15 @@ function App() {
       return;
     }
 
+    // After finishing Level 1 (in any non-final mode), return to the home
+    // screen instead of auto-advancing to L2. Acts as a natural stopping
+    // point for the desktop demo build — the user can choose to continue
+    // into Hardcore from the menu when they're ready.
+    if (rewardData.level === 1) {
+      goToStart();
+      return;
+    }
+
     // Hardcore (non-final) → next sequential level.
     const next = rewardData.level + 1;
     setCurrentScreen(`level${next}`);
