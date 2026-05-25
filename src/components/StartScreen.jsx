@@ -47,6 +47,17 @@ function StartScreen({
     <div className="start-screen">
       <div className="start-screen-bg" />
 
+      {/* Corner-badge logo, top-left. Doesn't conflict with the auth/menu
+          chip in the top-right. Uses %PUBLIC_URL% via CRA's PUBLIC_URL
+          variable so the relative path works under both Vercel and the
+          Tauri custom protocol. */}
+      <img
+        src={`${process.env.PUBLIC_URL || ''}/logo.png`}
+        alt="Die Again"
+        className="start-logo"
+      />
+
+
       {/* Auth chip / sign-in buttons top-right */}
       <div className="auth-chip">
         {authUser ? (

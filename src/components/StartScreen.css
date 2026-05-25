@@ -624,3 +624,32 @@
   opacity: 0.85;
   letter-spacing: 0.2px;
 }
+
+/* ===== Logo corner badge ===== */
+.start-logo {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 12px rgba(255, 100, 220, 0.5));
+  pointer-events: none;
+  user-select: none;
+  z-index: 5;
+  animation: start-logo-float 3.5s ease-in-out infinite;
+}
+
+@keyframes start-logo-float {
+  0%, 100% { transform: translateY(0px); }
+  50%      { transform: translateY(-4px); }
+}
+
+@media (max-width: 720px) {
+  .start-logo {
+    width: 56px;
+    height: 56px;
+    top: 12px;
+    left: 12px;
+  }
+}
