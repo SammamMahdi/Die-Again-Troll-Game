@@ -192,6 +192,10 @@ function Settings({ onClose }) {
             Click a key to rebind. Press <kbd>Esc</kbd> to cancel. Conflicting
             keys reset the other action to its default.
           </div>
+          <div className="settings-controls-note">
+            <strong>Mouse:</strong> drag anywhere in the level to rotate the
+            camera. Arrow keys also rotate (see Camera bindings below).
+          </div>
           {Object.keys(groupedActions).map((group) => (
             <div className="settings-controls-group" key={group}>
               <div className="settings-controls-group-title">{group}</div>

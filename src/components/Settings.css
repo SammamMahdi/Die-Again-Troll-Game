@@ -308,6 +308,20 @@
   font-family: 'Courier New', monospace;
 }
 
+.settings-controls-note {
+  font-size: 0.78rem;
+  color: rgba(220, 200, 240, 0.85);
+  background: rgba(70, 35, 130, 0.28);
+  border: 1px solid rgba(160, 100, 220, 0.28);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 14px;
+  line-height: 1.45;
+}
+.settings-controls-note strong {
+  color: #d9c4ff;
+}
+
 .settings-controls-group {
   margin-bottom: 12px;
 }
