@@ -1,0 +1,32 @@
+[package]
+name = "die-again"
+version = "1.0.0"
+description = "Die Again — Troll Game"
+authors = ["Sammam"]
+license = ""
+repository = ""
+edition = "2021"
+rust-version = "1.77.2"
+
+# Cargo binary names must be valid Rust identifiers (no spaces). The raw
+# release exe is therefore `target/release/die-again.exe`. The NSIS
+# installer's display name + installed shortcut still say "Die Again"
+# because tauri.conf.json's productName / mainBinaryName override it at
+# the bundle stage.
+
+[lib]
+name = "die_again_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.2", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.11.2", features = [] }
+tauri-plugin-log = "2"
+tauri-plugin-shell = "2.3.5"
+tauri-plugin-deep-link = "2.4.9"
+tauri-plugin-single-instance = { version = "2.4.2", features = ["deep-link"] }

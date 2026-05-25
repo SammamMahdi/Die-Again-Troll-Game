@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions for the main window. shell:allow-open lets the Google sign-in button pop the system browser; deep-link:default lets the dieagain:// callback reach the JS layer once auth completes.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "shell:allow-open",
+      "allow": [{ "url": "https://**" }]
+    },
+    "deep-link:default"
+  ]
+}

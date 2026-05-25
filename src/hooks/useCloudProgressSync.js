@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { isCloudEnabled, fetchMyScore } from '../firebase';
 import { saveProgress } from '../utils/rewards';
 import { setJewelsFromCloud } from '../utils/jewels';
@@ -13,8 +13,14 @@ const EMPTY_PROGRESS = {
 
 // Owns the auth → local progress sync side-effect.
 //
-//   - Signed-out: clear local progress so the previous account's data
-//     isn't visible to whoever uses this device next.
+//   - Cold-boot signed-out (no prior auth user this session): PRESERVE
+//     local progress. The user may be playing anonymously — their
+//     localStorage progress is the only source of truth and we must
+//     not erase it. Without this branch, restarting the .exe wipes
+//     tutorialComplete, locking Practice/Hardcore back behind L0.
+//   - Explicit sign-out (had a user, now don't): clear local progress
+//     so the previous account's data isn't visible to whoever uses
+//     this device next.
 //   - Signed-in: pull the cloud doc; the cloud is the truth.
 //     Replace local display + persisted storage with the cloud
 //     snapshot, and apply cloud-side jewel balance, cosmetics, and
@@ -24,15 +30,26 @@ const EMPTY_PROGRESS = {
 // progress mirror. The hook depends on `authUser` so any sign-in /
 // sign-out toggle re-runs the effect.
 export default function useCloudProgressSync(authUser, setPersistedProgress) {
+  // Tracks whether we've seen a signed-in user during this session. Used
+  // to distinguish "cold-boot signed-out" (preserve local) from "user
+  // just clicked sign-out" (wipe local).
+  const hadAuthUserRef = useRef(false);
+
   useEffect(() => {
     if (!isCloudEnabled()) return undefined;
 
-    // Signed out — wipe local mirror + storage.
     if (!authUser) {
-      setPersistedProgress(EMPTY_PROGRESS);
-      saveProgress(EMPTY_PROGRESS);
+      // Only wipe local state if this is a real sign-out transition.
+      // A fresh launch with no auth user is anonymous play — leave the
+      // localStorage progress (medals, tutorial flag, jewels) alone.
+      if (hadAuthUserRef.current) {
+        setPersistedProgress(EMPTY_PROGRESS);
+        saveProgress(EMPTY_PROGRESS);
+      }
       return undefined;
     }
+
+    hadAuthUserRef.current = true;
 
     // Signed in — fetch + overwrite local with cloud truth.
     let cancelled = false;

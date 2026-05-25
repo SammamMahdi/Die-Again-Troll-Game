@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/((?!desktop-oauth\\.html).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

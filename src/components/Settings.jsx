@@ -11,6 +11,9 @@ import {
 import {
   ACTIONS, getBindings, setBinding, resetBindings, displayKey, subscribeControls,
 } from '../utils/controls';
+import {
+  isFullscreen, toggleFullscreen, subscribeFullscreen,
+} from '../utils/fullscreen';
 import './Settings.css';
 
 const CHANNELS = [
@@ -25,6 +28,7 @@ function Settings({ onClose }) {
   const [muted, setMutedState] = useState(isMuted());
   const [quality, setQualityState] = useState(getQualityId());
   const [gridOn, setGridOn] = useState(getGridVisible());
+  const [fsOn, setFsOn] = useState(isFullscreen());
   const [bindings, setBindings] = useState(getBindings());
   // While `listeningFor` holds an action id, the next keystroke captures
   // a new binding for it. ESC cancels. Click another action to switch
@@ -32,6 +36,7 @@ function Settings({ onClose }) {
   const [listeningFor, setListeningFor] = useState(null);
 
   useEffect(() => subscribeControls(() => setBindings(getBindings())), []);
+  useEffect(() => subscribeFullscreen(setFsOn), []);
 
   // Global key listener for rebind capture. Active only while
   // listeningFor is set; takes the next keypress as the new binding.
@@ -79,6 +84,11 @@ function Settings({ onClose }) {
     setGridVisible(next);
     setGridOn(next);
     playUIClick();
+  };
+
+  const toggleFs = () => {
+    playUIClick();
+    toggleFullscreen();
   };
 
   const reset = () => {
@@ -149,6 +159,13 @@ function Settings({ onClose }) {
           >
             <span className="settings-grid-toggle-box">{gridOn ? '☑' : '☐'}</span>
             <span>Show void grid (under platforms)</span>
+          </button>
+          <button
+            className={`settings-grid-toggle ${fsOn ? 'on' : ''}`}
+            onClick={toggleFs}
+          >
+            <span className="settings-grid-toggle-box">{fsOn ? '☑' : '☐'}</span>
+            <span>Fullscreen <kbd style={{ marginLeft: 6, padding: '0 5px', fontSize: '0.7rem', border: '1px solid rgba(160,100,220,0.4)', borderRadius: 4, background: 'rgba(40,10,70,0.6)' }}>F11</kbd></span>
           </button>
         </div>
 

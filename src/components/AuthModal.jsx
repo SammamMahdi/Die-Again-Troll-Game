@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
 import { isCloudEnabled, registerUser, signInUser, signInWithGoogle } from '../firebase';
+import { signInWithGoogleViaSystemBrowser } from '../firebase/desktopAuth';
 import './AuthModal.css';
+
+// Detect if we're running inside the Tauri desktop wrapper. Tauri injects
+// __TAURI_INTERNALS__ onto window during the splash before the app boots.
+// In the web build this is undefined; in the .exe it's an object.
+// Phase 2 will replace this with a system-browser OAuth flow; for now we
+// hide the Google button on desktop because signInWithPopup is flaky inside
+// WebView2 and the user is left with no recourse if it hangs.
+const isDesktop = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 function AuthModal({ initialMode = 'signin', onClose, onSuccess }) {
   const [mode, setMode] = useState(initialMode);  // 'signin' | 'register'
@@ -48,7 +57,12 @@ function AuthModal({ initialMode = 'signin', onClose, onSuccess }) {
     }
     setBusy(true);
     try {
-      const user = await signInWithGoogle();
+      // Desktop builds can't use signInWithPopup reliably inside WebView2,
+      // so we punt the OAuth dance out to the user's system browser and
+      // catch the credential back via the dieagain:// deep-link.
+      const user = isDesktop
+        ? await signInWithGoogleViaSystemBrowser()
+        : await signInWithGoogle();
       onSuccess?.(user);
     } catch (err) {
       setError(prettyAuthError(err));
@@ -85,6 +99,11 @@ function AuthModal({ initialMode = 'signin', onClose, onSuccess }) {
           </svg>
           Continue with Google
         </button>
+        {isDesktop && (
+          <div className="auth-desktop-hint">
+            Opens your default browser to sign in, then returns here.
+          </div>
+        )}
 
         <div className="auth-divider"><span>or</span></div>
 
