@@ -273,6 +273,18 @@ export function pointsForLevelResult({ medal, newlyUnlocked }) {
   return total;
 }
 
+// Sum of `score` values for a freshly-unlocked achievement list. Used to
+// pay the player jewels equal to the achievement's point value on first
+// unlock (a one-time bonus on top of the persistent score gain).
+export function achievementPoints(newlyUnlocked) {
+  let total = 0;
+  for (const id of newlyUnlocked || []) {
+    const def = ACHIEVEMENTS.find(a => a.id === id);
+    if (def) total += def.score || 0;
+  }
+  return total;
+}
+
 export function recordRunComplete({ runStats, totalDeaths, totalMs }) {
   const prog = loadProgress();
   prog.totalRuns = (prog.totalRuns || 0) + 1;

@@ -34,11 +34,14 @@ import {
   computeScore,
   medalCounts,
   pointsForLevelResult,
+  achievementPoints,
 } from './utils/rewards';
 import { RunStatsProvider } from './components/RunStatsContext';
-import { getRealJewels, setAdminUnlimited, subscribeJewels } from './utils/jewels';
+import { getRealJewels, setAdminUnlimited, subscribeJewels, addJewels } from './utils/jewels';
 import { getCosmetics, subscribeCosmetics } from './utils/cosmetics';
-import { getInventory, consumeOne, subscribeConsumables } from './utils/consumables';
+import {
+  getInventory, consumeOne, subscribeConsumables, getUpgrades,
+} from './utils/consumables';
 import {
   isCloudEnabled,
   subscribeToAuth,
@@ -138,6 +141,7 @@ function App() {
             jewels: getRealJewels(),
             cosmetics: getCosmetics(),
             consumables: getInventory(),
+            consumableUpgrades: getUpgrades(),
           },
         }).catch((e) => {
           // eslint-disable-next-line no-console
@@ -496,7 +500,13 @@ function App() {
       const { progress: tutorialProg, newlyUnlocked: tutorialNewly } = recordTutorialComplete();
       setPersistedProgress(tutorialProg);
       const tutorialPoints = pointsForLevelResult({ medal: 'none', newlyUnlocked: tutorialNewly });
-      if (tutorialNewly.length > 0) setRunScore(prev => prev + tutorialPoints);
+      if (tutorialNewly.length > 0) {
+        setRunScore(prev => prev + tutorialPoints);
+        // First-Footing pays out as jewels too — gives the player their
+        // first economy unlock right after clearing the tutorial.
+        const tutorialBounty = achievementPoints(tutorialNewly);
+        if (tutorialBounty > 0) addJewels(tutorialBounty);
+      }
       if (authUser && isCloudEnabled()) {
         submitScore({
           uid: authUser.uid,
@@ -584,6 +594,13 @@ function App() {
     const pointsEarned = pointsForLevelResult({ medal, newlyUnlocked });
     setRunScore(prev => prev + pointsEarned);
 
+    // Achievement bounty: every newly-unlocked achievement also pays its
+    // `score` value as jewels (one-time, since `newlyUnlocked` only fires
+    // the first time each id is earned). Stacks on top of any jewels the
+    // player picked up in the level.
+    const achPoints = achievementPoints(newlyUnlocked);
+    if (achPoints > 0) addJewels(achPoints);
+
     // Sync to cloud (best-effort; failures don't break local progress)
     if (authUser && isCloudEnabled()) {
       const totalScore = computeScore(updated);
@@ -604,6 +621,7 @@ function App() {
           jewels: getRealJewels(),
           cosmetics: getCosmetics(),
           consumables: getInventory(),
+          consumableUpgrades: getUpgrades(),
         },
       }).catch((e) => {
         // eslint-disable-next-line no-console

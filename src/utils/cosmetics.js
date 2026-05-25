@@ -30,18 +30,20 @@ export const BODY_CATALOG = [
 ];
 
 export const CROWN_CATALOG = [
-  { id: 'classic',  name: 'Classic Torus',    cost: 0,    kind: 'torus' },
+  // 'none' (no crown) is the starting state — players begin bare-headed
+  // and must buy a crown variant to wear one. Always owned + always free.
+  { id: 'none',     name: 'No Crown',         cost: 0,    kind: 'none' },
+  { id: 'classic',  name: 'Classic Torus',    cost: 300,  kind: 'torus' },
   { id: 'diamond',  name: 'Diamond',          cost: 1500, kind: 'diamond' },
   { id: 'halo',     name: 'Halo Ring',        cost: 3500, kind: 'halo' },
-  { id: 'none',     name: 'Hide Crown',       cost: 0,    kind: 'none' },
 ];
 
 function defaultState() {
   return {
     ownedBody:    ['default'],
-    ownedCrown:   ['classic', 'none'],   // 'none' is always available
+    ownedCrown:   ['none'],              // bare-headed by default
     equippedBody:  'default',
-    equippedCrown: 'classic',
+    equippedCrown: 'none',
   };
 }
 

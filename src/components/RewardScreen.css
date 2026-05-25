@@ -348,6 +348,22 @@
   text-shadow: 0 0 6px rgba(255, 200, 80, 0.4);
 }
 
+.reward-points-jewels {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: linear-gradient(90deg, rgba(120, 60, 220, 0.18) 0%, rgba(60, 220, 200, 0.12) 100%);
+  border-left: 3px solid #88e6ff;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.82rem;
+  color: #d6c8ef;
+  letter-spacing: 0.2px;
+}
+.reward-points-jewels strong {
+  color: #88e6ff;
+  font-family: var(--font-mono);
+  text-shadow: 0 0 6px rgba(140, 230, 255, 0.5);
+}
+
 /* ===== Achievements ===== */
 .achievements {
   margin-top: 6px;

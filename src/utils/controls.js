@@ -30,9 +30,8 @@ export const ACTIONS = [
   // Group: Game
   { id: 'restart',      group: 'Game',     label: 'Restart level',  default: 'r' },
   // Group: Potions
-  { id: 'potionSpeed',  group: 'Potions',  label: 'Speed Potion',         default: '1' },
-  { id: 'potionMagnet', group: 'Potions',  label: 'Jewel Magnet',         default: '2' },
-  { id: 'potionGhost',  group: 'Potions',  label: 'Invisibility Potion',  default: '3' },
+  { id: 'potionMagnet', group: 'Potions',  label: 'Jewel Magnet',         default: '1' },
+  { id: 'potionGhost',  group: 'Potions',  label: 'Invisibility Potion',  default: '2' },
 ];
 
 const DEFAULTS = Object.fromEntries(ACTIONS.map(a => [a.id, a.default]));
