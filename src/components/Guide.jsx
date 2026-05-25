@@ -184,7 +184,8 @@ const MODES = [
     desc:
       'A level-select grid for grinding individual levels. Unlimited tries, no run penalty. Every level you’ve unlocked through Hardcore is available — plus L1 is always open after the Tutorial.',
     rules: [
-      'Per-level RewardScreen still fires — medals, points, achievements, jewels all count.',
+      'Per-level RewardScreen still fires — medals, points, achievements all count.',
+      'No jewel pickups in Practice — coin-grinding belongs to Hardcore. Practice is for clean mechanics.',
       'Iron Will / Flawless / streak-spanning achievements do NOT trigger in Practice.',
       'No Echo portals, no Diamond/Platinum medals — those belong to Hardcore.',
       'Best place to grind jewels, hunt speed-run times, or learn a level cleanly.',
@@ -261,10 +262,9 @@ const MEDAL_TIERS = [
 ];
 
 const CONSUMABLES = [
-  { icon: '⚡', name: 'Speed Potion',        desc: 'Press 1: +50% movement speed for 15 seconds. Stacks duration.' },
-  { icon: '🧲', name: 'Jewel Magnet',        desc: 'Press 2: wider jewel pickup radius for 12 seconds.' },
-  { icon: '👻', name: 'Invisibility Potion', desc: 'Press 3: hazards (globes, orbs, pendulums, lasers, walls, spikes) pass through you for 8 seconds.' },
-  { icon: '❤', name: 'Extra Life',           desc: 'Auto-consumed on a 3rd-try death in Hardcore — refills tries to 3 and saves the run.' },
+  { icon: '🧲', name: 'Jewel Magnet',        desc: 'Press 1: nearby jewels fly toward you. Pull radius + strength upgrade up to L5 in the Shop.' },
+  { icon: '👻', name: 'Invisibility Potion', desc: 'Press 2: hazards (globes, orbs, pendulums, lasers, walls, spikes) pass through you. Duration upgrades up to L5.' },
+  { icon: '❤', name: 'Extra Life',           desc: 'Prompts you on a 3rd-try Hardcore death — accept to refill tries to 3 and save the run.' },
 ];
 
 function Guide({ onBack }) {
@@ -319,12 +319,20 @@ function Guide({ onBack }) {
 
         {/* Echo Dimensions */}
         <section className="guide-section">
-          <h2 className="guide-section-title">Echo Dimensions (the portal route)</h2>
+          <h2 className="guide-section-title">
+            Echo Dimensions (the portal route)
+            <span className="guide-tag-soon">COMING SOON</span>
+          </h2>
           <p className="guide-paragraph">
             Behind every main level lives an <strong>Echo Dimension</strong> —
             a fractured, distinct reflection of that level with harder
             mechanics and a completely different visual theme. Echo clears
             are the only path to <strong>Platinum</strong> and <strong>Diamond</strong> medals.
+          </p>
+          <p className="guide-paragraph guide-paragraph-quiet">
+            Echo Dimensions are currently in development. The portal won’t
+            spawn in live builds yet — the mechanic is documented here so
+            you know what’s ahead.
           </p>
           <ul className="guide-tip-list">
             {ECHO_NOTES.map((n, i) => <li key={i}>{n}</li>)}
@@ -345,9 +353,8 @@ function Guide({ onBack }) {
             <div className="guide-control"><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd><span>Rotate camera</span></div>
             <div className="guide-control"><kbd>Mouse drag</kbd><span>Rotate camera</span></div>
             <div className="guide-control"><kbd>R</kbd><span>Restart level after dying</span></div>
-            <div className="guide-control"><kbd>1</kbd><span>Speed Potion (if owned)</span></div>
-            <div className="guide-control"><kbd>2</kbd><span>Jewel Magnet (if owned)</span></div>
-            <div className="guide-control"><kbd>3</kbd><span>Invisibility Potion (if owned)</span></div>
+            <div className="guide-control"><kbd>1</kbd><span>Jewel Magnet (if owned)</span></div>
+            <div className="guide-control"><kbd>2</kbd><span>Invisibility Potion (if owned)</span></div>
             <div className="guide-control"><kbd>Esc</kbd><span>Return to home screen / close modals</span></div>
           </div>
         </section>

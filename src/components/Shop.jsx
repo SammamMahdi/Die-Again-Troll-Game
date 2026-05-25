@@ -9,7 +9,12 @@ import {
   purchaseBody, purchaseCrown,
   equipBody, equipCrown,
 } from '../utils/cosmetics';
-import { CONSUMABLES_CATALOG, purchaseConsumable } from '../utils/consumables';
+import {
+  CONSUMABLES_CATALOG, purchaseConsumable,
+  UPGRADABLE_IDS, MAX_UPGRADE_LEVEL,
+  getUpgradeLevel, getNextUpgradeCost, getEffectiveTier,
+  applyUpgrade,
+} from '../utils/consumables';
 import './Shop.css';
 
 // Two-tab cosmetic store: Body colors / Crown variants. Cards show a tiny
@@ -18,7 +23,12 @@ import './Shop.css';
 function Shop({ onClose }) {
   const jewels = useJewels();
   const { state } = useCosmetics();
-  const { inventory } = useConsumables();
+  // `upgrades` is referenced via getUpgradeLevel/etc. below — reading it
+  // here forces this component to re-render any time an upgrade or
+  // inventory change is dispatched, so the upgrade buttons immediately
+  // reflect the new tier / affordability.
+  // eslint-disable-next-line no-unused-vars
+  const { inventory, upgrades } = useConsumables();
   const [tab, setTab] = useState('items');     // default to Items — most actionable
 
   const handleBuy = (kind, item) => {
@@ -45,6 +55,27 @@ function Shop({ onClose }) {
     if (!spendJewels(item.cost)) return;
     purchaseConsumable(item.id);
     playJewelPickup('bonus');
+  };
+
+  // Spend jewels + bump the upgrade level for `id`. Safe-by-default: if the
+  // item is at max level or the player can't afford the next tier we no-op.
+  const handleUpgrade = (id) => {
+    const cost = getNextUpgradeCost(id);
+    if (cost == null) return;
+    if (getJewels() < cost) return;
+    if (!spendJewels(cost)) return;
+    applyUpgrade(id);
+    playJewelPickup('bonus');
+  };
+
+  // Build a one-line "what this level gives you" summary for the item card,
+  // so players see the concrete change they're paying for.
+  const upgradeSummary = (id) => {
+    const tier = getEffectiveTier(id);
+    if (!tier) return null;
+    if (id === 'invisibility_potion') return `${tier.duration}s · hazard-proof`;
+    if (id === 'jewel_magnet')        return `${tier.duration}s · radius ${tier.radius}u · pull ${tier.strength}`;
+    return null;
   };
 
   // Body / Crown view inputs (Items tab uses CONSUMABLES_CATALOG directly).
@@ -89,12 +120,36 @@ function Shop({ onClose }) {
             {CONSUMABLES_CATALOG.map((item) => {
               const have = inventory[item.id] || 0;
               const canAfford = jewels >= item.cost;
+              const upgradable = UPGRADABLE_IDS.includes(item.id);
+              const lvl = upgradable ? getUpgradeLevel(item.id) : null;
+              const upgradeCost = upgradable ? getNextUpgradeCost(item.id) : null;
+              const maxed = upgradable && upgradeCost == null;
+              const canUpgrade = upgradable && !maxed && jewels >= upgradeCost;
+              const stats = upgradable ? upgradeSummary(item.id) : null;
               return (
                 <div key={item.id} className="shop-tile shop-tile-item">
                   <div className="shop-tile-icon">{item.icon}</div>
                   <div className="shop-tile-name">{item.name}</div>
                   <div className="shop-tile-desc">{item.desc}</div>
+
+                  {upgradable && (
+                    <div className="shop-tile-tier">
+                      <span className="shop-tile-tier-label">Tier</span>
+                      <span className="shop-tile-tier-pips" aria-label={`Level ${lvl} of ${MAX_UPGRADE_LEVEL}`}>
+                        {Array.from({ length: MAX_UPGRADE_LEVEL }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={`shop-tile-tier-pip ${i < lvl ? 'on' : ''}`}
+                          />
+                        ))}
+                      </span>
+                      <span className="shop-tile-tier-num">L{lvl}</span>
+                    </div>
+                  )}
+                  {stats && <div className="shop-tile-stats">{stats}</div>}
+
                   <div className="shop-tile-have">In stock: <strong>{have}</strong></div>
+
                   {canAfford ? (
                     <button className="shop-tile-btn shop-tile-buy" onClick={() => handleBuyConsumable(item)}>
                       Buy <strong>{item.cost} 💎</strong>
@@ -103,6 +158,22 @@ function Shop({ onClose }) {
                     <button className="shop-tile-btn shop-tile-locked" disabled>
                       {item.cost} 💎
                     </button>
+                  )}
+
+                  {upgradable && (
+                    maxed ? (
+                      <button className="shop-tile-btn shop-tile-upgrade shop-tile-maxed" disabled>
+                        MAX TIER
+                      </button>
+                    ) : canUpgrade ? (
+                      <button className="shop-tile-btn shop-tile-upgrade" onClick={() => handleUpgrade(item.id)}>
+                        Upgrade → L{lvl + 1} <strong>{upgradeCost} 💎</strong>
+                      </button>
+                    ) : (
+                      <button className="shop-tile-btn shop-tile-upgrade shop-tile-locked" disabled>
+                        Upgrade → L{lvl + 1} · {upgradeCost} 💎
+                      </button>
+                    )
                   )}
                 </div>
               );

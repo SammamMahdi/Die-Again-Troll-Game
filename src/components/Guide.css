@@ -389,6 +389,21 @@
   margin: 3px 0;
 }
 
+.guide-tag-soon {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  font-size: 0.62rem;
+  letter-spacing: 1.8px;
+  font-weight: 700;
+  color: #ffd966;
+  background: linear-gradient(135deg, rgba(255, 200, 80, 0.22) 0%, rgba(255, 90, 200, 0.22) 100%);
+  border: 1px solid rgba(255, 200, 80, 0.55);
+  border-radius: 999px;
+  text-shadow: 0 0 6px rgba(255, 200, 80, 0.4);
+  vertical-align: middle;
+}
+
 .guide-ach-list {
   list-style: disc;
   padding-left: 18px;

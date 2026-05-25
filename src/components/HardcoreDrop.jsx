@@ -6,10 +6,10 @@ import { useRunStats } from './RunStatsContext';
 // consumable pickup at a random landable block position. Echo levels +
 // Practice + Tutorial never spawn drops — only Hardcore main runs.
 //
-// All four catalogue items can drop here: Speed Potion, Jewel Magnet,
-// Invisibility Potion, and Extra Life. Extra Life is weighted lower
-// because it's the strongest item (auto-saves a run on the 3rd-try
-// death); the three potions are equally weighted with each other.
+// All catalogue items can drop here: Jewel Magnet, Invisibility Potion,
+// and Extra Life. Extra Life is weighted lower because it's the strongest
+// item (auto-saves a run on the 3rd-try death); the two potions are
+// equally weighted with each other.
 //
 // `blocks` is the level's flat block array. Some levels initialize
 // their blocks AFTER mount (L1 uses a useEffect to populate them), so
@@ -20,7 +20,6 @@ import { useRunStats } from './RunStatsContext';
 // R-restart, so any individual level might or might not have a drop.
 const DROP_CHANCE = 0.35;
 const DROP_WEIGHTS = [
-  { id: 'speed_potion',        weight: 3 },
   { id: 'jewel_magnet',        weight: 3 },
   { id: 'invisibility_potion', weight: 3 },
   { id: 'extra_life',          weight: 1 },   // rarer — strongest item

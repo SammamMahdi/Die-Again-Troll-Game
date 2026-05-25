@@ -18,7 +18,6 @@ function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
     return () => clearInterval(id);
   }, []);
   const now = Date.now();
-  const speedActive = effectsRef.current.speedBoostUntil > now;
   const magnetActive = effectsRef.current.magnetUntil > now;
   const invisibleActive = effectsRef.current.invisibleUntil > now;
   const startRef = useRef(Date.now());
@@ -140,7 +139,6 @@ function HUD({ level, deathCount, gameState, deathReason, onRestart }) {
             const count = inventory[item.id] || 0;
             if (count <= 0) return null;
             const active =
-              (item.id === 'speed_potion' && speedActive) ||
               (item.id === 'jewel_magnet' && magnetActive) ||
               (item.id === 'invisibility_potion' && invisibleActive);
             return (

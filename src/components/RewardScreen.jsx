@@ -99,6 +99,19 @@ function RewardScreen({ data, onContinue }) {
               Run total: <strong>{data.runScoreAfter} pts</strong>
             </div>
           )}
+          {newlyUnlocked.reduce((sum, id) => {
+            const a = getAchievementById(id);
+            return sum + (a?.score || 0);
+          }, 0) > 0 && (
+            <div className="reward-points-jewels">
+              💎 First-unlock bounty: <strong>+{
+                newlyUnlocked.reduce((sum, id) => {
+                  const a = getAchievementById(id);
+                  return sum + (a?.score || 0);
+                }, 0)
+              } jewels</strong> added to your purse
+            </div>
+          )}
         </div>
 
         {newlyUnlocked.length > 0 && (

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import Jewel from './Jewel';
+import { useRunStats } from './RunStatsContext';
 
 // Random-subset spawner for a level's jewel candidate pool. On mount,
 // rolls which candidates appear. Re-rolls on remount (which happens on
@@ -18,8 +19,15 @@ function JewelField({
   playerPosRef,
   onCollect,
 }) {
+  const { mode } = useRunStats();
+  // Practice mode is for grinding mechanics, not coin farming. Jewels and
+  // the Shop economy belong to Hardcore + Tutorial only. If we're in
+  // Practice we render nothing — the level still works, just no pickups.
+  const skip = mode === 'practice';
+
   // Pick a random subset of candidates ONCE per mount (level entry).
   const { commons, bonuses } = useMemo(() => {
+    if (skip) return { commons: [], bonuses: [] };
     const pickN = (arr, n) => {
       if (!arr || arr.length === 0) return [];
       const pool = arr.slice();
@@ -37,6 +45,8 @@ function JewelField({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (skip) return null;
 
   return (
     <>

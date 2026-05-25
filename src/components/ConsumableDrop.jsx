@@ -9,21 +9,15 @@ import { playJewelPickup } from '../utils/sounds';
 // Hardcore runs (gated by the level rendering it).
 //
 // Per-item visual:
-//   speed_potion        — yellow bottle + electric blue cap
 //   jewel_magnet        — crimson U-shape torus
 //   invisibility_potion — translucent violet sphere with darker shell
+//   extra_life          — crimson heart bottle with a gold cap
 //
 // On collect: purchaseConsumable(itemId) increments the inventory by 1
 // (reuses the existing "buy" function — same effect as a free purchase).
 // Cloud sync picks the new count up on the next level complete.
 
 const ITEM_VISUALS = {
-  speed_potion: {
-    bodyColor: '#ffd633',
-    bodyEmissive: '#ffaa20',
-    capColor: '#3ab4ff',
-    auraColor: '#fff080',
-  },
   jewel_magnet: {
     bodyColor: '#ff3344',
     bodyEmissive: '#aa1122',
@@ -52,7 +46,7 @@ function ConsumableDrop({ position, itemId, playerPosRef, onCollect, hidden }) {
   const [picked, setPicked] = useState(false);
   const t = useRef(Math.random() * Math.PI * 2);
 
-  const v = ITEM_VISUALS[itemId] || ITEM_VISUALS.speed_potion;
+  const v = ITEM_VISUALS[itemId] || ITEM_VISUALS.jewel_magnet;
 
   useFrame((_, delta) => {
     if (picked || hidden) return;

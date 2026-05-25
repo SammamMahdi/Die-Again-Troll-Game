@@ -37,8 +37,6 @@ const SLAM_SPEED = 25.0;            // downward velocity during the slam dive
                                     // (a touch faster than natural fall, not snap)
 
 function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateTrigger, gameState, mobileControlRef }) {
-  // Per-frame access to active potions (speed boost). Bypasses re-renders.
-  const { activeRef: effectsRef } = useConsumables();
   // Phase 3b: pause flag flows from the RunStatsProvider that wraps each
   // level. When main is hidden behind an active Echo Dimension, App.js
   // sets paused=true on main's provider — Player's useFrame short-circuits
@@ -169,13 +167,11 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
     if (keys[getKey('moveRight')])   { ax += rx; az += rz; }
 
     const length = Math.sqrt(ax * ax + az * az);
-    // Speed Potion: 1.5× walking acceleration while the timer is live.
-    const speedMul = (effectsRef.current.speedBoostUntil > Date.now()) ? 1.5 : 1.0;
     if (length > 0) {
       ax /= length;
       az /= length;
-      vx += ax * PLAYER_SPEED * speedMul * delta;
-      vz += az * PLAYER_SPEED * speedMul * delta;
+      vx += ax * PLAYER_SPEED * delta;
+      vz += az * PLAYER_SPEED * delta;
     }
 
     // ---------------- Roll / Slam handling ----------------
@@ -187,16 +183,21 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
       rollRequestRef.current = false;
       if (roll.phase === 'idle' && roll.cooldown <= 0) {
         if (onGround) {
+          // Ground roll: ONLY moves if the player is holding a direction
+          // key. With no input the roll is a stationary tuck — hitbox
+          // shrinks and the visual plays, but the player stays put. C is
+          // not a free forward-step shortcut.
           roll.phase = 'rolling';
           roll.timer = ROLL_DURATION;
-          roll.dirX = length > 0 ? ax : fx;
-          roll.dirZ = length > 0 ? az : fz;
+          roll.dirX = length > 0 ? ax : 0;
+          roll.dirZ = length > 0 ? az : 0;
         } else {
-          // Mid-air: enter the slam dive. Direction is captured now so we
-          // can auto-roll forward on landing using either input or facing.
+          // Mid-air slam: vertical dive. Direction is captured ONLY when
+          // the player is holding an input — otherwise the landing roll
+          // stays stationary too. Slam never moves you forward by itself.
           roll.phase = 'slam';
-          roll.dirX = length > 0 ? ax : fx;
-          roll.dirZ = length > 0 ? az : fz;
+          roll.dirX = length > 0 ? ax : 0;
+          roll.dirZ = length > 0 ? az : 0;
         }
       }
     }
@@ -207,6 +208,13 @@ function Player({ startPosition, blocks, gate, onDeath, onWin, onUpdate, onGateT
       vx = 0;
       vz = 0;
     } else if (roll.phase === 'rolling') {
+      // Mid-roll the player CAN steer: if they pick up a direction after
+      // starting the roll, it picks up that direction. If no direction
+      // is held the roll plays in place at zero velocity.
+      if (length > 0) {
+        roll.dirX = ax;
+        roll.dirZ = az;
+      }
       vx = roll.dirX * ROLL_SPEED;
       vz = roll.dirZ * ROLL_SPEED;
       roll.timer -= delta;

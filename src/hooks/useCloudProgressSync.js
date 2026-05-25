@@ -3,7 +3,7 @@ import { isCloudEnabled, fetchMyScore } from '../firebase';
 import { saveProgress } from '../utils/rewards';
 import { setJewelsFromCloud } from '../utils/jewels';
 import { applyCloudCosmetics } from '../utils/cosmetics';
-import { applyCloudInventory } from '../utils/consumables';
+import { applyCloudInventory, applyCloudUpgrades } from '../utils/consumables';
 
 const EMPTY_PROGRESS = {
   bestDeaths: {}, bestTimes: {}, medals: {},
@@ -64,6 +64,9 @@ export default function useCloudProgressSync(authUser, setPersistedProgress) {
         }
         if (cloudData && cloudData.consumables) {
           applyCloudInventory(cloudData.consumables);
+        }
+        if (cloudData && cloudData.consumableUpgrades) {
+          applyCloudUpgrades(cloudData.consumableUpgrades);
         }
         // eslint-disable-next-line no-console
         console.log('[progress sync] loaded for', authUser.email,
