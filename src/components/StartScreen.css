@@ -576,3 +576,51 @@
   opacity: 0.85;
   margin-top: 1px;
 }
+
+/* ===== Desktop installer download CTA (web-only) ===== */
+.desktop-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 10px 22px;
+  background: rgba(20, 8, 48, 0.55);
+  border: 1px solid rgba(140, 90, 220, 0.45);
+  border-radius: 10px;
+  color: #e8d9ff;
+  text-decoration: none;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: box-shadow 0.18s ease, background 0.18s ease, transform 0.12s ease;
+}
+.desktop-download:hover {
+  background: rgba(45, 15, 90, 0.7);
+  border-color: rgba(200, 130, 255, 0.65);
+  box-shadow: 0 0 18px rgba(180, 120, 255, 0.45);
+  transform: translateY(-1px);
+}
+.desktop-download:active { transform: translateY(0); }
+.desktop-download-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  color: #ffd966;
+  text-shadow: 0 0 8px rgba(255, 200, 80, 0.5);
+}
+.desktop-download-text {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+}
+.desktop-download-headline {
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: #f3e6ff;
+}
+.desktop-download-sub {
+  font-size: 0.7rem;
+  color: #b9a4d8;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}

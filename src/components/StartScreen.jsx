@@ -1,6 +1,19 @@
 import React, { useState } from 'react';
 import './StartScreen.css';
 
+// "Latest release" alias on GitHub. Whichever release is marked as the
+// latest in the GitHub Releases UI will be the one served by this URL —
+// updating to a new build is a matter of publishing a new release with
+// the installer attached as an asset. No code changes needed.
+const DESKTOP_INSTALLER_URL =
+  'https://github.com/SammamMahdi/Die-Again-Troll-Game/releases/latest/download/Die-Again_setup.exe';
+
+// Detect Tauri so the "Download for Windows" button hides inside the
+// already-installed desktop app — no point offering a download from
+// inside the app itself.
+const isDesktop =
+  typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
 function StartScreen({
   onStart, adminMode, onToggleAdmin, onAdminJump,
   authUser, onSignIn, onRegister, onSignOut, onLeaderboard, onMyStats, onGuide,
@@ -73,6 +86,22 @@ function StartScreen({
       <button className="start-button" onClick={onStart}>
         Click to Start
       </button>
+
+      {!isDesktop && (
+        <a
+          className="desktop-download"
+          href={DESKTOP_INSTALLER_URL}
+          // download attribute hints the browser to save instead of navigate,
+          // though GitHub's release-asset URLs already send Content-Disposition.
+          download
+        >
+          <span className="desktop-download-icon" aria-hidden="true">⬇</span>
+          <span className="desktop-download-text">
+            <span className="desktop-download-headline">Download for Windows</span>
+            <span className="desktop-download-sub">Free · ~5 MB installer · Win 10 / 11</span>
+          </span>
+        </a>
+      )}
 
       {isAdmin && <div className="admin-section">
         <label className="admin-toggle">
