@@ -17,23 +17,23 @@ npm run tauri:dev     # opens a dev WebView2 window pointed at http://localhost:
 npm run tauri:build   # compiles the full release build + NSIS installer
 ```
 
-After `npm run tauri:build` finishes, **two artifacts** appear:
+After `npm run tauri:build` finishes, **two artifacts** appear. Pick whichever fits your distribution.
 
-### One-click portable .exe (recommended for sharing)
+### A. Plug-and-play single .exe — **recommended for "give to a friend"**
 
 ```
 src-tauri/target/release/Die Again.exe
 ```
 
-A single self-contained file. Double-click to run. Requires WebView2 (built into Windows 11) and internet for cloud features. **This is the "just download and play" file.**
+A single ~10 MB self-contained file. Upload to Google Drive / Dropbox / anywhere. The recipient downloads, double-clicks, and the game opens — no install dialog. Requires WebView2 (built into every Windows 11 install and auto-pushed to Windows 10 since 2021 — so essentially every modern Windows has it) and an internet connection for the cloud features (auth, leaderboard, sync).
 
-### NSIS installer (with Start Menu shortcut, Add/Remove Programs entry)
+### B. NSIS installer — **for users who want Start Menu integration**
 
 ```
 src-tauri/target/release/bundle/nsis/Die Again_1.0.0_x64-setup.exe
 ```
 
-For users who want an installed app rather than a portable file. Also registers the `dieagain://` URL scheme system-wide (required for the desktop Google sign-in flow — see below).
+Single-file installer (~15 MB). Adds a Start Menu shortcut, Add/Remove Programs entry, and a system-wide `dieagain://` URL scheme handler (required for the desktop Google sign-in flow — see below). Also includes a WebView2 bootstrapper, so it works on the rare Windows 10 system that doesn't already have WebView2.
 
 ## Internet requirements
 
