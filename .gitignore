@@ -19,3 +19,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Distribution installer copied here for upload to GitHub Releases
+Die-Again_setup.exe
