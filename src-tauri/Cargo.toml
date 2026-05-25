@@ -8,14 +8,11 @@ repository = ""
 edition = "2021"
 rust-version = "1.77.2"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-# `[[bin]]` overrides the default binary filename so the raw exe at
-# `target/release/Die Again.exe` is a self-describing portable build —
-# users can double-click it directly without installing.
-[[bin]]
-name = "Die Again"
-path = "src/main.rs"
+# Cargo binary names must be valid Rust identifiers (no spaces). The raw
+# release exe is therefore `target/release/die-again.exe`. The NSIS
+# installer's display name + installed shortcut still say "Die Again"
+# because tauri.conf.json's productName / mainBinaryName override it at
+# the bundle stage.
 
 [lib]
 name = "die_again_lib"
