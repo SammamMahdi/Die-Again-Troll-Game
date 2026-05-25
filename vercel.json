@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/desktop-oauth.html",
+      "destination": "/desktop-oauth.html"
+    },
+    {
+      "source": "/((?!static/|favicon\\.ico$|manifest\\.json$|robots\\.txt$|desktop-oauth\\.html$).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
