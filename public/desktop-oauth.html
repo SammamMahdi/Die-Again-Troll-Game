@@ -4,11 +4,17 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Die Again — Desktop Sign-in</title>
-  <!-- Standalone relay page: deployed to Firebase Hosting alongside the
-       main web build. The desktop .exe opens this URL in the system
-       browser to complete a Google sign-in. After auth, this page builds
-       a dieagain://auth?id_token=... URL and navigates to it so Windows
-       hands the credential back to the running desktop app. -->
+  <!-- Standalone relay page: deployed to the same Vercel host as the
+       web build. The desktop .exe opens this URL in the system browser
+       to complete a Google sign-in. After auth, this page builds a
+       dieagain://auth?id_token=... URL and shows it as a clickable link
+       so Windows hands the credential back to the running desktop app.
+
+       IMPORTANT: modern browsers (Chrome, Edge, Brave) silently block
+       JS-initiated navigation to custom URL schemes — `window.location.href
+       = 'dieagain://...'` does nothing on a non-user gesture. So the
+       primary path here is a real <a href> the user clicks. We also
+       attempt an auto-redirect as a best-effort fallback. -->
   <style>
     html, body {
       margin: 0; padding: 0;
@@ -31,18 +37,25 @@
     p { font-size: 0.95rem; line-height: 1.55; margin: 8px 0; }
     .quiet { color: #b9a4d8; font-size: 0.82rem; }
     .err   { color: #ff7ad0; font-weight: 600; }
-    button {
+
+    .open-link, button {
+      display: inline-block;
       margin-top: 14px;
-      padding: 10px 22px;
+      padding: 12px 28px;
       background: linear-gradient(135deg, #ff5cc7 0%, #c47aff 100%);
       color: #fff;
       border: none;
       border-radius: 8px;
-      font-size: 0.95rem;
+      font-size: 1.05rem;
+      font-weight: 600;
       letter-spacing: 0.5px;
       cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 4px 16px rgba(255, 100, 220, 0.3);
     }
-    button:hover { box-shadow: 0 0 14px rgba(255, 100, 220, 0.6); }
+    .open-link:hover, button:hover {
+      box-shadow: 0 0 22px rgba(255, 100, 220, 0.7);
+    }
     .spinner {
       display: inline-block;
       width: 16px; height: 16px;
@@ -61,6 +74,7 @@
     <h1>DIE AGAIN</h1>
     <p id="status"><span class="spinner"></span>Opening Google sign-in…</p>
     <p class="quiet" id="hint">If a popup is blocked, click below to retry.</p>
+    <a id="openApp" class="open-link" style="display:none" href="#">Open Die Again →</a>
     <button id="retry" style="display:none">Sign in with Google</button>
   </div>
 
@@ -85,28 +99,48 @@
     const statusEl = document.getElementById('status');
     const hintEl   = document.getElementById('hint');
     const retryEl  = document.getElementById('retry');
+    const openEl   = document.getElementById('openApp');
 
     function bounceToDesktop(idToken) {
-      statusEl.innerHTML = '<span class="spinner"></span>Returning to Die Again…';
-      hintEl.textContent = 'If your desktop app does not open automatically, click "Open" in the browser prompt.';
       const url = 'dieagain://auth?id_token=' + encodeURIComponent(idToken);
-      // setTimeout so the spinner has a chance to render before the browser
-      // hands the URL off (some browsers freeze the page during the
-      // redirect dance).
-      setTimeout(() => { window.location.href = url; }, 200);
+
+      // Primary path: a real <a href> the user clicks. Modern browsers
+      // (Chrome / Edge / Brave) only deliver custom-protocol navigations
+      // when triggered by a real user gesture; a JS redirect from a
+      // setTimeout silently fails. Showing a big visible button is the
+      // ONLY robust way across browsers.
+      openEl.href = url;
+      openEl.style.display = 'inline-block';
+
+      // Optimistic auto-redirect — works on some browsers (Firefox, older
+      // Edge), suppressed on most others. Harmless either way.
+      try { window.location.href = url; } catch (_) {}
+
+      statusEl.innerHTML = '<span class="spinner"></span>Returning to Die Again…';
+      hintEl.textContent =
+        "If the app doesn't open automatically, click the button below. Windows may ask " +
+        '"Open Die Again?" — choose "Open" / "Yes".';
+
+      // Once the user clicks the link, we can simplify the message.
+      openEl.addEventListener('click', () => {
+        statusEl.textContent = 'You can close this tab.';
+        hintEl.textContent = '';
+      }, { once: true });
     }
 
     function bounceErrorToDesktop(message) {
       const url = 'dieagain://auth?error=' + encodeURIComponent(message);
-      window.location.href = url;
+      openEl.href = url;
+      openEl.textContent = 'Return to Die Again with error →';
+      openEl.style.display = 'inline-block';
+      try { window.location.href = url; } catch (_) {}
     }
 
     async function doSignIn() {
       retryEl.style.display = 'none';
+      openEl.style.display  = 'none';
       try {
         const provider = new GoogleAuthProvider();
-        // Force account picker even if the user is already signed in,
-        // because the desktop side has no awareness of browser auth state.
         provider.setCustomParameters({ prompt: 'select_account' });
         const result = await signInWithPopup(auth, provider);
         const cred = GoogleAuthProvider.credentialFromResult(result);
@@ -115,7 +149,6 @@
         }
         bounceToDesktop(cred.idToken);
       } catch (err) {
-        // Popup blocked or closed — fall back to a redirect signin.
         if (err && err.code === 'auth/popup-blocked') {
           statusEl.innerHTML = '<span class="spinner"></span>Popup blocked — redirecting instead…';
           try { await signInWithRedirect(auth, new GoogleAuthProvider()); return; }
