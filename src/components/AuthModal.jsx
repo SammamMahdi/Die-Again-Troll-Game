@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { isCloudEnabled, registerUser, signInUser, signInWithGoogle } from '../firebase';
+import { signInWithGoogleViaSystemBrowser } from '../firebase/desktopAuth';
 import './AuthModal.css';
 
 // Detect if we're running inside the Tauri desktop wrapper. Tauri injects
@@ -56,7 +57,12 @@ function AuthModal({ initialMode = 'signin', onClose, onSuccess }) {
     }
     setBusy(true);
     try {
-      const user = await signInWithGoogle();
+      // Desktop builds can't use signInWithPopup reliably inside WebView2,
+      // so we punt the OAuth dance out to the user's system browser and
+      // catch the credential back via the dieagain:// deep-link.
+      const user = isDesktop
+        ? await signInWithGoogleViaSystemBrowser()
+        : await signInWithGoogle();
       onSuccess?.(user);
     } catch (err) {
       setError(prettyAuthError(err));
@@ -79,26 +85,27 @@ function AuthModal({ initialMode = 'signin', onClose, onSuccess }) {
           </div>
         )}
 
-        {!isDesktop && (
-          <>
-            <button
-              type="button"
-              className="auth-google-btn"
-              onClick={signInGoogle}
-              disabled={busy || !cloud}
-            >
-              <svg className="auth-google-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                <path fill="#4285f4" d="M21.6 12.227c0-.709-.063-1.39-.18-2.045H12v3.868h5.382a4.6 4.6 0 0 1-1.995 3.018v2.51h3.23c1.89-1.74 2.983-4.305 2.983-7.351z"/>
-                <path fill="#34a853" d="M12 22c2.7 0 4.964-.895 6.617-2.422l-3.23-2.51c-.895.6-2.04.955-3.387.955-2.605 0-4.81-1.76-5.598-4.123H3.077v2.59A9.997 9.997 0 0 0 12 22z"/>
-                <path fill="#fbbc04" d="M6.402 13.9a6.005 6.005 0 0 1 0-3.8V7.51H3.077a10.003 10.003 0 0 0 0 8.98l3.325-2.59z"/>
-                <path fill="#ea4335" d="M12 5.977c1.468 0 2.786.504 3.823 1.495l2.867-2.867C16.96 2.99 14.696 2 12 2 8.073 2 4.67 4.27 3.077 7.51l3.325 2.59C7.19 7.737 9.395 5.977 12 5.977z"/>
-              </svg>
-              Continue with Google
-            </button>
-
-            <div className="auth-divider"><span>or</span></div>
-          </>
+        <button
+          type="button"
+          className="auth-google-btn"
+          onClick={signInGoogle}
+          disabled={busy || !cloud}
+        >
+          <svg className="auth-google-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="#4285f4" d="M21.6 12.227c0-.709-.063-1.39-.18-2.045H12v3.868h5.382a4.6 4.6 0 0 1-1.995 3.018v2.51h3.23c1.89-1.74 2.983-4.305 2.983-7.351z"/>
+            <path fill="#34a853" d="M12 22c2.7 0 4.964-.895 6.617-2.422l-3.23-2.51c-.895.6-2.04.955-3.387.955-2.605 0-4.81-1.76-5.598-4.123H3.077v2.59A9.997 9.997 0 0 0 12 22z"/>
+            <path fill="#fbbc04" d="M6.402 13.9a6.005 6.005 0 0 1 0-3.8V7.51H3.077a10.003 10.003 0 0 0 0 8.98l3.325-2.59z"/>
+            <path fill="#ea4335" d="M12 5.977c1.468 0 2.786.504 3.823 1.495l2.867-2.867C16.96 2.99 14.696 2 12 2 8.073 2 4.67 4.27 3.077 7.51l3.325 2.59C7.19 7.737 9.395 5.977 12 5.977z"/>
+          </svg>
+          Continue with Google
+        </button>
+        {isDesktop && (
+          <div className="auth-desktop-hint">
+            Opens your default browser to sign in, then returns here.
+          </div>
         )}
+
+        <div className="auth-divider"><span>or</span></div>
 
         <form onSubmit={submit}>
           {mode === 'register' && (

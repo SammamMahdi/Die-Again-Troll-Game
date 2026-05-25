@@ -48,8 +48,11 @@ import {
   signOutUser,
   submitScore,
 } from './firebase';
+import { initDesktopAuth } from './firebase/desktopAuth';
 import { HARDCORE_TRIES, TOTAL_LEVELS, WARP_DURATION_MS } from './constants/gameConstants';
 import useCloudProgressSync from './hooks/useCloudProgressSync';
+// Side-effect import: mounts the global F11 fullscreen hotkey at module load.
+import './utils/fullscreen';
 
 const LEVEL_SCREENS = {
   0: 'level0',
@@ -103,6 +106,9 @@ function App() {
 
   useEffect(() => {
     const unsub = subscribeToAuth((user) => setAuthUser(user));
+    // On desktop, start listening for dieagain:// OAuth callbacks. No-op
+    // on the web build.
+    initDesktopAuth();
     return () => unsub && unsub();
   }, []);
 

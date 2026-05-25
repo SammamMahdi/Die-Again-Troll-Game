@@ -235,3 +235,14 @@
   padding: 0 12px;
   opacity: 0.7;
 }
+
+.auth-desktop-hint {
+  margin-top: -2px;
+  margin-bottom: 6px;
+  text-align: center;
+  font-size: 0.72rem;
+  color: #b9a4d8;
+  opacity: 0.85;
+  letter-spacing: 0.3px;
+  font-style: italic;
+}

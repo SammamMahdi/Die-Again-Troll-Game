@@ -1,8 +1,8 @@
 [package]
-name = "app"
-version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+name = "die-again"
+version = "1.0.0"
+description = "Die Again — Troll Game"
+authors = ["Sammam"]
 license = ""
 repository = ""
 edition = "2021"
@@ -10,16 +10,25 @@ rust-version = "1.77.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# `[[bin]]` overrides the default binary filename so the raw exe at
+# `target/release/Die Again.exe` is a self-describing portable build —
+# users can double-click it directly without installing.
+[[bin]]
+name = "Die Again"
+path = "src/main.rs"
+
 [lib]
-name = "app_lib"
+name = "die_again_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.6.2" }
+tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.11.2" }
+tauri = { version = "2.11.2", features = [] }
 tauri-plugin-log = "2"
+tauri-plugin-shell = "2.3.5"
+tauri-plugin-deep-link = "2.4.9"

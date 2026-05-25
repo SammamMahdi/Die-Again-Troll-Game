@@ -10,7 +10,7 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   signOut, onAuthStateChanged, updateProfile,
-  GoogleAuthProvider, signInWithPopup,
+  GoogleAuthProvider, signInWithPopup, signInWithCredential,
 } from 'firebase/auth';
 import {
   getFirestore, doc, setDoc, getDoc, getDocs, collection,
@@ -86,6 +86,21 @@ export async function signInWithGoogle() {
   if (!_enabled) throw new Error('Cloud not configured');
   const provider = new GoogleAuthProvider();
   const cred = await signInWithPopup(_auth, provider);
+  await ensureScoreDoc(cred.user);
+  return cred.user;
+}
+
+// Desktop sign-in: complete a Google auth using the idToken that the
+// OAuth relay page handed back via the dieagain://auth?id_token=... deep
+// link. signInWithCredential is the no-popup, no-redirect form of OAuth
+// signin — perfect for environments where the popup window flow is
+// unreliable (e.g. Tauri's WebView2). Caller (desktopAuth.js) handles
+// the deep-link plumbing.
+export async function signInWithGoogleIdToken(idToken) {
+  if (!_enabled) throw new Error('Cloud not configured');
+  if (!idToken) throw new Error('Missing idToken');
+  const credential = GoogleAuthProvider.credential(idToken);
+  const cred = await signInWithCredential(_auth, credential);
   await ensureScoreDoc(cred.user);
   return cred.user;
 }
