@@ -75,7 +75,7 @@ const ADMIN_KEY_TO_LEVEL = { '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7'
 // Admin mode is reserved for these accounts. Anyone signed in with a
 // different email (or signed out) sees no admin UI and cannot use the
 // 1–9/0 jump shortcuts.
-const ADMIN_EMAILS = ['sammam.mahdi@gmail.com', 'abrarsamin100@gmail.com'];
+const ADMIN_EMAILS = ['sammam.mahdi@gmail.com', 'abrarsamin100@gmail.com', 'ahammadalislam755@gmail.com'];
 
 function isAdminAccount(authUser) {
   return !!authUser && ADMIN_EMAILS.includes((authUser.email || '').toLowerCase());
