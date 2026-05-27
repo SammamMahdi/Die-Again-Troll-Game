@@ -207,7 +207,11 @@
   font-style: italic;
 }
 
-/* ===== Graphics preset picker ===== */
+/* ===== Graphics preset picker =====
+   2x2 grid so four presets (Potato / Medium / High / Very High) fit
+   comfortably in the narrow ~460px Settings modal. With repeat(2, 1fr)
+   the buttons stay readable; cramming all four into one row truncated
+   the longer labels. */
 .settings-graphics-row {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
