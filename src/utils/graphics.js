@@ -1,7 +1,10 @@
 // Global graphics-quality preset.
 //
-// Two-tier picker in Settings: Potato (maximum performance) or High
-// (everything on). Mirrors the audio-mixer pattern in src/utils/sounds.js.
+// Four-tier picker in Settings: Potato (maximum performance), Medium
+// (balanced — the sweet spot for integrated GPUs), High (everything on,
+// needs a discrete GPU), or Very High (the same plus heavier bloom,
+// higher MSAA, denser particles, mipmap-blur — for high-end GPUs / 4K).
+// Mirrors the audio-mixer pattern in src/utils/sounds.js.
 
 const STORAGE_KEY = 'die-again-graphics-v1';
 const CHANGE_EVENT = 'die-again-graphics-changed';
@@ -10,8 +13,14 @@ const CHANGE_EVENT = 'die-again-graphics-changed';
 const GRID_KEY = 'die-again-grid-v1';
 const GRID_EVENT = 'die-again-grid-changed';
 
-export const QUALITY_ORDER = ['potato', 'high'];
+export const QUALITY_ORDER = ['potato', 'medium', 'high', 'veryHigh'];
 
+// `postFX` is read by ScenePostFX.jsx:
+//   'off'     → render nothing (early return)
+//   'minimal' → Bloom only (skip Chromatic, Vignette, ToneMapping)
+//   anything  → Bloom + Chromatic + Vignette + ACES tone mapping
+//   else      else (e.g. 'medium')
+//   'ultra'   → above + HueSaturation grade + filmic grain
 export const PRESETS = {
   potato: {
     id: 'potato',
@@ -40,6 +49,33 @@ export const PRESETS = {
     minimalLights: true,         // skip accent point lights per level
     l7FogFar: 56,                // ramp from fog NEAR (~38) to pitch black
   },
+  medium: {
+    id: 'medium',
+    label: 'Medium',
+    tagline: 'Balanced. Bloom, chromatic aberration, vignette, ACES tone mapping, 2× MSAA, half-density stars + sparkles, bevelled geometry, neon edges, modest player trail. Skips hue grading + filmic grain. Sweet spot for integrated GPUs.',
+    // PostFX (kept on but lighter — Bloom + Chrom + Vignette + ACES, no Hue / grain)
+    postFX: 'medium',
+    bloomScale: 0.65,
+    multisampling: 2,
+    mipmapBlur: false,
+    // Renderer (AA on, half-DPR cap)
+    antialias: true,
+    dprCap: 1.5,
+    // Background (half density)
+    starsScale: 0.55,
+    sparklesScale: 0.55,
+    // Player VFX (modest)
+    trailSegments: 8,
+    dustParticles: 5,
+    minimalPlayer: false,
+    // Geometry (bevels on, less smooth)
+    useRoundedBox: true,
+    roundedBoxSmoothness: 2,
+    minimalEdges: false,
+    // Lighting (accent point lights on)
+    minimalLights: false,
+    l7FogFar: 62,                // between Potato (56) and High (68)
+  },
   high: {
     id: 'high',
     label: 'High',
@@ -60,6 +96,28 @@ export const PRESETS = {
     minimalEdges: false,
     minimalLights: false,
     l7FogFar: 68,                // longer ramp for smoother fade on High
+  },
+  veryHigh: {
+    id: 'veryHigh',
+    label: 'Very High',
+    tagline: 'Maxed out. Heavier bloom + mipmap-blur bleed, 8× MSAA, 2.5× device-pixel-ratio cap, denser stars + sparkles, longer player trail and extra landing dust, smoother bevels. For high-end discrete GPUs on 1440p / 4K displays.',
+    postFX: 'ultra',
+    bloomScale: 1.4,             // heavier glow halo on emissive surfaces
+    multisampling: 8,             // 8× MSAA on the postprocess composer
+    mipmapBlur: true,             // softer, prettier bloom bleed (was flickery
+                                  //   on weaker GPUs at High — fine on Very High)
+    antialias: true,
+    dprCap: 2.5,                  // lets HiDPI displays render at near-native rez
+    starsScale: 1.5,              // denser starfield
+    sparklesScale: 1.5,           // denser particle clouds
+    trailSegments: 22,            // longer afterimage trail
+    dustParticles: 16,            // bigger landing dust burst
+    minimalPlayer: false,
+    useRoundedBox: true,
+    roundedBoxSmoothness: 6,      // even smoother platform bevels
+    minimalEdges: false,
+    minimalLights: false,
+    l7FogFar: 72,                 // longest fog ramp — softest dark fade
   },
 };
 
