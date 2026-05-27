@@ -24,6 +24,7 @@ import PracticeLevelSelect from './components/PracticeLevelSelect';
 import RunFailedScreen from './components/RunFailedScreen';
 import ExtraLifePrompt from './components/ExtraLifePrompt';
 import Shop from './components/Shop';
+import UpdateBanner from './components/UpdateBanner';
 import {
   getMedal,
   evaluateLevelComplete,
@@ -745,6 +746,11 @@ function App() {
 
   return (
     <div className="App">
+      {/* Top-of-screen "Update available" banner — desktop builds only,
+          no-op on the web. Renders above every screen so the player sees
+          it whether they're on the start screen, in a level, or in a
+          menu. */}
+      <UpdateBanner />
       {currentScreen === 'start' && (
         <StartScreen
           onStart={handleStartGame}

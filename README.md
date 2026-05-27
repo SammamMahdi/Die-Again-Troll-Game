@@ -361,13 +361,53 @@ Installers are uploaded as assets to **GitHub Releases**. The "Download for Wind
 https://github.com/SammamMahdi/Die-Again-Troll-Game/releases/latest/download/Die-Again_setup.exe
 ```
 
-The `/latest/` alias automatically points to whichever release is marked latest. To ship a new desktop version:
+The `/latest/` alias automatically points to whichever release is marked latest.
 
-1. `npm run tauri:build`
-2. Copy `src-tauri/target/release/bundle/nsis/Die Again_1.0.0_x64-setup.exe` → rename to `Die-Again_setup.exe`
-3. Create a new release on GitHub with a fresh tag (`v1.0.1`, `v1.1.0`, etc.), attach the renamed installer as a release asset, mark as latest, publish
+### In-app update notifications
 
-The web download button URL never changes.
+Desktop builds check GitHub Releases on launch via the **`UpdateBanner` component** (`src/components/UpdateBanner.jsx`). If a release with a newer tag than the running app's `APP_VERSION` exists, a magenta banner drops down from the top of the screen with a "Download update" button (opens the release page in the system browser) and a dismiss × (silences the banner for that specific version only — the next release brings it back).
+
+The web build skips the check entirely — Vercel auto-deploys main, so web users always run the latest.
+
+### Cutting a new release
+
+When you ship a desktop change, do this in order. Steps 1–3 keep the four version sources synchronized.
+
+1. **Bump the version in all four places:**
+   - `src/constants/version.js` → `APP_VERSION = '1.0.1'`
+   - `package.json` → `"version": "1.0.1"`
+   - `src-tauri/tauri.conf.json` → `"version": "1.0.1"`
+   - `src-tauri/Cargo.toml` → `version = "1.0.1"`
+
+2. **Build:**
+   ```bash
+   npm run tauri:build
+   ```
+
+3. **Copy the installer** out of `src-tauri/target/release/bundle/nsis/` and rename:
+   ```
+   Die Again_1.0.1_x64-setup.exe   →   Die-Again_setup.exe
+   ```
+   (The asset filename stays `Die-Again_setup.exe` regardless of version so the `/latest/download/Die-Again_setup.exe` URL is stable.)
+
+4. **Create a new release on GitHub:**
+   - Tag: `v1.0.1` (must match `APP_VERSION`)
+   - Title: `v1.0.1 — <one-line summary>`
+   - Body: release notes (these show up in the GitHub Releases UI)
+   - Drag the renamed installer into the Assets drop zone
+   - ✅ "Set as the latest release"
+   - **Publish**
+
+5. **Push your code change** to `main` so Vercel deploys the matching web build:
+   ```bash
+   git push origin main
+   ```
+
+That's the whole flow. Within a minute or two:
+- Web users see the new build (Vercel auto-deploys + browser cache busts the JS).
+- Desktop users on the previous version see the update banner the next time they launch the app.
+
+**First-time installer caveat:** users on v1.0.0 (before the banner shipped) will need ONE manual re-download to get a build with the banner. After that, every future release auto-notifies inside the app.
 
 ---
 
