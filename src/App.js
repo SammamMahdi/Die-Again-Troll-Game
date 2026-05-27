@@ -24,6 +24,7 @@ import PracticeLevelSelect from './components/PracticeLevelSelect';
 import RunFailedScreen from './components/RunFailedScreen';
 import ExtraLifePrompt from './components/ExtraLifePrompt';
 import Shop from './components/Shop';
+import UpdateBanner from './components/UpdateBanner';
 import {
   getMedal,
   evaluateLevelComplete,
@@ -75,7 +76,7 @@ const ADMIN_KEY_TO_LEVEL = { '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7'
 // Admin mode is reserved for these accounts. Anyone signed in with a
 // different email (or signed out) sees no admin UI and cannot use the
 // 1–9/0 jump shortcuts.
-const ADMIN_EMAILS = ['sammam.mahdi@gmail.com', 'abrarsamin100@gmail.com'];
+const ADMIN_EMAILS = ['sammam.mahdi@gmail.com', 'abrarsamin100@gmail.com', 'ahammadalislam755@gmail.com'];
 
 function isAdminAccount(authUser) {
   return !!authUser && ADMIN_EMAILS.includes((authUser.email || '').toLowerCase());
@@ -745,6 +746,11 @@ function App() {
 
   return (
     <div className="App">
+      {/* Top-of-screen "Update available" banner — desktop builds only,
+          no-op on the web. Renders above every screen so the player sees
+          it whether they're on the start screen, in a level, or in a
+          menu. */}
+      <UpdateBanner />
       {currentScreen === 'start' && (
         <StartScreen
           onStart={handleStartGame}
