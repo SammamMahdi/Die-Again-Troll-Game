@@ -11,4 +11,4 @@
 //
 // The banner uses semver-ish comparison (major.minor.patch) so as long
 // as new tag > APP_VERSION the desktop client shows the update prompt.
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.0.1';
